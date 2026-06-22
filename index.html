@@ -3460,7 +3460,7 @@ Seja específico com medidas (cm) e explique o porquê de cada ajuste. Responda 
       })
     });
     const data=await resp.json();
-    if(!resp.ok)throw new Error(data.error?.message||'Erro');
+    if(!resp.ok)throw new Error(JSON.stringify(data));
     const text=data.text||data.content?.map(b=>b.text||'').join('')||'';
 
     result.style.display='block';
