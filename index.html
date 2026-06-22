@@ -3456,12 +3456,12 @@ Seja específico com medidas (cm) e explique o porquê de cada ajuste. Responda 
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
         prompt,
-        photoB64: photoB64||null
+        imageBase64: photoB64||null
       })
     });
     const data=await resp.json();
     if(!resp.ok)throw new Error(data.error?.message||'Erro');
-    const text=data.content?.map(b=>b.text||'').join('');
+    const text=data.text||data.content?.map(b=>b.text||'').join('')||'';
 
     result.style.display='block';
     result.innerHTML=`
