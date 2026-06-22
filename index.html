@@ -3471,7 +3471,7 @@ Seja específico com medidas (cm) e explique o porquê de cada ajuste. Responda 
       </div>`;
   }catch(e){
     result.style.display='block';
-    result.innerHTML=`<div style="color:#e05c2a;font-family:var(--font-ui);font-size:12px">Erro na análise. Tente novamente.</div>`;
+    result.innerHTML=`<div style="color:#e05c2a;font-family:var(--font-ui);font-size:12px">Erro: ${e.message}</div>`;
   }
 
   btn.textContent='ANALISAR POSIÇÃO';
