@@ -330,6 +330,25 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .cal-legend{display:flex;gap:12px;flex-wrap:wrap;padding:0 12px 16px;align-items:center}
 .cal-leg-item{display:flex;align-items:center;gap:5px;font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:.5px;text-transform:uppercase}
 .cal-leg-dot{width:8px;height:8px;border-radius:50%}
+
+/* ── PERFIL ── */
+#view-profile{display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:200;background:var(--bg);overflow-y:auto;padding-bottom:80px}
+#view-profile.active{display:block}
+.profile-hero{position:relative;background:var(--surface);padding:32px 20px 24px;text-align:center;border-bottom:1px solid var(--border)}
+.profile-avatar{width:88px;height:88px;border-radius:50%;object-fit:cover;border:3px solid var(--accent);margin-bottom:12px}
+.profile-avatar-placeholder{width:88px;height:88px;border-radius:50%;background:var(--surface2);border:3px solid var(--border);display:inline-flex;align-items:center;justify-content:center;margin-bottom:12px;font-size:36px;color:var(--muted)}
+.profile-name{font-family:var(--font-display);font-size:26px;letter-spacing:1px;margin-bottom:4px}
+.profile-city{font-family:var(--font-body);font-size:13px;color:var(--muted2);margin-bottom:16px}
+.profile-stats-row{display:flex;justify-content:center;gap:24px;margin-top:4px}
+.profile-stat{text-align:center}
+.profile-stat-val{font-family:var(--font-ui);font-size:18px;font-weight:700;color:var(--text)}
+.profile-stat-lbl{font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;margin-top:2px}
+.profile-section{padding:20px 20px 0}
+.profile-section-title{font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:12px;border-bottom:1px solid var(--border);padding-bottom:8px}
+.profile-field{margin-bottom:14px}
+.profile-field label{font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;display:block;margin-bottom:6px}
+.profile-field input,.profile-field textarea,.profile-field select{width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:12px;border-radius:4px}
+.profile-field textarea{resize:none;height:80px;line-height:1.6}
 </style>
 </head>
 <body>
@@ -354,6 +373,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 <div id="view-conquistas" class="view"></div>
 <div id="view-bikefit" class="view"></div>
 <div id="view-club" class="view"></div>
+<div id="view-profile"></div>
 
 <div class="bottom-nav">
   <div class="bnav-item active" onclick="switchTab('hoje')">Hoje</div>
@@ -1355,6 +1375,17 @@ function _buildDaySlide(w,d){
       <div class="hoje-week">SEMANA ${w} &middot; ${getWeekDates(w)}</div>
       ${totalCal>0?`<div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:.5px">${totalCal} KCAL</div>`:''}
     </div>`;
+  // Profile mini card
+  const prof=getMytriProfile();
+  if(prof&&prof.name){
+    const profCard=document.createElement('div');
+    profCard.onclick=()=>openProfile();
+    profCard.style.cssText='display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid var(--border);cursor:pointer;background:var(--surface)';
+    const photoEl=prof.photo?`<img src="${prof.photo}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid var(--accent)">`:
+      `<div style="width:40px;height:40px;border-radius:50%;background:var(--surface2);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--muted)">?</div>`;
+    profCard.innerHTML=photoEl+`<div style="flex:1"><div style="font-family:var(--font-ui);font-size:13px;font-weight:700;letter-spacing:.5px">${prof.name}</div><div style="font-family:var(--font-body);font-size:11px;color:var(--muted2);margin-top:1px">${prof.city||''}</div></div><div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1px">PERFIL ›</div>`;
+    slide.appendChild(profCard);
+  }
 
   slide.appendChild(header);
 
@@ -3843,6 +3874,147 @@ function init(){
   });
 }
 if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',init);}else{init();}
+
+
+// ── PERFIL CENTRAL ──
+function getMytriProfile(){
+  const stravaTokens=JSON.parse(localStorage.getItem('strava_tokens')||'{}');
+  const athlete=stravaTokens.athlete||{};
+  const saved=JSON.parse(localStorage.getItem('mytri_profile')||'{}');
+  return {
+    name:saved.name||(athlete.firstname&&athlete.lastname?`${athlete.firstname} ${athlete.lastname}`:''),
+    city:saved.city||(athlete.city&&athlete.country?`${athlete.city}, ${athlete.country}`:athlete.city||''),
+    photo:saved.photo||athlete.profile_medium||athlete.profile||'',
+    weight:saved.weight||athlete.weight||'',
+    age:saved.age||'',
+    bio:saved.bio||'',
+    pace:saved.pace||'',
+    ftp:saved.ftp||'',
+    swim:saved.swim||'',
+    nextRace:saved.nextRace||'',
+    interests:saved.interests||'',
+    busca:saved.busca||'A',
+  };
+}
+
+function saveMytriProfile(data){
+  localStorage.setItem('mytri_profile',JSON.stringify(data));
+  // Sync to club profile too
+  if(clubState.myProfile){
+    clubState.myProfile={...clubState.myProfile,...data};
+    saveClubState();
+  }
+}
+
+function openProfile(){
+  const vp=document.getElementById('view-profile');
+  vp.classList.add('active');
+  renderProfile();
+}
+
+function closeProfile(){
+  document.getElementById('view-profile').classList.remove('active');
+}
+
+function renderProfile(){
+  const prof=getMytriProfile();
+  const vp=document.getElementById('view-profile');
+  const stravaTokens=JSON.parse(localStorage.getItem('strava_tokens')||'{}');
+  const athlete=stravaTokens.athlete||{};
+  const photoEl=prof.photo?`<img src="${prof.photo}" class="profile-avatar">`:
+    `<div class="profile-avatar-placeholder">?</div>`;
+
+  vp.innerHTML=`
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg);z-index:10">
+      <button onclick="closeProfile()" style="background:none;border:none;color:var(--muted2);font-size:22px;cursor:pointer;padding:0">&#8592;</button>
+      <div style="font-family:var(--font-ui);font-size:12px;letter-spacing:2px;color:var(--text)">MEU PERFIL</div>
+      <button onclick="submitProfile()" style="background:var(--accent);border:none;color:#000;font-family:var(--font-ui);font-size:11px;font-weight:700;letter-spacing:1px;padding:8px 14px;border-radius:3px;cursor:pointer">SALVAR</button>
+    </div>
+
+    <div class="profile-hero">
+      <div onclick="changeProfilePhoto()" style="display:inline-block;cursor:pointer;position:relative">
+        ${photoEl}
+        <div style="position:absolute;bottom:14px;right:0;background:var(--accent);border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:13px">+</div>
+      </div>
+      <input type="file" id="profile-photo-input" accept="image/*" style="display:none" onchange="handleProfilePhoto(event)">
+      <div class="profile-name">${prof.name||'Sem nome'}</div>
+      <div class="profile-city">${prof.city||''}</div>
+      ${athlete.firstname?`<div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:4px">STRAVA: ${athlete.firstname} ${athlete.lastname||''}</div>`:''}
+    </div>
+
+    <div class="profile-section">
+      <div class="profile-section-title">Dados pessoais</div>
+      <div class="profile-field"><label>Nome</label><input id="pf-nome" value="${prof.name||''}"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="profile-field"><label>Idade</label><input id="pf-idade" type="number" value="${prof.age||''}"></div>
+        <div class="profile-field"><label>Peso (kg)</label><input id="pf-peso" type="number" value="${prof.weight||''}"></div>
+      </div>
+      <div class="profile-field"><label>Cidade</label><input id="pf-cidade" value="${prof.city||''}"></div>
+    </div>
+
+    <div class="profile-section">
+      <div class="profile-section-title">Performance</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+        <div class="profile-field"><label>Pace/km</label><input id="pf-pace" placeholder="5:30" value="${prof.pace||''}"></div>
+        <div class="profile-field"><label>FTP</label><input id="pf-ftp" placeholder="220w" value="${prof.ftp||''}"></div>
+        <div class="profile-field"><label>Nado</label><input id="pf-swim" placeholder="1:45" value="${prof.swim||''}"></div>
+      </div>
+      <div class="profile-field"><label>Proxima prova</label><input id="pf-race" value="${prof.nextRace||''}"></div>
+    </div>
+
+    <div class="profile-section">
+      <div class="profile-section-title">Clube da Meia Azul</div>
+      <div class="profile-field"><label>Bio</label><textarea id="pf-bio">${prof.bio||''}</textarea></div>
+      <div class="profile-field"><label>Interesses</label><input id="pf-interests" placeholder="trilha, viagem, culinaria..." value="${prof.interests||''}"></div>
+      <div class="profile-field"><label>Procuro</label>
+        <select id="pf-busca">
+          <option value="F" ${prof.busca==='F'?'selected':''}>Mulheres</option>
+          <option value="M" ${prof.busca==='M'?'selected':''}>Homens</option>
+          <option value="A" ${prof.busca==='A'?'selected':''}>Todos</option>
+        </select>
+      </div>
+    </div>
+    <div style="height:20px"></div>`;
+}
+
+function changeProfilePhoto(){
+  document.getElementById('profile-photo-input').click();
+}
+
+function handleProfilePhoto(e){
+  const file=e.target.files[0];
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    const prof=getMytriProfile();
+    prof.photo=ev.target.result;
+    saveMytriProfile(prof);
+    renderProfile();
+    refreshHoje();
+  };
+  reader.readAsDataURL(file);
+}
+
+function submitProfile(){
+  const prof=getMytriProfile();
+  const updated={
+    ...prof,
+    name:document.getElementById('pf-nome').value.trim(),
+    age:document.getElementById('pf-idade').value.trim(),
+    weight:document.getElementById('pf-peso').value.trim(),
+    city:document.getElementById('pf-cidade').value.trim(),
+    pace:document.getElementById('pf-pace').value.trim(),
+    ftp:document.getElementById('pf-ftp').value.trim(),
+    swim:document.getElementById('pf-swim').value.trim(),
+    nextRace:document.getElementById('pf-race').value.trim(),
+    bio:document.getElementById('pf-bio').value.trim(),
+    interests:document.getElementById('pf-interests').value.trim(),
+    busca:document.getElementById('pf-busca').value,
+  };
+  saveMytriProfile(updated);
+  closeProfile();
+  refreshHoje();
+}
 
 </script>
 </body>
