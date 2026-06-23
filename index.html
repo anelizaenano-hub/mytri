@@ -349,6 +349,41 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .profile-field label{font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;display:block;margin-bottom:6px}
 .profile-field input,.profile-field textarea,.profile-field select{width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:12px;border-radius:4px}
 .profile-field textarea{resize:none;height:80px;line-height:1.6}
+
+/* ── BADGES & PRs ── */
+.badges-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:0 20px 20px}
+.badge-item{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center}
+.badge-icon{width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:28px;position:relative}
+.badge-icon.locked{filter:grayscale(1);opacity:.3}
+.badge-icon.unlocked{box-shadow:0 0 16px rgba(0,230,118,.25)}
+.badge-name{font-family:var(--font-ui);font-size:9px;letter-spacing:1px;color:var(--muted2);text-transform:uppercase;line-height:1.3}
+.badge-name.unlocked{color:var(--text)}
+.pr-card{margin:0 20px 10px;background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between}
+.pr-label{font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase}
+.pr-value{font-family:var(--font-display);font-size:22px;letter-spacing:1px}
+.pr-meta{font-family:var(--font-body);font-size:11px;color:var(--muted2);margin-top:2px}
+
+/* ── ONBOARDING ── */
+#view-onboard{display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:300;background:var(--bg);overflow:hidden;flex-direction:column}
+#view-onboard.active{display:flex}
+.ob-progress{display:flex;gap:4px;padding:52px 24px 0}
+.ob-progress-bar{flex:1;height:3px;border-radius:2px;background:var(--border);transition:background .3s}
+.ob-progress-bar.done{background:var(--accent)}
+.ob-screen{display:none;flex:1;flex-direction:column;padding:32px 24px;overflow-y:auto}
+.ob-screen.active{display:flex}
+.ob-title{font-family:var(--font-display);font-size:36px;letter-spacing:1px;line-height:1.1;margin-bottom:8px}
+.ob-sub{font-family:var(--font-body);font-size:15px;color:var(--muted2);line-height:1.6;margin-bottom:32px}
+.ob-btn{width:100%;padding:18px;background:var(--accent);color:#000;font-family:var(--font-ui);font-size:14px;font-weight:700;letter-spacing:2px;border:none;border-radius:4px;cursor:pointer;margin-top:auto}
+.ob-btn-skip{width:100%;padding:14px;background:none;color:var(--muted);font-family:var(--font-ui);font-size:12px;letter-spacing:1px;border:none;cursor:pointer;margin-top:8px}
+.ob-level-cards{display:flex;flex-direction:column;gap:12px;margin-bottom:24px}
+.ob-level-card{padding:20px;background:var(--surface);border:2px solid var(--border);border-radius:6px;cursor:pointer;transition:all .2s}
+.ob-level-card.selected{border-color:var(--accent);background:rgba(0,230,118,.08)}
+.ob-level-card-title{font-family:var(--font-ui);font-size:14px;font-weight:700;letter-spacing:1px;margin-bottom:4px}
+.ob-level-card-sub{font-family:var(--font-body);font-size:12px;color:var(--muted2)}
+.ob-field{margin-bottom:16px}
+.ob-field label{font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;display:block;margin-bottom:8px}
+.ob-field input,.ob-field select{width:100%;background:var(--surface);border:1px solid var(--border2);color:var(--text);font-family:var(--font-body);font-size:15px;padding:14px;border-radius:4px}
+.ob-strava-btn{width:100%;padding:18px;background:#FC4C02;color:#fff;font-family:var(--font-ui);font-size:14px;font-weight:700;letter-spacing:2px;border:none;border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:12px}
 </style>
 </head>
 <body>
@@ -365,6 +400,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   </div>
 </div>
 
+<div id="view-onboard"></div>
 <div id="view-hoje" class="view active"></div>
 <div id="view-semana" class="view"></div>
 <div id="view-fases" class="view"></div>
@@ -2559,6 +2595,48 @@ function renderConquistas(){
 
   section.appendChild(tl);
 
+  // ── RECORDES PESSOAIS ──
+  const prs=calcPRs();
+  if(prs.totalSessions>0){
+    const prTitle=document.createElement('div');
+    prTitle.style.cssText='font-family:var(--font-ui);font-size:10px;font-weight:700;color:var(--muted);letter-spacing:2px;text-transform:uppercase;padding:20px 20px 12px';
+    prTitle.textContent='RECORDES PESSOAIS';
+    section.appendChild(prTitle);
+
+    const prsData=[
+      {label:'Corrida mais longa',value:prs.longestRun>0?prs.longestRun.toFixed(1)+'km':'--',color:'var(--run)'},
+      {label:'Bike mais longo',value:prs.longestBike>0?prs.longestBike.toFixed(0)+'km':'--',color:'var(--bike)'},
+      {label:'FC minima registrada',value:prs.bestHR<999?prs.bestHR+'bpm':'--',color:'#e05c2a'},
+      {label:'Total de sessoes',value:prs.totalSessions,color:'var(--accent)'},
+    ];
+    prsData.forEach(pr=>{
+      const card=document.createElement('div');card.className='pr-card';
+      card.innerHTML=`<div><div class="pr-label">${pr.label}</div></div><div class="pr-value" style="color:${pr.color}">${pr.value}</div>`;
+      section.appendChild(card);
+    });
+  }
+
+  // ── BADGES ──
+  const badgeTitle=document.createElement('div');
+  badgeTitle.style.cssText='font-family:var(--font-ui);font-size:10px;font-weight:700;color:var(--muted);letter-spacing:2px;text-transform:uppercase;padding:20px 20px 12px';
+  badgeTitle.textContent='CONQUISTAS';
+  section.appendChild(badgeTitle);
+
+  const grid=document.createElement('div');grid.className='badges-grid';
+  BADGES.forEach(b=>{
+    let unlocked=false;try{unlocked=b.check();}catch(e){}
+    const item=document.createElement('div');item.className='badge-item';
+    item.innerHTML=`
+      <div class="badge-icon ${unlocked?'unlocked':'locked'}" style="background:${unlocked?b.color+'22':'var(--surface2)'};border:2px solid ${unlocked?b.color:'var(--border)'}">
+        ${b.icon}
+        ${unlocked?`<div style="position:absolute;bottom:-2px;right:-2px;background:var(--accent);border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:10px">✓</div>`:''}
+      </div>
+      <div class="badge-name ${unlocked?'unlocked':''}">${b.label}</div>`;
+    if(!unlocked)item.style.opacity='.5';
+    grid.appendChild(item);
+  });
+  section.appendChild(grid);
+
   // Cards de conquistas passadas
   if(history.length>0){
     const hTitle=document.createElement('div');
@@ -3971,27 +4049,68 @@ function renderProfile(){
     <div class="profile-section">
       <div class="profile-section-title">Dados pessoais</div>
       <div class="profile-field"><label>Nome</label><input id="pf-nome" value="${prof.name||''}"></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
         <div class="profile-field"><label>Idade</label><input id="pf-idade" type="number" value="${prof.age||''}"></div>
         <div class="profile-field"><label>Peso (kg)</label><input id="pf-peso" type="number" value="${prof.weight||''}"></div>
+        <div class="profile-field"><label>Altura (cm)</label><input id="pf-altura" type="number" placeholder="175" value="${prof.altura||''}"></div>
       </div>
       <div class="profile-field"><label>Cidade</label><input id="pf-cidade" value="${prof.city||''}"></div>
+      <div class="profile-field"><label>Sexo</label>
+        <select id="pf-sexo">
+          <option value="" ${!prof.sexo?'selected':''}>Prefiro nao dizer</option>
+          <option value="M" ${prof.sexo==='M'?'selected':''}>Masculino</option>
+          <option value="F" ${prof.sexo==='F'?'selected':''}>Feminino</option>
+          <option value="NB" ${prof.sexo==='NB'?'selected':''}>Nao binario</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="profile-section">
+      <div class="profile-section-title">Esporte</div>
+      <div class="profile-field"><label>Modalidade principal</label>
+        <select id="pf-modalidade">
+          <option value="tri" ${prof.modalidade==='tri'?'selected':''}>Triatlon</option>
+          <option value="bike" ${prof.modalidade==='bike'?'selected':''}>Ciclismo</option>
+          <option value="run" ${prof.modalidade==='run'?'selected':''}>Corrida</option>
+          <option value="swim" ${prof.modalidade==='swim'?'selected':''}>Natacao</option>
+          <option value="duatlon" ${prof.modalidade==='duatlon'?'selected':''}>Duatlon</option>
+          <option value="aquatlon" ${prof.modalidade==='aquatlon'?'selected':''}>Aquatlon</option>
+        </select>
+      </div>
+      <div class="profile-field"><label>Nivel</label>
+        <select id="pf-nivel">
+          <option value="iniciante" ${prof.nivel==='iniciante'?'selected':''}>Iniciante (menos de 1 ano)</option>
+          <option value="amador" ${prof.nivel==='amador'?'selected':''}>Amador (1-3 anos)</option>
+          <option value="experiente" ${prof.nivel==='experiente'?'selected':''}>Experiente (3-7 anos)</option>
+          <option value="avancado" ${prof.nivel==='avancado'?'selected':''}>Avancado (7+ anos)</option>
+          <option value="elite" ${prof.nivel==='elite'?'selected':''}>Elite / Profissional</option>
+        </select>
+      </div>
+      <div class="profile-field"><label>Distancia preferida</label>
+        <select id="pf-distancia">
+          <option value="sprint" ${prof.distancia==='sprint'?'selected':''}>Sprint (750m/20km/5km)</option>
+          <option value="olimpico" ${prof.distancia==='olimpico'?'selected':''}>Olimpico (1.5km/40km/10km)</option>
+          <option value="meio" ${prof.distancia==='meio'?'selected':''}>Meio Ironman (70.3)</option>
+          <option value="iron" ${prof.distancia==='iron'?'selected':''}>Ironman completo</option>
+          <option value="qualquer" ${prof.distancia==='qualquer'?'selected':''}>Qualquer distancia</option>
+        </select>
+      </div>
     </div>
 
     <div class="profile-section">
       <div class="profile-section-title">Performance</div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
         <div class="profile-field"><label>Pace/km</label><input id="pf-pace" placeholder="5:30" value="${prof.pace||''}"></div>
-        <div class="profile-field"><label>FTP</label><input id="pf-ftp" placeholder="220w" value="${prof.ftp||''}"></div>
-        <div class="profile-field"><label>Nado</label><input id="pf-swim" placeholder="1:45" value="${prof.swim||''}"></div>
+        <div class="profile-field"><label>FTP (w)</label><input id="pf-ftp" placeholder="220" value="${prof.ftp||''}"></div>
+        <div class="profile-field"><label>Nado/100m</label><input id="pf-swim" placeholder="1:45" value="${prof.swim||''}"></div>
       </div>
-      <div class="profile-field"><label>Proxima prova</label><input id="pf-race" value="${prof.nextRace||''}"></div>
+      <div class="profile-field"><label>Proxima prova</label><input id="pf-race" placeholder="Sprint Guaruja, Set/26" value="${prof.nextRace||''}"></div>
     </div>
 
     <div class="profile-section">
       <div class="profile-section-title">Clube da Meia Azul</div>
-      <div class="profile-field"><label>Bio</label><textarea id="pf-bio">${prof.bio||''}</textarea></div>
-      <div class="profile-field"><label>Interesses</label><input id="pf-interests" placeholder="trilha, viagem, culinaria..." value="${prof.interests||''}"></div>
+      <div class="profile-field"><label>Bio</label><textarea id="pf-bio" placeholder="Conta um pouco sobre voce...">${prof.bio||''}</textarea></div>
+      <div class="profile-field"><label>Interesses fora do esporte</label><input id="pf-interests" placeholder="trilha, viagem, gastronomia, musica..." value="${prof.interests||''}"></div>
       <div class="profile-field"><label>Procuro</label>
         <select id="pf-busca">
           <option value="F" ${prof.busca==='F'?'selected':''}>Mulheres</option>
@@ -4054,7 +4173,12 @@ function submitProfile(){
     name:document.getElementById('pf-nome').value.trim(),
     age:document.getElementById('pf-idade').value.trim(),
     weight:document.getElementById('pf-peso').value.trim(),
+    altura:document.getElementById('pf-altura').value.trim(),
     city:document.getElementById('pf-cidade').value.trim(),
+    sexo:document.getElementById('pf-sexo').value,
+    modalidade:document.getElementById('pf-modalidade').value,
+    nivel:document.getElementById('pf-nivel').value,
+    distancia:document.getElementById('pf-distancia').value,
     pace:document.getElementById('pf-pace').value.trim(),
     ftp:document.getElementById('pf-ftp').value.trim(),
     swim:document.getElementById('pf-swim').value.trim(),
@@ -4069,8 +4193,318 @@ function submitProfile(){
 }
 
 
+
+// ── BADGES ──
+const BADGES=[
+  {id:'primeiro_treino',icon:'🏃',label:'Primeiro Treino',desc:'Completou a primeira sessao',color:'#00e676',check:()=>Object.values(loadOverrides()).some(o=>o.stravaData)},
+  {id:'primeira_natacao',icon:'🏊',label:'Primeiro Nado',desc:'Primeira sessao de natacao',color:'#1a6cf0',check:()=>Object.values(loadOverrides()).some(o=>o.stravaData&&o.type==='swim'||false)},
+  {id:'primeiro_brick',icon:'🧱',label:'Brick Warrior',desc:'Completou um treino brick',color:'#f0a500',check:()=>{
+    const ovs=loadOverrides();
+    return Object.keys(ovs).some(k=>{
+      const parts=k.split('-');if(parts.length<2)return false;
+      const [w,d]=parts;
+      const sessions=getEffectiveSessions(parseInt(w),parseInt(d));
+      return sessions.some(s=>s.type===BRICK&&ovs[k]&&ovs[k].stravaData);
+    });
+  }},
+  {id:'semana_completa',icon:'⭐',label:'Semana Perfeita',desc:'7 dias de treino consecutivos',color:'#f0a500',check:()=>{
+    const ovs=loadOverrides();
+    for(let w=1;w<=16;w++){
+      let count=0;
+      for(let d=0;d<7;d++){
+        const sessions=getEffectiveSessions(w,d);
+        if(sessions.some(s=>s.type!==REST)){
+          const hasData=sessions.some(s=>{
+            if(s._origin==='plan'){const ov=getOverride(w,d,s._si);return ov&&ov.stravaData;}
+            return false;
+          });
+          if(hasData)count++;
+        }
+      }
+      if(count>=5)return true;
+    }
+    return false;
+  }},
+  {id:'bike_100',icon:'🚴',label:'Centuriao',desc:'100km de bike acumulados',color:'#e05c2a',check:()=>{
+    let total=0;
+    const ovs=loadOverrides();
+    Object.values(ovs).forEach(o=>{if(o.stravaDist&&o.type==='bike')total+=parseFloat(o.stravaDist)||0;});
+    return total>=100;
+  }},
+  {id:'run_50',icon:'👟',label:'Corredao',desc:'50km de corrida acumulados',color:'#00e676',check:()=>{
+    let total=0;
+    const ovs=loadOverrides();
+    Object.values(ovs).forEach(o=>{if(o.stravaDist&&o.type==='run')total+=parseFloat(o.stravaDist)||0;});
+    return total>=50;
+  }},
+  {id:'swim_10',icon:'🌊',label:'Peixao',desc:'10km de nado acumulados',color:'#1a6cf0',check:()=>{
+    let total=0;
+    const ovs=loadOverrides();
+    Object.values(ovs).forEach(o=>{if(o.stravaDist)total+=parseFloat(o.stravaDist)||0;});
+    // swim dist is in meters stored as km
+    return total>=10;
+  }},
+  {id:'madrugador',icon:'🌅',label:'Madrugador',desc:'Treinou antes das 6h da manha',color:'#9b6af0',check:()=>false}, // manual unlock
+  {id:'ironheart',icon:'💪',label:'IronHeart',desc:'Completou o plano de 16 semanas',color:'#f0a500',check:()=>{
+    const ovs=loadOverrides();
+    let done=0,total=0;
+    for(let w=1;w<=16;w++)for(let d=0;d<7;d++){
+      const s=getEffectiveSessions(w,d);
+      s.forEach(sess=>{if(sess.type!==REST){total++;if(sess._origin==='plan'){const ov=getOverride(w,d,sess._si);if(ov&&ov.stravaData)done++;}}});
+    }
+    return total>0&&done/total>=0.8;
+  }},
+];
+
+function calcPRs(){
+  const prs={bestPaceRun:null,longestRun:0,longestBike:0,bestHR:999,totalSessions:0};
+  const ovs=loadOverrides();
+  Object.values(ovs).forEach(o=>{
+    if(!o.stravaData)return;
+    prs.totalSessions++;
+    if(o.stravaDist){
+      const dist=parseFloat(o.stravaDist)||0;
+      if(o.type==='run'&&dist>prs.longestRun)prs.longestRun=dist;
+      if(o.type==='bike'&&dist>prs.longestBike)prs.longestBike=dist;
+    }
+    if(o.stravaHR){
+      const hr=parseInt(o.stravaHR)||0;
+      if(hr>0&&hr<prs.bestHR)prs.bestHR=hr;
+    }
+    if(o.stravaData&&o.type==='run'&&o.stravaDist&&o.stravaTime){
+      // pace = time/dist
+      const dist=parseFloat(o.stravaDist)||0;
+      const timeStr=o.stravaTime||'';
+      const parts=timeStr.match(/(\d+)h\s*(\d+)min|(\d+)min/);
+      if(parts&&dist>0){
+        let mins=parts[1]?parseInt(parts[1])*60+parseInt(parts[2]):parseInt(parts[3]);
+        const pace=mins/dist;
+        if(!prs.bestPaceRun||pace<prs.bestPaceRun){prs.bestPaceRun=pace;prs.bestPaceRunDist=dist;}
+      }
+    }
+  });
+  return prs;
+}
+
+
+// ── ONBOARDING ──
+const PROVAS_BR_2026 = [
+  {name:'Sprint Triathlon Santa Cecilia TV — Guaruja SP', date:'2026-09-13', dist:'Sprint', local:'Guaruja, SP'},
+  {name:'Troféu Brasil Triathlon — Santos (Etapa Abril)', date:'2026-04-01', dist:'Sprint/Standard', local:'Santos, SP'},
+  {name:'Troféu Brasil Triathlon — Santos (Etapa Junho)', date:'2026-06-01', dist:'Sprint/Standard', local:'Santos, SP'},
+  {name:'Troféu Brasil Triathlon — Santos (Etapa Setembro)', date:'2026-09-01', dist:'Sprint/Standard', local:'Santos, SP'},
+  {name:'Troféu Brasil Triathlon — Santos (Etapa Dezembro)', date:'2026-12-01', dist:'Sprint/Standard', local:'Santos, SP'},
+  {name:'CBTri — Caiobá PR', date:'2026-02-22', dist:'Variada', local:'Caiobá, PR'},
+  {name:'CBTri — Juazeiro BA / Petrolina PE', date:'2026-04-18', dist:'Variada', local:'Juazeiro, BA'},
+  {name:'CBTri — Indaiatuba SP', date:'2026-06-13', dist:'Variada', local:'Indaiatuba, SP'},
+  {name:'CBTri — Vila Velha ES', date:'2026-07-05', dist:'Variada', local:'Vila Velha, ES'},
+  {name:'Ironman Brasil — Florianópolis', date:'2026-05-24', dist:'Full 3.8/180/42', local:'Florianópolis, SC'},
+  {name:'Ironman 70.3 — Fortaleza', date:'2026-08-30', dist:'Half 1.9/90/21', local:'Fortaleza, CE'},
+  {name:'Ironman 70.3 — São Paulo', date:'2026-09-20', dist:'Half 1.9/90/21', local:'São Paulo, SP'},
+  {name:'Ironman 70.3 — Florianópolis', date:'2026-10-18', dist:'Half 1.9/90/21', local:'Florianópolis, SC'},
+  {name:'Brotas Triathlon', date:'2026-09-19', dist:'Sprint/Olimpico', local:'Brotas, SP'},
+  {name:'Campeonato Paulista Sprint', date:'2026-03-01', dist:'Sprint', local:'São Paulo, SP'},
+  {name:'Outra prova (digitar manualmente)', date:'', dist:'', local:''},
+];
+
+let obStep=0;
+let obData={};
+
+function checkOnboarding(){
+  const done=localStorage.getItem('mytri_onboard_done');
+  if(!done){
+    showOnboarding();
+  }
+}
+
+function showOnboarding(){
+  const el=document.getElementById('view-onboard');
+  el.classList.add('active');
+  renderOnboarding();
+}
+
+function renderOnboarding(){
+  const el=document.getElementById('view-onboard');
+  const totalSteps=5;
+  const bars=Array.from({length:totalSteps},(_,i)=>
+    `<div class="ob-progress-bar ${i<obStep?'done':''}"></div>`
+  ).join('');
+
+  const screens=[
+    // 0 — Boas vindas
+    `<div class="ob-screen active" id="ob-s0">
+      <div style="flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;gap:16px">
+        <div style="font-family:var(--font-display);font-size:64px;letter-spacing:-2px;line-height:1">
+          <span style="color:#fff">MY</span><span style="color:#1a6cf0">T</span><span style="color:#e05c2a">R</span><span style="color:#00e676">I</span>
+        </div>
+        <div style="font-family:var(--font-body);font-size:13px;color:var(--muted2);letter-spacing:2px;text-transform:uppercase">Customized Triathlon Training</div>
+        <div style="font-family:var(--font-body);font-size:16px;color:var(--muted2);line-height:1.7;max-width:280px;margin-top:8px">
+          Seu co-piloto personalizado para chegar na linha de chegada pronto.
+        </div>
+      </div>
+      <button class="ob-btn" onclick="obNext()">COMECAR</button>
+    </div>`,
+
+    // 1 — Qual prova
+    `<div class="ob-screen" id="ob-s1">
+      <div class="ob-title">Qual é<br>a sua prova?</div>
+      <div class="ob-sub">Selecione ou busque sua prova alvo.</div>
+      <div class="ob-field">
+        <label>Prova</label>
+        <select id="ob-prova" onchange="obProvaSelected()">
+          <option value="">Selecione...</option>
+          ${PROVAS_BR_2026.map((p,i)=>`<option value="${i}">${p.name}</option>`).join('')}
+        </select>
+      </div>
+      <div class="ob-field" id="ob-prova-manual" style="display:none">
+        <label>Nome da prova</label>
+        <input id="ob-prova-nome" placeholder="Ex: Triathlon Bertioga 2026">
+      </div>
+      <div class="ob-field">
+        <label>Data da prova</label>
+        <input id="ob-data" type="date" value="${obData.raceDate||''}">
+      </div>
+      <div class="ob-field">
+        <label>Distancia</label>
+        <select id="ob-dist">
+          <option value="super-sprint">Super Sprint (400m/10km/2.5km)</option>
+          <option value="sprint" selected>Sprint (750m/20km/5km)</option>
+          <option value="olimpico">Olimpico (1.5km/40km/10km)</option>
+          <option value="half">Half / 70.3 (1.9km/90km/21km)</option>
+          <option value="full">Full / Ironman (3.8km/180km/42km)</option>
+        </select>
+      </div>
+      <button class="ob-btn" onclick="obNext()">CONTINUAR</button>
+    </div>`,
+
+    // 2 — Nivel
+    `<div class="ob-screen" id="ob-s2">
+      <div class="ob-title">Qual seu<br>nivel atual?</div>
+      <div class="ob-sub">Isso define a intensidade do seu plano.</div>
+      <div class="ob-level-cards">
+        ${[
+          {v:'iniciante',t:'Iniciante',s:'Menos de 1 ano. Primeira ou segunda prova.'},
+          {v:'amador',t:'Amador',s:'1 a 3 anos. Ja fiz algumas provas.'},
+          {v:'experiente',t:'Experiente',s:'3 a 7 anos. Busco melhorar meu tempo.'},
+          {v:'avancado',t:'Avancado',s:'7+ anos. Treino com consistencia e volume alto.'},
+        ].map(l=>`<div class="ob-level-card ${obData.nivel===l.v?'selected':''}" onclick="obSelectNivel('${l.v}',this)">
+          <div class="ob-level-card-title">${l.t}</div>
+          <div class="ob-level-card-sub">${l.s}</div>
+        </div>`).join('')}
+      </div>
+      <button class="ob-btn" onclick="obNext()">CONTINUAR</button>
+    </div>`,
+
+    // 3 — Strava
+    `<div class="ob-screen" id="ob-s3">
+      <div class="ob-title">Conecte<br>seu Strava</div>
+      <div class="ob-sub">Importamos seus treinos automaticamente. Sua foto e nome vem de la.</div>
+      <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:12px">
+        <button class="ob-strava-btn" onclick="obConnectStrava()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg>
+          CONECTAR STRAVA
+        </button>
+        <div style="text-align:center;font-family:var(--font-body);font-size:12px;color:var(--muted)">ou</div>
+        <button class="ob-btn-skip" onclick="obNext()">Pular por agora</button>
+      </div>
+      <div style="height:20px"></div>
+    </div>`,
+
+    // 4 — Pronto
+    `<div class="ob-screen" id="ob-s4">
+      <div style="flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;gap:20px">
+        <div style="font-size:64px">🏁</div>
+        <div class="ob-title">Tudo pronto,<br>${obData.name?obData.name.split(' ')[0]:'atleta'}!</div>
+        <div style="font-family:var(--font-body);font-size:14px;color:var(--muted2);line-height:1.7">
+          ${obData.raceName?`<strong style="color:var(--text)">${obData.raceName}</strong><br>`:''}
+          ${obData.raceDate?`${new Date(obData.raceDate+'T12:00:00').toLocaleDateString('pt-BR',{day:'numeric',month:'long',year:'numeric'})}<br>`:''}
+          Seu plano personalizado esta pronto.
+        </div>
+      </div>
+      <button class="ob-btn" onclick="obFinish()">ENTRAR NO MYTRI</button>
+    </div>`,
+  ];
+
+  el.innerHTML=`
+    <div class="ob-progress">${bars}</div>
+    ${screens.join('')}`;
+
+  // Show only current screen
+  el.querySelectorAll('.ob-screen').forEach((s,i)=>{
+    s.style.display=i===obStep?'flex':'none';
+  });
+}
+
+function obProvaSelected(){
+  const sel=document.getElementById('ob-prova');
+  const idx=parseInt(sel.value);
+  const manual=document.getElementById('ob-prova-manual');
+  if(isNaN(idx))return;
+  const prova=PROVAS_BR_2026[idx];
+  if(prova.date===''){
+    manual.style.display='block';
+  } else {
+    manual.style.display='none';
+    document.getElementById('ob-data').value=prova.date;
+    // Set distance
+    const dist=document.getElementById('ob-dist');
+    if(prova.dist.toLowerCase().includes('sprint'))dist.value='sprint';
+    else if(prova.dist.toLowerCase().includes('half')||prova.dist.includes('70.3'))dist.value='half';
+    else if(prova.dist.toLowerCase().includes('full')||prova.dist.toLowerCase().includes('ironman'))dist.value='full';
+    else if(prova.dist.toLowerCase().includes('olimp'))dist.value='olimpico';
+    obData.raceName=prova.name;
+    obData.raceLocal=prova.local;
+  }
+}
+
+function obSelectNivel(nivel,el){
+  obData.nivel=nivel;
+  document.querySelectorAll('.ob-level-card').forEach(c=>c.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+function obConnectStrava(){
+  // Save current ob state then trigger strava
+  obData._waitingStrava=true;
+  localStorage.setItem('mytri_ob_tmp',JSON.stringify(obData));
+  localStorage.setItem('mytri_ob_step','4');
+  // Trigger strava connect (existing function)
+  const clientId='257886';
+  const redirect=encodeURIComponent(window.location.origin+window.location.pathname);
+  const scope='read,activity:read_all';
+  window.location.href=`https://www.strava.com/oauth/authorize?client_id=${clientId}&redirect_uri=${redirect}&response_type=code&scope=${scope}`;
+}
+
+function obNext(){
+  // Save data from current screen
+  if(obStep===1){
+    obData.raceDate=document.getElementById('ob-data')?.value||'';
+    obData.raceDist=document.getElementById('ob-dist')?.value||'sprint';
+    const manualNome=document.getElementById('ob-prova-nome');
+    if(manualNome&&manualNome.value)obData.raceName=manualNome.value;
+  }
+  obStep++;
+  // Skip strava step if already connected
+  if(obStep===3){
+    const tokens=JSON.parse(localStorage.getItem('strava_tokens')||'{}');
+    if(tokens.access_token)obStep=4;
+  }
+  if(obStep>=5){obFinish();return;}
+  renderOnboarding();
+}
+
+function obFinish(){
+  // Save all onboarding data
+  const prof=getMytriProfile();
+  saveMytriProfile({...prof,...obData});
+  localStorage.setItem('mytri_onboard_done','1');
+  document.getElementById('view-onboard').classList.remove('active');
+  renderHoje();
+}
+
 // Init GPS on load
 detectGPSLocation();
+checkOnboarding();
 </script>
 </body>
 </html>
