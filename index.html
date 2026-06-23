@@ -3572,7 +3572,7 @@ function renderClubOnboard(c){
   const athlete=stravaTokens.athlete||{};
   const stravaName=athlete.firstname&&athlete.lastname?`${athlete.firstname} ${athlete.lastname}`:'';
   const stravaCity=athlete.city&&athlete.country?`${athlete.city}, ${athlete.country}`:athlete.city||'';
-  const stravaPhoto=athlete.profile_medium||athlete.profile||'';
+  const stravaPhoto=athlete.profile||athlete.profile_medium||'';
   const stravaWeight=athlete.weight?Math.round(athlete.weight):'';
   c.innerHTML=`
     <div style="padding:28px 24px 24px">
@@ -3653,7 +3653,7 @@ function submitClubOnboard(){
     nextRace:document.getElementById('cl-prova').value.trim(),
     bio:document.getElementById('cl-bio').value.trim(),
     busca:document.getElementById('cl-busca').value,
-    photo:athlete2.profile_medium||athlete2.profile||'',
+    photo:athlete2.profile||athlete2.profile_medium||'',
     weight:athlete2.weight?Math.round(athlete2.weight):'',
   };
   clubState.step='swipe';
@@ -3876,6 +3876,27 @@ function init(){
 if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',init);}else{init();}
 
 
+
+// ── GPS LOCATION ──
+function detectGPSLocation(){
+  if(!navigator.geolocation)return;
+  navigator.geolocation.getCurrentPosition(async pos=>{
+    try{
+      const r=await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&format=json`);
+      const d=await r.json();
+      const city=d.address?.city||d.address?.town||d.address?.suburb||d.address?.municipality||'';
+      const state=d.address?.state||'';
+      const loc=city&&state?`${city}, ${state}`:city||state||'';
+      if(loc){
+        localStorage.setItem('mytri_gps_city',loc);
+        // Update profile card if visible
+        const saved=JSON.parse(localStorage.getItem('mytri_profile')||'{}');
+        if(!saved.city){refreshHoje();}
+      }
+    }catch(e){}
+  },{timeout:8000});
+}
+
 // ── PERFIL CENTRAL ──
 function getMytriProfile(){
   const stravaTokens=JSON.parse(localStorage.getItem('strava_tokens')||'{}');
@@ -3883,8 +3904,8 @@ function getMytriProfile(){
   const saved=JSON.parse(localStorage.getItem('mytri_profile')||'{}');
   return {
     name:saved.name||(athlete.firstname&&athlete.lastname?`${athlete.firstname} ${athlete.lastname}`:''),
-    city:saved.city||(athlete.city&&athlete.country?`${athlete.city}, ${athlete.country}`:athlete.city||''),
-    photo:saved.photo||athlete.profile_medium||athlete.profile||'',
+    city:saved.city||localStorage.getItem('mytri_gps_city')||(athlete.city&&athlete.country?`${athlete.city}, ${athlete.country}`:athlete.city||''),
+    photo:saved.photo||athlete.profile||athlete.profile_medium||'',
     weight:saved.weight||athlete.weight||'',
     age:saved.age||'',
     bio:saved.bio||'',
@@ -3937,6 +3958,11 @@ function renderProfile(){
         <div style="position:absolute;bottom:14px;right:0;background:var(--accent);border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:13px">+</div>
       </div>
       <input type="file" id="profile-photo-input" accept="image/*" style="display:none" onchange="handleProfilePhoto(event)">
+      ${(prof.photos&&prof.photos.length>0)?`<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:12px;padding:0 20px">
+        ${prof.photos.map((p,i)=>`<div style="position:relative"><img src="${p}" style="width:72px;height:72px;border-radius:6px;object-fit:cover;border:1px solid var(--border)"><button onclick="removeProfilePhoto(${i})" style="position:absolute;top:-6px;right:-6px;background:#e05c2a;border:none;border-radius:50%;width:18px;height:18px;color:#fff;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">x</button></div>`).join('')}
+        <div onclick="addExtraPhoto()" style="width:72px;height:72px;border-radius:6px;border:2px dashed var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);font-size:24px">+</div>
+      </div>`:`<div onclick="addExtraPhoto()" style="margin-top:8px;font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1px;cursor:pointer">+ ADICIONAR FOTOS</div>`}
+      <input type="file" id="profile-extra-photo-input" accept="image/*" style="display:none" onchange="handleExtraPhoto(event)">
       <div class="profile-name">${prof.name||'Sem nome'}</div>
       <div class="profile-city">${prof.city||''}</div>
       ${athlete.firstname?`<div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:4px">STRAVA: ${athlete.firstname} ${athlete.lastname||''}</div>`:''}
@@ -3995,6 +4021,32 @@ function handleProfilePhoto(e){
   reader.readAsDataURL(file);
 }
 
+
+function addExtraPhoto(){
+  document.getElementById('profile-extra-photo-input').click();
+}
+
+function handleExtraPhoto(e){
+  const file=e.target.files[0];
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    const prof=getMytriProfile();
+    if(!prof.photos)prof.photos=[];
+    prof.photos.push(ev.target.result);
+    saveMytriProfile(prof);
+    renderProfile();
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeProfilePhoto(idx){
+  const prof=getMytriProfile();
+  if(prof.photos){prof.photos.splice(idx,1);}
+  saveMytriProfile(prof);
+  renderProfile();
+}
+
 function submitProfile(){
   const prof=getMytriProfile();
   const updated={
@@ -4016,6 +4068,9 @@ function submitProfile(){
   refreshHoje();
 }
 
+
+// Init GPS on load
+detectGPSLocation();
 </script>
 </body>
 </html>
