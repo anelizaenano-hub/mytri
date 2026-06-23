@@ -396,6 +396,19 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .disclaimer-btn{width:100%;padding:16px;background:var(--accent);color:#000;font-family:var(--font-ui);font-size:13px;font-weight:700;letter-spacing:2px;border:none;border-radius:4px;cursor:pointer;opacity:.4;pointer-events:none;transition:all .2s}
 .disclaimer-btn.ready{opacity:1;pointer-events:all}
 .disclaimer-btn-cancel{width:100%;padding:12px;background:none;color:var(--muted);font-family:var(--font-ui);font-size:11px;letter-spacing:1px;border:none;cursor:pointer;margin-top:8px}
+
+/* ── PLANO GERADO ── */
+#view-plan-summary{display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:250;background:var(--bg);overflow-y:auto}
+#view-plan-summary.active{display:block}
+.plan-loading{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;gap:24px;padding:40px}
+.plan-loading-ring{width:64px;height:64px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.plan-section{padding:20px 20px 0}
+.plan-section-title{font-family:var(--font-ui);font-size:10px;color:var(--accent);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px}
+.plan-section-body{font-family:var(--font-body);font-size:14px;color:var(--muted2);line-height:1.7}
+.plan-phase{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)}
+.plan-phase:last-child{border-bottom:none}
+.plan-phase-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);margin-top:6px;flex-shrink:0}
 </style>
 </head>
 <body>
@@ -413,6 +426,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 </div>
 
 <div id="view-onboard"></div>
+<div id="view-plan-summary"></div>
 <div id="view-hoje" class="view active"></div>
 <div id="view-semana" class="view"></div>
 <div id="view-fases" class="view"></div>
@@ -4829,7 +4843,7 @@ function obFinish(){
   const prof=getMytriProfile();
   const stravaTokens=JSON.parse(localStorage.getItem('strava_tokens')||'{}');
   const athlete=stravaTokens.athlete||{};
-  saveMytriProfile({
+  const finalProfile={
     ...prof,
     name:obData.name||prof.name||(athlete.firstname?`${athlete.firstname} ${athlete.lastname||''}`.trim():''),
     age:obData.age||prof.age||'',
@@ -4850,9 +4864,127 @@ function obFinish(){
     bikeLevel:obData.bikeLevel||'beginner',
     runLevel:obData.runLevel||'beginner',
     fcMax:obData.fcMax||'',
-  });
+  };
+  saveMytriProfile(finalProfile);
   localStorage.setItem('mytri_onboard_done','1');
   document.getElementById('view-onboard').classList.remove('active');
+  showPlanSummary(finalProfile);
+}
+
+async function showPlanSummary(profile){
+  const el=document.getElementById('view-plan-summary');
+  el.classList.add('active');
+
+  // Show loading
+  el.innerHTML=`
+    <div class="plan-loading">
+      <div class="plan-loading-ring"></div>
+      <div style="font-family:var(--font-ui);font-size:13px;color:var(--muted);letter-spacing:1.5px;text-align:center">CRIANDO SEU PLANO<br>PERSONALIZADO...</div>
+      <div style="font-family:var(--font-body);font-size:12px;color:var(--muted2);text-align:center;line-height:1.6">Analisando seu perfil,<br>prova e objetivos</div>
+    </div>`;
+
+  try{
+    const resp=await fetch('/.netlify/functions/plan-summary',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({profile})
+    });
+    const data=await resp.json();
+    const text=data.text||'';
+    renderPlanSummary(el,profile,text);
+  }catch(e){
+    renderPlanSummary(el,profile,'');
+  }
+}
+
+function renderPlanSummary(el,profile,text){
+  const dist={
+    'super-sprint':'Super Sprint',
+    'sprint':'Sprint',
+    'olimpico':'Olimpico',
+    'half':'Half Ironman 70.3',
+    'full':'Ironman Full'
+  }[profile.raceDist]||'Sprint';
+
+  const daysToRace=profile.raceDate?Math.max(0,Math.round((new Date(profile.raceDate+'T12:00:00')-new Date())/(1000*60*60*24))):'?';
+
+  // Parse sections from Claude response
+  function extractSection(title){
+    const re=new RegExp(title+'\\s*\\n([\\s\\S]*?)(?=\\n[A-Z]{2,}|$)');
+    const m=text.match(re);
+    return m?m[1].trim():'';
+  }
+
+  const visao=extractSection('VISÃO GERAL')||extractSection('VISAO GERAL');
+  const critico=extractSection('PONTO CRÍTICO')||extractSection('PONTO CRITICO');
+  const fases=extractSection('FASES DO PLANO');
+  const estrategia=extractSection('ESTRATÉGIA DE PROVA')||extractSection('ESTRATEGIA DE PROVA');
+  const mensagem=extractSection('MENSAGEM DO COACH');
+
+  el.innerHTML=`
+    <div style="padding:52px 20px 16px;border-bottom:1px solid var(--border);background:var(--surface)">
+      <div style="font-family:var(--font-ui);font-size:10px;color:var(--accent);letter-spacing:2px;margin-bottom:8px">SEU PLANO MYTRI</div>
+      <div style="font-family:var(--font-display);font-size:28px;letter-spacing:1px;line-height:1.1;margin-bottom:8px">${profile.raceName||dist}</div>
+      <div style="display:flex;gap:16px;margin-top:12px">
+        <div style="text-align:center">
+          <div style="font-family:var(--font-display);font-size:32px;color:var(--accent)">${daysToRace}</div>
+          <div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px">DIAS</div>
+        </div>
+        <div style="width:1px;background:var(--border)"></div>
+        <div style="text-align:center">
+          <div style="font-family:var(--font-display);font-size:32px;color:var(--text)">${dist}</div>
+          <div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px">DISTÂNCIA</div>
+        </div>
+        ${profile.goalTime?`<div style="width:1px;background:var(--border)"></div>
+        <div style="text-align:center">
+          <div style="font-family:var(--font-display);font-size:32px;color:var(--text)">${profile.goalTime}</div>
+          <div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px">META</div>
+        </div>`:''}
+      </div>
+    </div>
+
+    ${text?`
+    ${visao?`<div class="plan-section">
+      <div class="plan-section-title">Visão Geral</div>
+      <div class="plan-section-body">${visao}</div>
+    </div>`:''}
+
+    ${critico?`<div class="plan-section">
+      <div class="plan-section-title">Ponto Crítico</div>
+      <div class="plan-section-body">${critico}</div>
+    </div>`:''}
+
+    ${fases?`<div class="plan-section">
+      <div class="plan-section-title">Fases do Plano</div>
+      <div style="margin-top:4px">
+        ${fases.split('\n').filter(l=>l.trim()).map(l=>`
+          <div class="plan-phase">
+            <div class="plan-phase-dot"></div>
+            <div class="plan-section-body" style="margin:0">${l.replace(/^[-•*]\s*/,'')}</div>
+          </div>`).join('')}
+      </div>
+    </div>`:''}
+
+    ${estrategia?`<div class="plan-section">
+      <div class="plan-section-title">Estratégia de Prova</div>
+      <div class="plan-section-body">${estrategia}</div>
+    </div>`:''}
+
+    ${mensagem?`<div class="plan-section" style="padding-bottom:16px">
+      <div style="background:rgba(0,230,118,.08);border:1px solid rgba(0,230,118,.2);border-radius:6px;padding:16px;margin-top:8px">
+        <div style="font-family:var(--font-ui);font-size:9px;color:var(--accent);letter-spacing:2px;margin-bottom:8px">MENSAGEM DO COACH</div>
+        <div style="font-family:var(--font-body);font-size:14px;color:var(--text);line-height:1.7;font-style:italic">"${mensagem}"</div>
+      </div>
+    </div>`:''}
+    `:`<div class="plan-section"><div class="plan-section-body">Plano criado com base no seu perfil. Boa sorte!</div></div>`}
+
+    <div style="padding:20px 20px 40px">
+      <button onclick="closePlanSummary()" style="width:100%;padding:18px;background:var(--accent);color:#000;font-family:var(--font-ui);font-size:14px;font-weight:700;letter-spacing:2px;border:none;border-radius:4px;cursor:pointer">ENTRAR NO MYTRI</button>
+    </div>`;
+}
+
+function closePlanSummary(){
+  document.getElementById('view-plan-summary').classList.remove('active');
   renderHoje();
 }
 
