@@ -3451,17 +3451,26 @@ Forneça:
 Seja específico com medidas (cm) e explique o porquê de cada ajuste. Responda em português.`;
 
   try{
-    const resp=await fetch('/.netlify/functions/bike-fit',{
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
-      headers:{'Content-Type':'application/json'},
+      headers:{
+        'Content-Type':'application/json',
+        'x-api-key':'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',
+        'anthropic-version':'2023-06-01',
+        'anthropic-dangerous-direct-browser-access':'true'
+      },
       body:JSON.stringify({
-        prompt,
-        imageBase64: photoB64||null
+        model:'claude-sonnet-4-6',
+        max_tokens:1500,
+        messages:[{role:'user',content:photoB64?[
+          {type:'image',source:{type:'base64',media_type:'image/jpeg',data:photoB64}},
+          {type:'text',text:prompt}
+        ]:[{type:'text',text:prompt}]}]
       })
     });
     const data=await resp.json();
-    if(!resp.ok)throw new Error(JSON.stringify(data));
-    const text=data.text||data.content?.map(b=>b.text||'').join('')||'';
+    if(!resp.ok)throw new Error(data.error?.message||'Erro');
+    const text=data.content?.map(b=>b.text||'').join('');
 
     result.style.display='block';
     result.innerHTML=`
@@ -3471,7 +3480,7 @@ Seja específico com medidas (cm) e explique o porquê de cada ajuste. Responda 
       </div>`;
   }catch(e){
     result.style.display='block';
-    result.innerHTML=`<div style="color:#e05c2a;font-family:var(--font-ui);font-size:12px">Erro: ${e.message}</div>`;
+    result.innerHTML=`<div style="color:#e05c2a;font-family:var(--font-ui);font-size:12px">Erro na análise. Tente novamente.</div>`;
   }
 
   btn.textContent='ANALISAR POSIÇÃO';
@@ -3528,16 +3537,24 @@ function renderClub(){
 }
 
 function renderClubOnboard(c){
+  const stravaTokens=JSON.parse(localStorage.getItem('strava_tokens')||'{}');
+  const athlete=stravaTokens.athlete||{};
+  const stravaName=athlete.firstname&&athlete.lastname?`${athlete.firstname} ${athlete.lastname}`:'';
+  const stravaCity=athlete.city&&athlete.country?`${athlete.city}, ${athlete.country}`:athlete.city||'';
+  const stravaPhoto=athlete.profile_medium||athlete.profile||'';
+  const stravaWeight=athlete.weight?Math.round(athlete.weight):'';
   c.innerHTML=`
     <div style="padding:28px 24px 24px">
       <div style="font-family:var(--font-display);font-size:32px;letter-spacing:1px;margin-bottom:4px">CLUBE DA <span style="color:#1a6cf0">MEIA</span> <span style="color:#1a6cf0">AZUL</span></div>
       <div style="font-family:var(--font-body);font-size:13px;color:var(--muted2);line-height:1.6;margin-bottom:28px">Triatletas que buscam mais do que uma prova para compartilhar.</div>
 
+      ${stravaPhoto?`<div style="display:flex;align-items:center;gap:14px;padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:4px;margin-bottom:4px"><img src="${stravaPhoto}" style="width:52px;height:52px;border-radius:50%;object-fit:cover"><div><div style="font-family:var(--font-ui);font-size:11px;color:var(--muted);letter-spacing:1px">FOTO DO STRAVA</div><div style="font-family:var(--font-body);font-size:13px;color:var(--muted2);margin-top:2px">Nome e cidade preenchidos automaticamente</div></div></div>`:''}
+
       <div style="display:flex;flex-direction:column;gap:14px">
 
         <div>
           <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;display:block;margin-bottom:6px">Seu nome</label>
-          <input id="cl-nome" type="text" placeholder="Fernando Garcia" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:13px;border-radius:4px">
+          <input id="cl-nome" type="text" placeholder="Fernando Garcia" value="${stravaName}" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:13px;border-radius:4px">
         </div>
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
@@ -3547,7 +3564,7 @@ function renderClubOnboard(c){
           </div>
           <div>
             <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;display:block;margin-bottom:6px">Cidade</label>
-            <input id="cl-cidade" type="text" placeholder="Guarujá SP" autocomplete="off" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:13px;border-radius:4px;color-scheme:dark">
+            <input id="cl-cidade" type="text" placeholder="Guarujá SP" autocomplete="off" value="${stravaCity}" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:13px;border-radius:4px;color-scheme:dark">
           </div>
         </div>
 
@@ -3594,6 +3611,8 @@ function submitClubOnboard(){
   const nome=document.getElementById('cl-nome').value.trim();
   const idade=document.getElementById('cl-idade').value.trim();
   if(!nome||!idade){alert('Preencha nome e idade.');return;}
+  const stravaTokens2=JSON.parse(localStorage.getItem('strava_tokens')||'{}');
+  const athlete2=stravaTokens2.athlete||{};
   clubState.myProfile={
     name:nome,age:idade,
     city:document.getElementById('cl-cidade').value.trim(),
@@ -3603,6 +3622,8 @@ function submitClubOnboard(){
     nextRace:document.getElementById('cl-prova').value.trim(),
     bio:document.getElementById('cl-bio').value.trim(),
     busca:document.getElementById('cl-busca').value,
+    photo:athlete2.profile_medium||athlete2.profile||'',
+    weight:athlete2.weight?Math.round(athlete2.weight):'',
   };
   clubState.step='swipe';
   clubState.currentIdx=0;
