@@ -4418,214 +4418,439 @@ function calcPRs(){
 
 // ── ONBOARDING ──
 const PROVAS_BR_2026 = [
-  {name:'Sprint Triathlon Santa Cecilia TV — Guaruja SP', date:'2026-09-13', dist:'Sprint', local:'Guaruja, SP'},
-  {name:'Troféu Brasil Triathlon — Santos (Etapa Abril)', date:'2026-04-01', dist:'Sprint/Standard', local:'Santos, SP'},
-  {name:'Troféu Brasil Triathlon — Santos (Etapa Junho)', date:'2026-06-01', dist:'Sprint/Standard', local:'Santos, SP'},
-  {name:'Troféu Brasil Triathlon — Santos (Etapa Setembro)', date:'2026-09-01', dist:'Sprint/Standard', local:'Santos, SP'},
-  {name:'Troféu Brasil Triathlon — Santos (Etapa Dezembro)', date:'2026-12-01', dist:'Sprint/Standard', local:'Santos, SP'},
-  {name:'CBTri — Caiobá PR', date:'2026-02-22', dist:'Variada', local:'Caiobá, PR'},
-  {name:'CBTri — Juazeiro BA / Petrolina PE', date:'2026-04-18', dist:'Variada', local:'Juazeiro, BA'},
-  {name:'CBTri — Indaiatuba SP', date:'2026-06-13', dist:'Variada', local:'Indaiatuba, SP'},
-  {name:'CBTri — Vila Velha ES', date:'2026-07-05', dist:'Variada', local:'Vila Velha, ES'},
-  {name:'Ironman Brasil — Florianópolis', date:'2026-05-24', dist:'Full 3.8/180/42', local:'Florianópolis, SC'},
-  {name:'Ironman 70.3 — Fortaleza', date:'2026-08-30', dist:'Half 1.9/90/21', local:'Fortaleza, CE'},
-  {name:'Ironman 70.3 — São Paulo', date:'2026-09-20', dist:'Half 1.9/90/21', local:'São Paulo, SP'},
-  {name:'Ironman 70.3 — Florianópolis', date:'2026-10-18', dist:'Half 1.9/90/21', local:'Florianópolis, SC'},
-  {name:'Brotas Triathlon', date:'2026-09-19', dist:'Sprint/Olimpico', local:'Brotas, SP'},
-  {name:'Campeonato Paulista Sprint', date:'2026-03-01', dist:'Sprint', local:'São Paulo, SP'},
-  {name:'Outra prova (digitar manualmente)', date:'', dist:'', local:''},
+  {name:'Sprint Triathlon Santa Cecilia TV',date:'2026-09-13',dist:'sprint',local:'Guaruja, SP'},
+  {name:'Troféu Brasil — Santos (Abr)',date:'2026-04-05',dist:'sprint',local:'Santos, SP'},
+  {name:'Troféu Brasil — Santos (Jun)',date:'2026-06-07',dist:'sprint',local:'Santos, SP'},
+  {name:'Troféu Brasil — Santos (Set)',date:'2026-09-06',dist:'sprint',local:'Santos, SP'},
+  {name:'Troféu Brasil — Santos (Dez)',date:'2026-12-06',dist:'sprint',local:'Santos, SP'},
+  {name:'CBTri — Caiobá PR',date:'2026-02-22',dist:'sprint',local:'Caiobá, PR'},
+  {name:'CBTri — Indaiatuba SP',date:'2026-06-13',dist:'olimpico',local:'Indaiatuba, SP'},
+  {name:'CBTri — Vila Velha ES',date:'2026-07-05',dist:'olimpico',local:'Vila Velha, ES'},
+  {name:'Ironman Brasil — Florianópolis',date:'2026-05-24',dist:'full',local:'Florianópolis, SC'},
+  {name:'Ironman 70.3 — Fortaleza',date:'2026-08-30',dist:'half',local:'Fortaleza, CE'},
+  {name:'Ironman 70.3 — São Paulo',date:'2026-09-20',dist:'half',local:'São Paulo, SP'},
+  {name:'Ironman 70.3 — Florianópolis',date:'2026-10-18',dist:'half',local:'Florianópolis, SC'},
+  {name:'Brotas Triathlon',date:'2026-09-19',dist:'sprint',local:'Brotas, SP'},
+  {name:'Challenge Florianópolis',date:'2026-11-29',dist:'half',local:'Florianópolis, SC'},
+  {name:'Campeonato Paulista Sprint',date:'2026-03-15',dist:'sprint',local:'São Paulo, SP'},
 ];
 
+const DIST_INFO={
+  'super-sprint':{label:'Super Sprint',swim:'400m',bike:'10km',run:'2.5km',color:'#9b6af0'},
+  'sprint':{label:'Sprint',swim:'750m',bike:'20km',run:'5km',color:'#1a6cf0'},
+  'olimpico':{label:'Olimpico',swim:'1.5km',bike:'40km',run:'10km',color:'#00e676'},
+  'half':{label:'Half / 70.3',swim:'1.9km',bike:'90km',run:'21km',color:'#f0a500'},
+  'full':{label:'Full / Ironman',swim:'3.8km',bike:'180km',run:'42km',color:'#e05c2a'},
+};
+
 let obStep=0;
-let obData={};
+let obData={raceDist:'sprint',goalTime:null,swimLevel:'beginner',bikeLevel:'beginner',runLevel:'beginner',weeklyHours:'3-4',fcMax:'',ftp:'',selectedDays:{swim:[],bike:[],run:[]}};
 
 function checkOnboarding(){
-  const done=localStorage.getItem('mytri_onboard_done');
-  if(!done){
-    showOnboarding();
-  }
+  if(!localStorage.getItem('mytri_onboard_done'))showOnboarding();
 }
 
 function showOnboarding(){
+  obStep=0;
   const el=document.getElementById('view-onboard');
   el.classList.add('active');
   renderOnboarding();
 }
 
+function obProgress(step,total){
+  return Array.from({length:total},(_,i)=>`<div class="ob-progress-bar ${i<step?'done':''}"></div>`).join('');
+}
+
 function renderOnboarding(){
   const el=document.getElementById('view-onboard');
-  const totalSteps=5;
-  const bars=Array.from({length:totalSteps},(_,i)=>
-    `<div class="ob-progress-bar ${i<obStep?'done':''}"></div>`
-  ).join('');
-
+  el.innerHTML='';
   const screens=[
-    // 0 — Boas vindas
-    `<div class="ob-screen active" id="ob-s0">
-      <div style="flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;gap:16px">
-        <div style="font-family:var(--font-display);font-size:64px;letter-spacing:-2px;line-height:1">
-          <span style="color:#fff">MY</span><span style="color:#1a6cf0">T</span><span style="color:#e05c2a">R</span><span style="color:#00e676">I</span>
-        </div>
-        <div style="font-family:var(--font-body);font-size:13px;color:var(--muted2);letter-spacing:2px;text-transform:uppercase">Customized Triathlon Training</div>
-        <div style="font-family:var(--font-body);font-size:16px;color:var(--muted2);line-height:1.7;max-width:280px;margin-top:8px">
-          Seu co-piloto personalizado para chegar na linha de chegada pronto.
-        </div>
+    renderObWelcome,
+    renderObDistancia,
+    renderObProva,
+    renderObMeta,
+    renderObModalidades,
+    renderObFitness,
+    renderObHoras,
+    renderObStrava,
+    renderObFim,
+  ];
+  if(obStep>=screens.length){obFinish();return;}
+  const totalBars=screens.length-1;
+  const prog=`<div class="ob-progress">${obProgress(obStep,totalBars)}</div>`;
+  const back=obStep>0?`<button onclick="obBack()" style="position:absolute;top:52px;left:20px;background:none;border:none;color:var(--muted2);font-size:22px;cursor:pointer;z-index:10">&#8592;</button>`:'';
+  el.innerHTML=prog+back+`<div id="ob-screen-wrap" style="flex:1;display:flex;flex-direction:column;overflow-y:auto"></div>`;
+  screens[obStep](document.getElementById('ob-screen-wrap'));
+}
+
+function renderObWelcome(c){
+  const stravaTokens=JSON.parse(localStorage.getItem('strava_tokens')||'{}');
+  const athlete=stravaTokens.athlete||{};
+  const nome=athlete.firstname?` ${athlete.firstname}`:'';
+  c.innerHTML=`
+    <div style="flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;gap:20px;padding:40px 32px">
+      <div style="font-family:var(--font-display);font-size:72px;letter-spacing:-3px;line-height:1">
+        <span style="color:#fff">MY</span><span style="color:#1a6cf0">T</span><span style="color:#e05c2a">R</span><span style="color:#00e676">I</span>
       </div>
+      <div style="font-family:var(--font-ui);font-size:11px;color:var(--muted);letter-spacing:3px">CUSTOMIZED TRIATHLON TRAINING</div>
+      <div style="font-family:var(--font-body);font-size:16px;color:var(--muted2);line-height:1.7;max-width:280px">
+        Seu co-piloto personalizado para chegar na linha de chegada pronto${nome?','+nome:''}.
+      </div>
+    </div>
+    <div style="padding:24px">
       <button class="ob-btn" onclick="obNext()">COMECAR</button>
-    </div>`,
+    </div>`;
+}
 
-    // 1 — Qual prova
-    `<div class="ob-screen" id="ob-s1">
-      <div class="ob-title">Qual é<br>a sua prova?</div>
-      <div class="ob-sub">Selecione ou busque sua prova alvo.</div>
-      <div class="ob-field">
-        <label>Prova</label>
-        <select id="ob-prova" onchange="obProvaSelected()">
-          <option value="">Selecione...</option>
-          ${PROVAS_BR_2026.map((p,i)=>`<option value="${i}">${p.name}</option>`).join('')}
-        </select>
+function renderObDistancia(c){
+  const dists=['super-sprint','sprint','olimpico','half','full'];
+  c.innerHTML=`
+    <div style="padding:32px 24px 0">
+      <div class="ob-title">Qual a distancia<br>da sua prova?</div>
+      <div class="ob-sub">Selecione o formato da sua proxima competicao.</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+        ${dists.map(d=>{
+          const info=DIST_INFO[d];
+          const sel=obData.raceDist===d;
+          return `<div onclick="obSelectDist('${d}')" style="padding:20px 16px;background:${sel?info.color+'22':'var(--surface)'};border:2px solid ${sel?info.color:'var(--border)'};border-radius:8px;cursor:pointer;transition:all .2s">
+            <div style="font-family:var(--font-ui);font-size:14px;font-weight:700;letter-spacing:.5px;color:${sel?info.color:'var(--text)'};margin-bottom:8px">${info.label}</div>
+            <div style="font-family:var(--font-body);font-size:11px;color:var(--muted2);line-height:1.8">
+              ${info.swim} nado<br>${info.bike} bike<br>${info.run} corrida
+            </div>
+          </div>`;
+        }).join('')}
       </div>
-      <div class="ob-field" id="ob-prova-manual" style="display:none">
-        <label>Nome da prova</label>
-        <input id="ob-prova-nome" placeholder="Ex: Triathlon Bertioga 2026">
-      </div>
-      <div class="ob-field">
-        <label>Data da prova</label>
-        <input id="ob-data" type="date" value="${obData.raceDate||''}">
-      </div>
-      <div class="ob-field">
-        <label>Distancia</label>
-        <select id="ob-dist">
-          <option value="super-sprint">Super Sprint (400m/10km/2.5km)</option>
-          <option value="sprint" selected>Sprint (750m/20km/5km)</option>
-          <option value="olimpico">Olimpico (1.5km/40km/10km)</option>
-          <option value="half">Half / 70.3 (1.9km/90km/21km)</option>
-          <option value="full">Full / Ironman (3.8km/180km/42km)</option>
-        </select>
-      </div>
+    </div>
+    <div style="padding:0 24px 24px;margin-top:auto">
       <button class="ob-btn" onclick="obNext()">CONTINUAR</button>
-    </div>`,
+    </div>`;
+}
 
-    // 2 — Nivel
-    `<div class="ob-screen" id="ob-s2">
-      <div class="ob-title">Qual seu<br>nivel atual?</div>
-      <div class="ob-sub">Isso define a intensidade do seu plano.</div>
-      <div class="ob-level-cards">
-        ${[
-          {v:'iniciante',t:'Iniciante',s:'Menos de 1 ano. Primeira ou segunda prova.'},
-          {v:'amador',t:'Amador',s:'1 a 3 anos. Ja fiz algumas provas.'},
-          {v:'experiente',t:'Experiente',s:'3 a 7 anos. Busco melhorar meu tempo.'},
-          {v:'avancado',t:'Avancado',s:'7+ anos. Treino com consistencia e volume alto.'},
-        ].map(l=>`<div class="ob-level-card ${obData.nivel===l.v?'selected':''}" onclick="obSelectNivel('${l.v}',this)">
-          <div class="ob-level-card-title">${l.t}</div>
-          <div class="ob-level-card-sub">${l.s}</div>
+function obSelectDist(d){
+  obData.raceDist=d;
+  renderOnboarding();
+}
+
+function renderObProva(c){
+  const dist=obData.raceDist;
+  const matching=PROVAS_BR_2026.filter(p=>p.dist===dist||dist==='olimpico'&&p.dist==='sprint');
+  c.innerHTML=`
+    <div style="padding:32px 24px 0">
+      <div class="ob-title">Qual e<br>sua prova?</div>
+      <div class="ob-sub">Selecione ou cadastre manualmente.</div>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
+        ${PROVAS_BR_2026.map((p,i)=>`
+          <div onclick="obSelectProva(${i})" style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:${obData.provaIdx===i?'rgba(0,230,118,.08)':'var(--surface)'};border:1.5px solid ${obData.provaIdx===i?'var(--accent)':'var(--border)'};border-radius:6px;cursor:pointer">
+            <div style="flex:1">
+              <div style="font-family:var(--font-ui);font-size:13px;font-weight:700;letter-spacing:.3px">${p.name}</div>
+              <div style="font-family:var(--font-body);font-size:11px;color:var(--muted2);margin-top:3px">${p.local} &middot; ${p.date?new Date(p.date+'T12:00:00').toLocaleDateString('pt-BR',{day:'numeric',month:'short',year:'numeric'}):''}</div>
+            </div>
+            ${obData.provaIdx===i?'<div style="color:var(--accent);font-size:18px">&#10003;</div>':''}
+          </div>`).join('')}
+        <div onclick="obSelectProva(-1)" style="padding:14px 16px;background:${obData.provaIdx===-1?'rgba(0,230,118,.08)':'var(--surface)'};border:1.5px solid ${obData.provaIdx===-1?'var(--accent)':'var(--border)'};border-radius:6px;cursor:pointer;text-align:center;font-family:var(--font-ui);font-size:12px;color:var(--muted);letter-spacing:1px">
+          + OUTRA PROVA (cadastrar manualmente)
+        </div>
+      </div>
+      ${obData.provaIdx===-1?`
+        <div class="ob-field"><label>Nome da prova</label><input id="ob-prova-nome" value="${obData.raceName||''}" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:12px;border-radius:4px"></div>
+        <div class="ob-field"><label>Data da prova</label><input id="ob-data" type="date" value="${obData.raceDate||''}" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:12px;border-radius:4px"></div>
+      `:''}
+    </div>
+    <div style="padding:0 24px 24px;margin-top:auto">
+      <button class="ob-btn" onclick="obNext()">CONTINUAR</button>
+      <button class="ob-btn-skip" onclick="obNext()">Pular por agora</button>
+    </div>`;
+}
+
+function obSelectProva(i){
+  obData.provaIdx=i;
+  if(i>=0&&i<PROVAS_BR_2026.length){
+    const p=PROVAS_BR_2026[i];
+    obData.raceName=p.name;
+    obData.raceDate=p.date;
+    obData.raceLocal=p.local;
+  }
+  renderOnboarding();
+}
+
+function renderObMeta(c){
+  const dist=DIST_INFO[obData.raceDist]||DIST_INFO.sprint;
+  const hr=obData.goalHr||1;
+  const min=obData.goalMin||30;
+  c.innerHTML=`
+    <div style="padding:32px 24px 0">
+      <div class="ob-title">Qual e<br>sua meta?</div>
+      <div class="ob-sub">Tempo alvo para ${obData.raceName||dist.label}.</div>
+      <div style="font-family:var(--font-ui);font-size:10px;color:var(--accent);letter-spacing:2px;margin-bottom:16px">${dist.label.toUpperCase()} &middot; ${dist.swim} / ${dist.bike} / ${dist.run}</div>
+
+      <div style="display:flex;align-items:center;justify-content:center;gap:16px;margin:32px 0">
+        <div style="text-align:center">
+          <div style="font-family:var(--font-display);font-size:64px;color:var(--text)">${String(hr).padStart(2,'0')}</div>
+          <div style="font-family:var(--font-ui);font-size:11px;color:var(--muted);letter-spacing:1px">HORAS</div>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button onclick="obAdjust('hr',-1)" style="width:40px;height:40px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-size:20px;border-radius:8px;cursor:pointer">-</button>
+            <button onclick="obAdjust('hr',1)" style="width:40px;height:40px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-size:20px;border-radius:8px;cursor:pointer">+</button>
+          </div>
+        </div>
+        <div style="font-family:var(--font-display);font-size:48px;color:var(--muted)">:</div>
+        <div style="text-align:center">
+          <div style="font-family:var(--font-display);font-size:64px;color:var(--text)">${String(min).padStart(2,'0')}</div>
+          <div style="font-family:var(--font-ui);font-size:11px;color:var(--muted);letter-spacing:1px">MINUTOS</div>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button onclick="obAdjust('min',-5)" style="width:40px;height:40px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-size:20px;border-radius:8px;cursor:pointer">-</button>
+            <button onclick="obAdjust('min',5)" style="width:40px;height:40px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-size:20px;border-radius:8px;cursor:pointer">+</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="padding:0 24px 24px;margin-top:auto">
+      <button class="ob-btn" onclick="obSaveMeta();obNext()">CONTINUAR</button>
+      <button class="ob-btn-skip" onclick="obData.goalTime=null;obNext()">Quero apenas completar a prova</button>
+    </div>`;
+}
+
+function obAdjust(field,delta){
+  if(field==='hr'){obData.goalHr=Math.max(0,Math.min(17,(obData.goalHr||1)+delta));}
+  else{obData.goalMin=Math.max(0,Math.min(59,Math.round(((obData.goalMin||30)+delta)/5)*5));}
+  renderOnboarding();
+}
+
+function obSaveMeta(){
+  obData.goalTime=`${String(obData.goalHr||1).padStart(2,'0')}:${String(obData.goalMin||30).padStart(2,'0')}`;
+}
+
+function renderObModalidades(c){
+  const levels=[
+    {v:'nao-nado',l:'Nao nado ainda'},
+    {v:'beginner',l:'Iniciante'},
+    {v:'intermediate',l:'Intermediario'},
+    {v:'advanced',l:'Avancado'},
+  ];
+  const bikelevels=[
+    {v:'beginner',l:'Iniciante'},
+    {v:'intermediate',l:'Intermediario'},
+    {v:'advanced',l:'Avancado'},
+  ];
+  const runlevels=[
+    {v:'beginner',l:'Iniciante'},
+    {v:'intermediate',l:'Intermediario'},
+    {v:'advanced',l:'Avancado'},
+  ];
+  c.innerHTML=`
+    <div style="padding:32px 24px 0">
+      <div class="ob-title">Sua<br>performance</div>
+      <div class="ob-sub">Nivel atual em cada modalidade.</div>
+
+      <div style="margin-bottom:20px">
+        <div style="font-family:var(--font-ui);font-size:10px;color:#1a6cf0;letter-spacing:2px;margin-bottom:10px">NATACAO</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          ${levels.map(l=>`<button onclick="obData.swimLevel='${l.v}';renderOnboarding()" style="padding:10px 14px;background:${obData.swimLevel===l.v?'rgba(26,108,240,.2)':'var(--surface)'};border:1.5px solid ${obData.swimLevel===l.v?'#1a6cf0':'var(--border)'};color:${obData.swimLevel===l.v?'#1a6cf0':'var(--muted2)'};font-family:var(--font-ui);font-size:11px;letter-spacing:.5px;border-radius:4px;cursor:pointer">${l.l}</button>`).join('')}
+        </div>
+        <input id="ob-swim-pace" placeholder="Pace nado/100m (ex: 1:45)" value="${obData.swimPace||''}" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">
+      </div>
+
+      <div style="margin-bottom:20px">
+        <div style="font-family:var(--font-ui);font-size:10px;color:#e05c2a;letter-spacing:2px;margin-bottom:10px">BIKE</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          ${bikelevels.map(l=>`<button onclick="obData.bikeLevel='${l.v}';renderOnboarding()" style="padding:10px 14px;background:${obData.bikeLevel===l.v?'rgba(224,92,42,.2)':'var(--surface)'};border:1.5px solid ${obData.bikeLevel===l.v?'#e05c2a':'var(--border)'};color:${obData.bikeLevel===l.v?'#e05c2a':'var(--muted2)'};font-family:var(--font-ui);font-size:11px;letter-spacing:.5px;border-radius:4px;cursor:pointer">${l.l}</button>`).join('')}
+        </div>
+        <input id="ob-ftp" placeholder="FTP em watts (ex: 200)" value="${obData.ftp||''}" type="number" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">
+      </div>
+
+      <div style="margin-bottom:20px">
+        <div style="font-family:var(--font-ui);font-size:10px;color:#00e676;letter-spacing:2px;margin-bottom:10px">CORRIDA</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          ${runlevels.map(l=>`<button onclick="obData.runLevel='${l.v}';renderOnboarding()" style="padding:10px 14px;background:${obData.runLevel===l.v?'rgba(0,230,118,.15)':'var(--surface)'};border:1.5px solid ${obData.runLevel===l.v?'var(--accent)':'var(--border)'};color:${obData.runLevel===l.v?'var(--accent)':'var(--muted2)'};font-family:var(--font-ui);font-size:11px;letter-spacing:.5px;border-radius:4px;cursor:pointer">${l.l}</button>`).join('')}
+        </div>
+        <input id="ob-run-pace" placeholder="Pace corrida/km (ex: 5:30)" value="${obData.runPace||''}" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">
+      </div>
+    </div>
+    <div style="padding:0 24px 24px;margin-top:auto">
+      <button class="ob-btn" onclick="obSaveModalidades();obNext()">CONTINUAR</button>
+    </div>`;
+}
+
+function obSaveModalidades(){
+  obData.swimPace=document.getElementById('ob-swim-pace')?.value||'';
+  obData.ftp=document.getElementById('ob-ftp')?.value||'';
+  obData.runPace=document.getElementById('ob-run-pace')?.value||'';
+}
+
+function renderObFitness(c){
+  c.innerHTML=`
+    <div style="padding:32px 24px 0">
+      <div class="ob-title">Dados<br>fisicos</div>
+      <div class="ob-sub">Usamos para calcular suas zonas de treino.</div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px">
+        <div><div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;margin-bottom:6px">IDADE</div>
+          <input id="ob-idade" type="number" placeholder="41" value="${obData.age||''}" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:12px;border-radius:4px"></div>
+        <div><div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;margin-bottom:6px">PESO (kg)</div>
+          <input id="ob-peso" type="number" placeholder="70" value="${obData.weight||''}" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:12px;border-radius:4px"></div>
+        <div><div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;margin-bottom:6px">ALTURA (cm)</div>
+          <input id="ob-altura" type="number" placeholder="175" value="${obData.altura||''}" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:12px;border-radius:4px"></div>
+      </div>
+
+      <div style="margin-bottom:16px">
+        <div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;margin-bottom:10px">FC MAXIMA (bpm)</div>
+        <div style="display:flex;align-items:center;gap:16px">
+          <input id="ob-fcmax" type="number" placeholder="180" value="${obData.fcMax||''}" style="flex:1;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-display);font-size:28px;padding:14px;border-radius:4px;text-align:center">
+          <div style="font-family:var(--font-body);font-size:12px;color:var(--muted2);line-height:1.5">Nao sabe?<br>Use 220<br>menos<br>sua idade</div>
+        </div>
+        <div style="font-family:var(--font-body);font-size:11px;color:var(--muted);margin-top:8px">
+          ${obData.age?`Estimativa para ${obData.age} anos: ${220-parseInt(obData.age||0)} bpm`:'Preencha a idade acima para estimar'}
+        </div>
+      </div>
+
+      <div>
+        <div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;margin-bottom:6px">SEXO</div>
+        <div style="display:flex;gap:8px">
+          ${[{v:'M',l:'Masculino'},{v:'F',l:'Feminino'},{v:'',l:'Prefer nao dizer'}].map(s=>`<button onclick="obData.sexo='${s.v}';renderOnboarding()" style="flex:1;padding:12px 8px;background:${obData.sexo===s.v?'rgba(0,230,118,.1)':'var(--surface)'};border:1.5px solid ${obData.sexo===s.v?'var(--accent)':'var(--border)'};color:${obData.sexo===s.v?'var(--accent)':'var(--muted2)'};font-family:var(--font-ui);font-size:10px;letter-spacing:.5px;border-radius:4px;cursor:pointer">${s.l}</button>`).join('')}
+        </div>
+      </div>
+    </div>
+    <div style="padding:16px 24px 24px;margin-top:auto">
+      <button class="ob-btn" onclick="obSaveFitness();obNext()">CONTINUAR</button>
+      <button class="ob-btn-skip" onclick="obNext()">Pular</button>
+    </div>`;
+}
+
+function obSaveFitness(){
+  obData.age=document.getElementById('ob-idade')?.value||'';
+  obData.weight=document.getElementById('ob-peso')?.value||'';
+  obData.altura=document.getElementById('ob-altura')?.value||'';
+  obData.fcMax=document.getElementById('ob-fcmax')?.value||'';
+  if(!obData.fcMax&&obData.age)obData.fcMax=String(220-parseInt(obData.age));
+}
+
+function renderObHoras(c){
+  const opts=[
+    {v:'menos-3',l:'Menos de 3h',s:'Novo no tri ou voltando apos pausa'},
+    {v:'3-4',l:'3 a 4 horas',s:'Treino regular com alguma experiencia'},
+    {v:'4-6',l:'4 a 6 horas',s:'Rotina de treino estabelecida'},
+    {v:'6-8',l:'6 a 8 horas',s:'Atleta dedicado com tempo disponivel'},
+    {v:'8+',l:'8+ horas',s:'Alto volume, experiencia solida'},
+  ];
+  c.innerHTML=`
+    <div style="padding:32px 24px 0">
+      <div class="ob-title">Quantas horas<br>treina por semana?</div>
+      <div class="ob-sub">Seu plano sera construido a partir do seu volume atual.</div>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
+        ${opts.map(o=>`<div onclick="obData.weeklyHours='${o.v}';renderOnboarding()" style="padding:18px 20px;background:${obData.weeklyHours===o.v?'rgba(0,230,118,.08)':'var(--surface)'};border:2px solid ${obData.weeklyHours===o.v?'var(--accent)':'var(--border)'};border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <div style="font-family:var(--font-ui);font-size:14px;font-weight:700;letter-spacing:.5px;color:${obData.weeklyHours===o.v?'var(--accent)':'var(--text)'}">${o.l}</div>
+            <div style="font-family:var(--font-body);font-size:12px;color:var(--muted2);margin-top:3px">${o.s}</div>
+          </div>
+          ${obData.weeklyHours===o.v?'<div style="color:var(--accent);font-size:20px">&#10003;</div>':''}
         </div>`).join('')}
       </div>
+    </div>
+    <div style="padding:0 24px 24px;margin-top:auto">
       <button class="ob-btn" onclick="obNext()">CONTINUAR</button>
-    </div>`,
+    </div>`;
+}
 
-    // 3 — Strava
-    `<div class="ob-screen" id="ob-s3">
+function renderObStrava(c){
+  const tokens=JSON.parse(localStorage.getItem('strava_tokens')||'{}');
+  const connected=!!tokens.access_token;
+  const athlete=tokens.athlete||{};
+  c.innerHTML=`
+    <div style="padding:32px 24px 0">
       <div class="ob-title">Conecte<br>seu Strava</div>
-      <div class="ob-sub">Importamos seus treinos automaticamente. Sua foto e nome vem de la.</div>
-      <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:12px">
-        <button class="ob-strava-btn" onclick="obConnectStrava()">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg>
-          CONECTAR STRAVA
-        </button>
-        <div style="text-align:center;font-family:var(--font-body);font-size:12px;color:var(--muted)">ou</div>
-        <button class="ob-btn-skip" onclick="obNext()">Pular por agora</button>
+      <div class="ob-sub">Importamos treinos automaticamente. Sua foto e dados vem de la.</div>
+      <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:12px;margin-top:24px">
+        ${connected?`
+          <div style="display:flex;align-items:center;gap:16px;padding:20px;background:rgba(252,76,2,.1);border:2px solid #FC4C02;border-radius:8px">
+            ${athlete.profile_medium?`<img src="${athlete.profile_medium}" style="width:52px;height:52px;border-radius:50%;object-fit:cover">`:''}
+            <div>
+              <div style="font-family:var(--font-ui);font-size:12px;color:#FC4C02;letter-spacing:1px;margin-bottom:4px">STRAVA CONECTADO</div>
+              <div style="font-family:var(--font-body);font-size:15px;font-weight:600">${athlete.firstname||''} ${athlete.lastname||''}</div>
+            </div>
+          </div>
+          <button class="ob-btn" onclick="obNext()">CONTINUAR</button>
+        `:`
+          <button class="ob-strava-btn" onclick="obConnectStrava()">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg>
+            CONECTAR STRAVA
+          </button>
+          <button class="ob-btn-skip" onclick="obNext()">Pular por agora</button>
+        `}
       </div>
-      <div style="height:20px"></div>
-    </div>`,
-
-    // 4 — Pronto
-    `<div class="ob-screen" id="ob-s4">
-      <div style="flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;gap:20px">
-        <div style="font-size:64px">🏁</div>
-        <div class="ob-title">Tudo pronto,<br>${obData.name?obData.name.split(' ')[0]:'atleta'}!</div>
-        <div style="font-family:var(--font-body);font-size:14px;color:var(--muted2);line-height:1.7">
-          ${obData.raceName?`<strong style="color:var(--text)">${obData.raceName}</strong><br>`:''}
-          ${obData.raceDate?`${new Date(obData.raceDate+'T12:00:00').toLocaleDateString('pt-BR',{day:'numeric',month:'long',year:'numeric'})}<br>`:''}
-          Seu plano personalizado esta pronto.
-        </div>
-      </div>
-      <button class="ob-btn" onclick="obFinish()">ENTRAR NO MYTRI</button>
-    </div>`,
-  ];
-
-  el.innerHTML=`
-    <div class="ob-progress">${bars}</div>
-    ${screens.join('')}`;
-
-  // Show only current screen
-  el.querySelectorAll('.ob-screen').forEach((s,i)=>{
-    s.style.display=i===obStep?'flex':'none';
-  });
-}
-
-function obProvaSelected(){
-  const sel=document.getElementById('ob-prova');
-  const idx=parseInt(sel.value);
-  const manual=document.getElementById('ob-prova-manual');
-  if(isNaN(idx))return;
-  const prova=PROVAS_BR_2026[idx];
-  if(prova.date===''){
-    manual.style.display='block';
-  } else {
-    manual.style.display='none';
-    document.getElementById('ob-data').value=prova.date;
-    // Set distance
-    const dist=document.getElementById('ob-dist');
-    if(prova.dist.toLowerCase().includes('sprint'))dist.value='sprint';
-    else if(prova.dist.toLowerCase().includes('half')||prova.dist.includes('70.3'))dist.value='half';
-    else if(prova.dist.toLowerCase().includes('full')||prova.dist.toLowerCase().includes('ironman'))dist.value='full';
-    else if(prova.dist.toLowerCase().includes('olimp'))dist.value='olimpico';
-    obData.raceName=prova.name;
-    obData.raceLocal=prova.local;
-  }
-}
-
-function obSelectNivel(nivel,el){
-  obData.nivel=nivel;
-  document.querySelectorAll('.ob-level-card').forEach(c=>c.classList.remove('selected'));
-  el.classList.add('selected');
+    </div>`;
 }
 
 function obConnectStrava(){
-  // Save current ob state then trigger strava
-  obData._waitingStrava=true;
   localStorage.setItem('mytri_ob_tmp',JSON.stringify(obData));
-  localStorage.setItem('mytri_ob_step','4');
-  // Trigger strava connect (existing function)
+  localStorage.setItem('mytri_ob_step','7');
   const clientId='257886';
   const redirect=encodeURIComponent(window.location.origin+window.location.pathname);
-  const scope='read,activity:read_all';
-  window.location.href=`https://www.strava.com/oauth/authorize?client_id=${clientId}&redirect_uri=${redirect}&response_type=code&scope=${scope}`;
+  window.location.href=`https://www.strava.com/oauth/authorize?client_id=${clientId}&redirect_uri=${redirect}&response_type=code&scope=read,activity:read_all`;
+}
+
+function renderObFim(c){
+  const dist=DIST_INFO[obData.raceDist]||DIST_INFO.sprint;
+  const tokens=JSON.parse(localStorage.getItem('strava_tokens')||'{}');
+  const athlete=tokens.athlete||{};
+  const nome=obData.name||athlete.firstname||'atleta';
+  c.innerHTML=`
+    <div style="flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;gap:16px;padding:40px 32px">
+      <div style="font-size:64px">🏁</div>
+      <div style="font-family:var(--font-display);font-size:36px;letter-spacing:1px;line-height:1.1">Tudo pronto,<br>${nome.split(' ')[0]}!</div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:20px;width:100%;text-align:left;margin-top:8px">
+        ${obData.raceName?`<div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;margin-bottom:4px">PROVA</div><div style="font-family:var(--font-body);font-size:14px;margin-bottom:12px">${obData.raceName}</div>`:''}
+        <div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;margin-bottom:4px">DISTANCIA</div>
+        <div style="font-family:var(--font-body);font-size:14px;margin-bottom:12px">${dist.label} &middot; ${dist.swim} / ${dist.bike} / ${dist.run}</div>
+        ${obData.raceDate?`<div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;margin-bottom:4px">DATA</div><div style="font-family:var(--font-body);font-size:14px;margin-bottom:12px">${new Date(obData.raceDate+'T12:00:00').toLocaleDateString('pt-BR',{day:'numeric',month:'long',year:'numeric'})}</div>`:''}
+        ${obData.goalTime?`<div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;margin-bottom:4px">META</div><div style="font-family:var(--font-body);font-size:14px">${obData.goalTime}</div>`:'<div style="font-family:var(--font-body);font-size:13px;color:var(--muted2)">Meta: completar a prova</div>'}
+      </div>
+    </div>
+    <div style="padding:0 24px 24px">
+      <button class="ob-btn" onclick="obFinish()">ENTRAR NO MYTRI</button>
+    </div>`;
+}
+
+function obBack(){
+  if(obStep>0){obStep--;renderOnboarding();}
 }
 
 function obNext(){
-  // Save data from current screen
-  if(obStep===1){
-    obData.raceDate=document.getElementById('ob-data')?.value||'';
-    obData.raceDist=document.getElementById('ob-dist')?.value||'sprint';
-    const manualNome=document.getElementById('ob-prova-nome');
-    if(manualNome&&manualNome.value)obData.raceName=manualNome.value;
+  if(obStep===2&&obData.provaIdx===-1){
+    const nome=document.getElementById('ob-prova-nome');
+    const data=document.getElementById('ob-data');
+    if(nome)obData.raceName=nome.value;
+    if(data)obData.raceDate=data.value;
   }
   obStep++;
-  // Skip strava step if already connected
-  if(obStep===3){
-    const tokens=JSON.parse(localStorage.getItem('strava_tokens')||'{}');
-    if(tokens.access_token)obStep=4;
-  }
-  if(obStep>=5){obFinish();return;}
+  if(obStep>=9){obFinish();return;}
   renderOnboarding();
 }
 
 function obFinish(){
-  // Save all onboarding data
   const prof=getMytriProfile();
-  saveMytriProfile({...prof,...obData});
+  const stravaTokens=JSON.parse(localStorage.getItem('strava_tokens')||'{}');
+  const athlete=stravaTokens.athlete||{};
+  saveMytriProfile({
+    ...prof,
+    name:obData.name||prof.name||(athlete.firstname?`${athlete.firstname} ${athlete.lastname||''}`.trim():''),
+    age:obData.age||prof.age||'',
+    weight:obData.weight||prof.weight||athlete.weight||'',
+    altura:obData.altura||prof.altura||'',
+    sexo:obData.sexo||prof.sexo||'',
+    city:prof.city||localStorage.getItem('mytri_gps_city')||'',
+    photo:prof.photo||athlete.profile||athlete.profile_medium||'',
+    pace:obData.runPace||prof.pace||'',
+    ftp:obData.ftp||prof.ftp||'',
+    swim:obData.swimPace||prof.swim||'',
+    nextRace:obData.raceName||prof.nextRace||'',
+    raceDist:obData.raceDist||'sprint',
+    raceDate:obData.raceDate||'',
+    goalTime:obData.goalTime||'',
+    weeklyHours:obData.weeklyHours||'3-4',
+    swimLevel:obData.swimLevel||'beginner',
+    bikeLevel:obData.bikeLevel||'beginner',
+    runLevel:obData.runLevel||'beginner',
+    fcMax:obData.fcMax||'',
+  });
   localStorage.setItem('mytri_onboard_done','1');
   document.getElementById('view-onboard').classList.remove('active');
   renderHoje();
