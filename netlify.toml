@@ -1,5 +1,5 @@
 [build]
   functions = "netlify/functions"
 
-[functions]
-  timeout = 26
+[functions.timeout]
+  default = 26
