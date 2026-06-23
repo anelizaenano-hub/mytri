@@ -16,6 +16,10 @@ exports.handler = async (event) => {
 
   const { prompt, imageBase64 } = body;
 
+  if (!prompt) {
+    return { statusCode: 400, body: JSON.stringify({ error: 'Missing prompt' }) };
+  }
+
   const content = imageBase64
     ? [
         { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: imageBase64 } },
@@ -23,11 +27,11 @@ exports.handler = async (event) => {
       ]
     : [{ type: 'text', text: prompt }];
 
-  const payload = JSON.stringify({
+  const payload = Buffer.from(JSON.stringify({
     model: 'claude-sonnet-4-6',
     max_tokens: 1500,
     messages: [{ role: 'user', content }]
-  });
+  }), 'utf8');
 
   return new Promise((resolve) => {
     const req = https.request({
@@ -35,10 +39,10 @@ exports.handler = async (event) => {
       path: '/v1/messages',
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': ANTHROPIC_API_KEY,
+        'Content-Type': 'application/json; charset=utf-8',
+        'x-api-key': ANTHROPIC_API_KEY.trim(),
         'anthropic-version': '2023-06-01',
-        'Content-Length': Buffer.byteLength(payload)
+        'Content-Length': payload.length
       }
     }, (res) => {
       let data = '';
@@ -57,7 +61,7 @@ exports.handler = async (event) => {
             });
           }
         } catch(e) {
-          resolve({ statusCode: 500, body: JSON.stringify({ error: e.message }) });
+          resolve({ statusCode: 500, body: JSON.stringify({ error: e.message, raw: data }) });
         }
       });
     });
