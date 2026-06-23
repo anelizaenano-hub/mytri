@@ -4230,8 +4230,10 @@ function renderProfile(){
 function resetOnboarding(){
   if(!confirm('Resetar onboarding?'))return;
   localStorage.removeItem('mytri_onboard_done');
+  obStep=0;
+  obData={};
   closeProfile();
-  location.reload();
+  showOnboarding();
 }
 
 function resetClubTerms(){
