@@ -3628,26 +3628,14 @@ Forneça:
 Seja específico com medidas (cm) e explique o porquê de cada ajuste. Responda em português.`;
 
   try{
-    const resp=await fetch('https://api.anthropic.com/v1/messages',{
+    const resp=await fetch('/.netlify/functions/bike-fit',{
       method:'POST',
-      headers:{
-        'Content-Type':'application/json',
-        'x-api-key':'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',
-        'anthropic-version':'2023-06-01',
-        'anthropic-dangerous-direct-browser-access':'true'
-      },
-      body:JSON.stringify({
-        model:'claude-sonnet-4-6',
-        max_tokens:1500,
-        messages:[{role:'user',content:photoB64?[
-          {type:'image',source:{type:'base64',media_type:'image/jpeg',data:photoB64}},
-          {type:'text',text:prompt}
-        ]:[{type:'text',text:prompt}]}]
-      })
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({prompt,imageBase64:photoB64||null})
     });
     const data=await resp.json();
-    if(!resp.ok)throw new Error(data.error?.message||'Erro');
-    const text=data.content?.map(b=>b.text||'').join('');
+    if(!resp.ok)throw new Error(data.error||'Erro');
+    const text=data.text||'';
 
     result.style.display='block';
     result.innerHTML=`
