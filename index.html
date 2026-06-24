@@ -4068,9 +4068,10 @@ function detectGPSLocation(){
     try{
       const r=await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&format=json`);
       const d=await r.json();
-      const city=d.address?.city||d.address?.town||d.address?.suburb||d.address?.municipality||'';
-      const state=d.address?.state||'';
-      const loc=city&&state?`${city}, ${state}`:city||state||'';
+      const suburb=d.address?.suburb||d.address?.neighbourhood||d.address?.quarter||'';
+      const city=d.address?.city||d.address?.town||d.address?.municipality||'';
+      const state=d.address?.state_district||d.address?.state||'';
+      const loc=suburb&&city?`${suburb}, ${city}`:city&&state?`${city}, ${state}`:city||state||'';
       if(loc){
         localStorage.setItem('mytri_gps_city',loc);
         // Update profile card if visible
@@ -4240,6 +4241,10 @@ function renderProfile(){
           <option value="A" ${prof.busca==='A'?'selected':''}>Todos</option>
         </select>
       </div>
+    </div>
+    <div class="profile-section" style="margin-top:8px">
+      <div class="profile-section-title" style="color:var(--accent)">Plano</div>
+      <button onclick="closeProfile();showPlanSummary(getMytriProfile())" style="width:100%;padding:14px;background:rgba(0,230,118,.08);border:1px solid var(--accent);color:var(--accent);font-family:var(--font-ui);font-size:11px;letter-spacing:1.5px;border-radius:4px;cursor:pointer;margin-bottom:16px">VER RESUMO DO PLANO</button>
     </div>
     <div class="profile-section" style="margin-top:8px">
       <div class="profile-section-title" style="color:var(--muted)">Zona de desenvolvimento</div>
@@ -4469,8 +4474,18 @@ const DIST_INFO={
 let obStep=0;
 let obData={raceDist:'sprint',goalTime:null,swimLevel:'beginner',bikeLevel:'beginner',runLevel:'beginner',weeklyHours:'3-4',fcMax:'',ftp:'',selectedDays:{swim:[],bike:[],run:[]}};
 
-function checkOnboarding(){
-  if(!localStorage.getItem('mytri_onboard_done'))showOnboarding();
+async function checkOnboarding(){
+  let done=localStorage.getItem('mytri_onboard_done');
+  if(!done){
+    try{
+      const remote=await sbGet('mytri_onboard_done');
+      if(remote){
+        localStorage.setItem('mytri_onboard_done','1');
+        done='1';
+      }
+    }catch(e){}
+  }
+  if(!done)showOnboarding();
 }
 
 function showOnboarding(){
@@ -4875,6 +4890,8 @@ function obFinish(){
     fcMax:obData.fcMax||'',
   };
   saveMytriProfile(finalProfile);
+  // Save onboard flag to Supabase too so PWA picks it up
+  sbSet('mytri_onboard_done','1').catch(()=>{});
   localStorage.setItem('mytri_onboard_done','1');
   document.getElementById('view-onboard').classList.remove('active');
   showPlanSummary(finalProfile);
@@ -4919,12 +4936,13 @@ function renderPlanSummary(el,profile,text){
 
   // Parse sections from Claude response
   function extractSection(title){
-    const re=new RegExp(title+'\\s*\\n([\\s\\S]*?)(?=\\n[A-Z]{2,}|$)');
+    const escaped=title.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+    const re=new RegExp(escaped+'[:\\s]*\\n([\\s\\S]*?)(?=\\n[A-ZÁÉÍÓÚÀÂÊÔÃÕ]{3,}|$)','i');
     const m=text.match(re);
     return m?m[1].trim():'';
   }
 
-  const visao=extractSection('VISÃO GERAL')||extractSection('VISAO GERAL');
+  const visao=extractSection('VISÃO GERAL')||extractSection('VISAO GERAL')||extractSection('VISAO');
   const critico=extractSection('PONTO CRÍTICO')||extractSection('PONTO CRITICO');
   const fases=extractSection('FASES DO PLANO');
   const estrategia=extractSection('ESTRATÉGIA DE PROVA')||extractSection('ESTRATEGIA DE PROVA');
