@@ -3,45 +3,38 @@ exports.handler = async (event) => {
     return { statusCode: 405, body: 'Method Not Allowed' };
   }
 
-  try {
-    const body = JSON.parse(event.body);
-    const { prompt, imageBase64 } = body;
-
-    const content = imageBase64
-      ? [
-          { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: imageBase64 } },
-          { type: 'text', text: prompt }
-        ]
-      : [{ type: 'text', text: prompt }];
-
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5',
-        max_tokens: 1500,
-        messages: [{ role: 'user', content }]
-      })
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      return { statusCode: response.status, body: JSON.stringify({ error: data.error?.message || JSON.stringify(data) }) };
-    }
-
-    const text = data.content?.map(b => b.text || '').join('') || '';
-    return {
-      statusCode: 200,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text })
-    };
-
-  } catch (e) {
-    return { statusCode: 500, body: JSON.stringify({ error: e.message }) };
+  const key = process.env.ANTHROPIC_API_KEY;
+  if (!key) {
+    return { statusCode: 500, body: JSON.stringify({ error: 'No API key' }) };
   }
+
+  let parsed;
+  try { parsed = JSON.parse(event.body); }
+  catch(e) { return { statusCode: 400, body: JSON.stringify({ error: 'Bad JSON' }) }; }
+
+  const messages = [{ 
+    role: 'user', 
+    content: parsed.imageBase64 
+      ? [
+          { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: parsed.imageBase64 } },
+          { type: 'text', text: parsed.prompt }
+        ]
+      : [{ type: 'text', text: parsed.prompt }]
+  }];
+
+  const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-api-key': key,
+      'anthropic-version': '2023-06-01'
+    },
+    body: JSON.stringify({ model: 'claude-haiku-4-5', max_tokens: 1500, messages })
+  });
+
+  const data = await resp.json();
+  if (!resp.ok) return { statusCode: resp.status, body: JSON.stringify({ error: data.error?.message || 'API error' }) };
+
+  const text = data.content?.map(b => b.text || '').join('') || '';
+  return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) };
 };
