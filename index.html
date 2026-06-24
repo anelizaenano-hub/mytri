@@ -3627,7 +3627,9 @@ Forneça:
 5. Ajustes específicos para triathlon com aerobar
 6. Pontos de atenção baseados nas dores relatadas
 
-Seja específico com medidas (cm) e explique o porquê de cada ajuste. Responda em português.`;
+Seja específico com medidas (cm) e explique o porquê de cada ajuste. Responda em português.
+
+IMPORTANTE: Responda em texto limpo, sem markdown, sem asteriscos, sem hashtags, sem emojis, sem tabelas. Use apenas texto simples. Para titulos use letras maiusculas seguidas de dois pontos. Exemplo: ALTURA DO SELIM:`;
 
   try{
     const resp=await fetch('/.netlify/functions/bike-fit',{
@@ -3642,9 +3644,10 @@ Seja específico com medidas (cm) e explique o porquê de cada ajuste. Responda 
     result.style.display='block';
     result.innerHTML=`
       <div style="background:var(--surface);border:1px solid var(--border);border-top:3px solid var(--accent);padding:20px;border-radius:4px">
-        <div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:14px">ANÁLISE BIKE FIT</div>
-        <div style="font-family:var(--font-body);font-size:13px;line-height:1.7;color:var(--text);white-space:pre-wrap">${text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+        <div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:20px">ANALISE BIKE FIT</div>
+        <div id="bf-result-text" style="font-family:var(--font-body);font-size:14px;line-height:1.8;color:var(--text)"></div>
       </div>`;
+    renderBikeFitText(document.getElementById('bf-result-text'),text);
   }catch(e){
     result.style.display='block';
     result.innerHTML=`<div style="color:#e05c2a;font-family:var(--font-ui);font-size:12px">Erro na análise. Tente novamente.</div>`;
@@ -4992,6 +4995,32 @@ function renderPlanSummary(el,profile,text){
 function closePlanSummary(){
   document.getElementById('view-plan-summary').classList.remove('active');
   renderHoje();
+}
+
+
+function renderBikeFitText(el, text){
+  const clean = text
+    .replace(/#{1,3}\s*/g,'')
+    .replace(/\*\*/g,'')
+    .replace(/\*/g,'')
+    .replace(/`/g,'')
+    .replace(/\|[-| :]+\|/g,'')
+    .replace(/\|/g,' ');
+
+  const lines = clean.split('\n');
+  let html = '';
+  lines.forEach(function(line){
+    const t = line.trim();
+    if(!t){ html += '<div style="height:10px"></div>'; return; }
+    if(/^[A-ZÀ-Ü][A-ZÀ-Ü\s\.0-9]{3,}:$/.test(t)){
+      html += '<div style="font-family:var(--font-ui);font-size:11px;color:var(--accent);letter-spacing:2px;margin:20px 0 10px;padding-top:14px;border-top:1px solid var(--border)">'+t.replace(':','')+'</div>';
+    } else if(t.charAt(0)==='-'){
+      html += '<div style="padding-left:14px;margin-bottom:6px;color:var(--muted2);border-left:2px solid var(--border);padding-left:12px;margin-left:4px">'+t.substring(1).trim()+'</div>';
+    } else {
+      html += '<div style="margin-bottom:6px">'+t+'</div>';
+    }
+  });
+  el.innerHTML = html;
 }
 
 // Init GPS on load
