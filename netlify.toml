@@ -1,5 +1,11 @@
 [build]
   functions = "netlify/functions"
 
-[functions.timeout]
-  default = 26
+[functions]
+  node_bundler = "esbuild"
+
+[functions."bike-fit"]
+  timeout = 26
+
+[functions."plan-summary"]
+  timeout = 26
