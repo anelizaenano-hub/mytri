@@ -4079,6 +4079,20 @@ function detectGPSLocation(){
 }
 
 // ── PERFIL CENTRAL ──
+async function syncProfileFromSupabase(){
+  try{
+    const remote=await sbGet('mytri_profile');
+    if(remote&&Object.keys(remote).length>0){
+      const local=JSON.parse(localStorage.getItem('mytri_profile')||'{}');
+      // Only overwrite if remote has more data
+      if(Object.keys(remote).length>=Object.keys(local).length){
+        localStorage.setItem('mytri_profile',JSON.stringify(remote));
+        refreshHoje();
+      }
+    }
+  }catch(e){}
+}
+
 function getMytriProfile(){
   const stravaTokens=JSON.parse(localStorage.getItem('strava_tokens')||'{}');
   const athlete=stravaTokens.athlete||{};
@@ -4101,6 +4115,8 @@ function getMytriProfile(){
 
 function saveMytriProfile(data){
   localStorage.setItem('mytri_profile',JSON.stringify(data));
+  // Sync to Supabase
+  sbSet('mytri_profile',data).catch(()=>{});
   // Sync to club profile too
   if(clubState.myProfile){
     clubState.myProfile={...clubState.myProfile,...data};
@@ -4980,6 +4996,7 @@ function closePlanSummary(){
 
 // Init GPS on load
 detectGPSLocation();
+syncProfileFromSupabase();
 checkOnboarding();
 </script>
 </body>
