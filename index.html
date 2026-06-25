@@ -4092,25 +4092,35 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
 // ── GPS LOCATION ──
 function detectGPSLocation(){
   if(!navigator.geolocation)return;
-  // Limpa cidades inválidas herdadas do Strava
+  // Limpa cidades inválidas do perfil salvo (localStorage + Supabase)
   try{
     const saved=JSON.parse(localStorage.getItem('mytri_profile')||'{}');
-    const badCities=['Centro, Brazil','Centro','Brazil','Brasil'];
-    if(saved.city&&badCities.some(b=>saved.city===b||saved.city.startsWith('Centro,'))){
+    const isInvalid=c=>!c||c==='Centro, Brazil'||c==='Centro'||c==='Brazil'||c==='Brasil'||c.startsWith('Centro,');
+    if(isInvalid(saved.city)){
       delete saved.city;
       localStorage.setItem('mytri_profile',JSON.stringify(saved));
+      sbSet('mytri_profile',saved).catch(()=>{});
     }
   }catch(e){}
   navigator.geolocation.getCurrentPosition(async pos=>{
     try{
-      const r=await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&format=json`);
+      const r=await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&format=json&accept-language=pt-BR`);
       const d=await r.json();
-      const suburb=d.address?.suburb||d.address?.neighbourhood||d.address?.quarter||'';
+      const suburb=d.address?.suburb||d.address?.neighbourhood||d.address?.quarter||d.address?.city_district||'';
       const city=d.address?.city||d.address?.town||d.address?.municipality||'';
       const state=d.address?.state||'';
       const loc=suburb&&city?`${suburb}, ${city}`:city&&state?`${city} — ${state}`:city||state||'';
       if(loc){
         localStorage.setItem('mytri_gps_city',loc);
+        // Salva no perfil e no Supabase para não perder
+        try{
+          const saved=JSON.parse(localStorage.getItem('mytri_profile')||'{}');
+          if(!saved.city){
+            saved.city=loc;
+            localStorage.setItem('mytri_profile',JSON.stringify(saved));
+            sbSet('mytri_profile',saved).catch(()=>{});
+          }
+        }catch(e){}
         refreshHoje();
       }
     }catch(e){}
