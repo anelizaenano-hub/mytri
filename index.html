@@ -4103,30 +4103,39 @@ async function resetCity(){
   await detectGPSLocation(true);
 }
 
-async function detectGPSLocation(force){
-  // Tenta IP geolocation primeiro (funciona sem permissão e sem bloqueio)
+function detectGPSLocation(force){
+  if(!navigator.geolocation)return;
+  const isInvalid=c=>!c||c==='Centro, Brazil'||c==='Centro'||c==='Brazil'||c==='Brasil'||c.startsWith('Centro,');
+  // Limpa cidade inválida do perfil salvo
   try{
-    const r=await fetch('https://ipapi.co/json/');
-    const d=await r.json();
-    if(d&&d.city&&d.city!=='Centro'){
-      const loc=d.district?`${d.district}, ${d.city}`:`${d.city} — ${d.region_code||d.region||''}`;
-      const clean=loc.trim().replace(/\s*—\s*$/,'');
-      if(clean){
-        // Limpa cidade inválida do perfil salvo
+    const saved=JSON.parse(localStorage.getItem('mytri_profile')||'{}');
+    if(isInvalid(saved.city)){
+      delete saved.city;
+      localStorage.setItem('mytri_profile',JSON.stringify(saved));
+      sbSet('mytri_profile',saved).catch(()=>{});
+    }
+  }catch(e){}
+
+  navigator.geolocation.getCurrentPosition(async pos=>{
+    try{
+      const {latitude:lat,longitude:lon}=pos.coords;
+      const r=await fetch(`/.netlify/functions/geocode?lat=${lat}&lon=${lon}`);
+      const d=await r.json();
+      const loc=d.loc||'';
+      if(loc){
+        localStorage.setItem('mytri_gps_city',loc);
         const saved=JSON.parse(localStorage.getItem('mytri_profile')||'{}');
-        const isInvalid=c=>!c||c==='Centro, Brazil'||c==='Centro'||c==='Brazil'||c==='Brasil'||c.startsWith('Centro,');
         if(force||isInvalid(saved.city)){
-          saved.city=clean;
+          saved.city=loc;
           localStorage.setItem('mytri_profile',JSON.stringify(saved));
-          localStorage.setItem('mytri_gps_city',clean);
           sbSet('mytri_profile',saved).catch(()=>{});
           const el=document.getElementById('profile-city-display');
-          if(el)el.textContent=clean;
+          if(el)el.textContent=loc;
           refreshHoje();
         }
       }
-    }
-  }catch(e){}
+    }catch(e){}
+  },{timeout:10000,enableHighAccuracy:true});
 }
 
 // ── PERFIL CENTRAL ──
