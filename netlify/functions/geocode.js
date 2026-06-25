@@ -5,10 +5,10 @@ exports.handler = async (event) => {
   if (!lat || !lon) return { statusCode: 400, body: 'Missing lat/lon' };
 
   return new Promise((resolve) => {
-    const url = `/reverse?lat=${lat}&lon=${lon}&format=json&accept-language=pt-BR`;
+    const path = `/reverse?lat=${lat}&lon=${lon}&format=json&accept-language=pt-BR&zoom=16&addressdetails=1`;
     const req = https.request({
       hostname: 'nominatim.openstreetmap.org',
-      path: url,
+      path,
       method: 'GET',
       headers: {
         'User-Agent': 'MyTri-App/1.0 (nano-tri-v2.netlify.app)',
@@ -20,21 +20,26 @@ exports.handler = async (event) => {
       res.on('end', () => {
         try {
           const d = JSON.parse(data);
-          const suburb = d.address?.suburb || d.address?.neighbourhood || d.address?.quarter || d.address?.city_district || '';
-          const city = d.address?.city || d.address?.town || d.address?.municipality || '';
-          const state = d.address?.state || '';
-          const loc = suburb && city ? `${suburb}, ${city}` : city && state ? `${city} — ${state}` : city || state || '';
+          const a = d.address || {};
+          // Tenta todos os campos possíveis de bairro no OSM Brasil
+          const bairro = a.suburb || a.neighbourhood || a.quarter || a.city_district || a.district || a.borough || '';
+          const cidade = a.city || a.town || a.municipality || a.county || '';
+          const estado = a.state_code || (a.state ? a.state.replace('Estado de ','').replace('Estado do ','') : '') || '';
+          let loc = '';
+          if (bairro && cidade) loc = `${bairro}, ${cidade}`;
+          else if (cidade && estado) loc = `${cidade} — ${estado}`;
+          else loc = cidade || bairro || '';
           resolve({
             statusCode: 200,
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ loc })
+            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+            body: JSON.stringify({ loc, debug: { bairro, cidade, estado, raw: a } })
           });
-        } catch {
-          resolve({ statusCode: 500, body: JSON.stringify({ loc: '' }) });
+        } catch(e) {
+          resolve({ statusCode: 500, body: JSON.stringify({ loc: '', error: e.message }) });
         }
       });
     });
-    req.on('error', () => resolve({ statusCode: 500, body: JSON.stringify({ loc: '' }) }));
+    req.on('error', (e) => resolve({ statusCode: 500, body: JSON.stringify({ loc: '', error: e.message }) }));
     req.end();
   });
 };
