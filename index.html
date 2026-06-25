@@ -4092,22 +4092,29 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
 // ── GPS LOCATION ──
 function detectGPSLocation(){
   if(!navigator.geolocation)return;
+  // Limpa cidades inválidas herdadas do Strava
+  try{
+    const saved=JSON.parse(localStorage.getItem('mytri_profile')||'{}');
+    const badCities=['Centro, Brazil','Centro','Brazil','Brasil'];
+    if(saved.city&&badCities.some(b=>saved.city===b||saved.city.startsWith('Centro,'))){
+      delete saved.city;
+      localStorage.setItem('mytri_profile',JSON.stringify(saved));
+    }
+  }catch(e){}
   navigator.geolocation.getCurrentPosition(async pos=>{
     try{
       const r=await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&format=json`);
       const d=await r.json();
       const suburb=d.address?.suburb||d.address?.neighbourhood||d.address?.quarter||'';
       const city=d.address?.city||d.address?.town||d.address?.municipality||'';
-      const state=d.address?.state_district||d.address?.state||'';
-      const loc=suburb&&city?`${suburb}, ${city}`:city&&state?`${city}, ${state}`:city||state||'';
+      const state=d.address?.state||'';
+      const loc=suburb&&city?`${suburb}, ${city}`:city&&state?`${city} — ${state}`:city||state||'';
       if(loc){
         localStorage.setItem('mytri_gps_city',loc);
-        // Update profile card if visible
-        const saved=JSON.parse(localStorage.getItem('mytri_profile')||'{}');
-        if(!saved.city){refreshHoje();}
+        refreshHoje();
       }
     }catch(e){}
-  },{timeout:8000});
+  },{timeout:10000,enableHighAccuracy:true});
 }
 
 // ── PERFIL CENTRAL ──
@@ -4130,11 +4137,12 @@ function getMytriProfile(){
   const athlete=stravaTokens.athlete||{};
   const saved=JSON.parse(localStorage.getItem('mytri_profile')||'{}');
   const gpsCity=localStorage.getItem('mytri_gps_city')||'';
-  // Strava athlete.city is often a neighborhood or generic — deprioritize
-  const stravaCity=athlete.city&&athlete.city!=='Centro'&&athlete.city.length>3?athlete.city:'';
+  const badCities=['Centro, Brazil','Centro','Brazil','Brasil'];
+  const savedCity=saved.city&&!badCities.some(b=>saved.city===b||saved.city.startsWith('Centro,'))?saved.city:'';
+  const stravaCity=athlete.city&&!badCities.some(b=>athlete.city===b||athlete.city.startsWith('Centro'))&&athlete.city.length>3?athlete.city:'';
   return {
     name:saved.name||(athlete.firstname&&athlete.lastname?`${athlete.firstname} ${athlete.lastname}`:''),
-    city:saved.city||gpsCity||stravaCity||'',
+    city:savedCity||gpsCity||stravaCity||'',
     photo:saved.photo||athlete.profile||athlete.profile_medium||'',
     weight:saved.weight||athlete.weight||'',
     age:saved.age||'',
