@@ -4125,7 +4125,7 @@ function detectGPSLocation(force){
       if(loc){
         localStorage.setItem('mytri_gps_city',loc);
         const saved=JSON.parse(localStorage.getItem('mytri_profile')||'{}');
-        if(force||isInvalid(saved.city)){
+        if(force||isInvalid(saved.city)||saved.city!==loc){
           saved.city=loc;
           localStorage.setItem('mytri_profile',JSON.stringify(saved));
           sbSet('mytri_profile',saved).catch(()=>{});
