@@ -2682,8 +2682,8 @@ function renderConquistas(){
     const item=document.createElement('div');item.className='badge-item';
     item.innerHTML=`
       <div class="badge-icon ${unlocked?'unlocked':'locked'}" style="background:${unlocked?b.color+'22':'var(--surface2)'};border:2px solid ${unlocked?b.color:'var(--border)'}">
-        ${b.icon}
-        ${unlocked?`<div style="position:absolute;bottom:-2px;right:-2px;background:var(--accent);border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:10px">✓</div>`:''}
+        <div style="width:28px;height:28px;color:${unlocked?b.color:'var(--muted)'}">${b.icon}</div>
+        ${unlocked?`<div style="position:absolute;bottom:-2px;right:-2px;background:var(--accent);border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:10px;color:#000;font-weight:900">&#10003;</div>`:''}
       </div>
       <div class="badge-name ${unlocked?'unlocked':''}">${b.label}</div>`;
     if(!unlocked)item.style.opacity='.5';
@@ -3687,14 +3687,14 @@ IMPORTANTE: Responda em texto limpo, sem markdown, sem asteriscos, sem hashtags,
 // ── CLUB — TURMA DA MEIA AZUL ──
 
 const CLUB_PROFILES=[
-  {id:1,name:'Camila Rocha',age:34,city:'São Paulo SP',photo:'https://randomuser.me/api/portraits/women/44.jpg',pace:'5:45/km',ftp:'180w',swim:'1:45/100m',nextRace:'Sprint Guarujá — Set/26',bio:'Triatleta há 3 anos, amo treinar cedo. Procuro alguém pra treinar junto e quem sabe ir pra próxima prova.',tags:['Sprint','Z2 lover','Madrugadora']},
-  {id:2,name:'Rafael Lima',age:38,city:'Campinas SP',photo:'https://randomuser.me/api/portraits/men/32.jpg',pace:'5:10/km',ftp:'240w',swim:'1:30/100m',nextRace:'Olímpico Floripa — Nov/26',bio:'Ex-corredor migrando pro tri. Forte no bike, fraco na natação. Busco companhia pra treinos longos.',tags:['Olímpico','Ciclista','Fim de semana']},
-  {id:3,name:'Juliana Matos',age:29,city:'Rio de Janeiro RJ',photo:'https://randomuser.me/api/portraits/women/68.jpg',pace:'6:00/km',ftp:'155w',swim:'2:00/100m',nextRace:'Sprint Rio — Out/26',bio:'Iniciante no tri, ex-nadadora. Treino 5x/semana e levando muito a sério. Procuro parceiro de treino e de vida.',tags:['Natação forte','Iniciante','Determinada']},
-  {id:4,name:'Thiago Mendes',age:41,city:'Belo Horizonte MG',photo:'https://randomuser.me/api/portraits/men/55.jpg',pace:'5:30/km',ftp:'260w',swim:'1:40/100m',nextRace:'70.3 Brasília — Mar/27',bio:'Médico, treino nas horas vagas. Já fiz 3 sprints e um olímpico. Sonho é fazer um 70.3.',tags:['70.3 goal','Consistente','BH']},
-  {id:5,name:'Fernanda Costa',age:36,city:'Curitiba PR',photo:'https://randomuser.me/api/portraits/women/22.jpg',pace:'5:50/km',ftp:'190w',swim:'1:50/100m',nextRace:'Sprint Curitiba — Ago/26',bio:'Professora de educação física. O tri mudou minha vida. Quero encontrar alguém que entenda esse estilo de vida.',tags:['Coach','Sprint','Sul']},
-  {id:6,name:'Bruno Alves',age:33,city:'Porto Alegre RS',photo:'https://randomuser.me/api/portraits/men/77.jpg',pace:'4:55/km',ftp:'290w',swim:'1:25/100m',nextRace:'Olímpico POA — Set/26',bio:'Engenheiro e triatleta competitivo. Já fui ao pódio no meu AG. Busco alguém com a mesma intensidade.',tags:['Competitivo','AG Pódio','RS']},
-  {id:7,name:'Mariana Souza',age:31,city:'São Paulo SP',photo:'https://randomuser.me/api/portraits/women/55.jpg',pace:'6:10/km',ftp:'160w',swim:'1:55/100m',nextRace:'Sprint Guarujá — Set/26',bio:'Publicitária, triatleta nas horas vagas. Mesma prova que você talvez? Se sim, já temos um date marcado.',tags:['SP','Sprint Guarujá','Criativa']},
-  {id:8,name:'Eduardo Nunes',age:44,city:'Salvador BA',photo:'https://randomuser.me/api/portraits/men/43.jpg',pace:'5:40/km',ftp:'220w',swim:'1:45/100m',nextRace:'Sprint Salvador — Jul/26',bio:'Divorciado, pai de dois, triatleta apaixonado. O esporte me salvou. Quero dividir isso com alguém especial.',tags:['Pai coruja','Resistente','BA']},
+  {id:1,name:'Camila Rocha',age:34,city:'São Paulo SP',gender:'F',photo:'https://randomuser.me/api/portraits/women/44.jpg',pace:'5:45/km',ftp:'180w',swim:'1:45/100m',nextRace:'Sprint Guarujá — Set/26',bio:'Triatleta há 3 anos, amo treinar cedo. Procuro alguém pra treinar junto e quem sabe ir pra próxima prova.',tags:['Sprint','Z2 lover','Madrugadora']},
+  {id:2,name:'Rafael Lima',age:38,city:'Campinas SP',gender:'M',photo:'https://randomuser.me/api/portraits/men/32.jpg',pace:'5:10/km',ftp:'240w',swim:'1:30/100m',nextRace:'Olímpico Floripa — Nov/26',bio:'Ex-corredor migrando pro tri. Forte no bike, fraco na natação. Busco companhia pra treinos longos.',tags:['Olímpico','Ciclista','Fim de semana']},
+  {id:3,name:'Juliana Matos',age:29,city:'Rio de Janeiro RJ',gender:'F',photo:'https://randomuser.me/api/portraits/women/68.jpg',pace:'6:00/km',ftp:'155w',swim:'2:00/100m',nextRace:'Sprint Rio — Out/26',bio:'Iniciante no tri, ex-nadadora. Treino 5x/semana e levando muito a sério. Procuro parceiro de treino e de vida.',tags:['Natação forte','Iniciante','Determinada']},
+  {id:4,name:'Thiago Mendes',age:41,city:'Belo Horizonte MG',gender:'M',photo:'https://randomuser.me/api/portraits/men/55.jpg',pace:'5:30/km',ftp:'260w',swim:'1:40/100m',nextRace:'70.3 Brasília — Mar/27',bio:'Médico, treino nas horas vagas. Já fiz 3 sprints e um olímpico. Sonho é fazer um 70.3.',tags:['70.3 goal','Consistente','BH']},
+  {id:5,name:'Fernanda Costa',age:36,city:'Curitiba PR',gender:'F',photo:'https://randomuser.me/api/portraits/women/22.jpg',pace:'5:50/km',ftp:'190w',swim:'1:50/100m',nextRace:'Sprint Curitiba — Ago/26',bio:'Professora de educação física. O tri mudou minha vida. Quero encontrar alguém que entenda esse estilo de vida.',tags:['Coach','Sprint','Sul']},
+  {id:6,name:'Bruno Alves',age:33,city:'Porto Alegre RS',gender:'M',photo:'https://randomuser.me/api/portraits/men/77.jpg',pace:'4:55/km',ftp:'290w',swim:'1:25/100m',nextRace:'Olímpico POA — Set/26',bio:'Engenheiro e triatleta competitivo. Já fui ao pódio no meu AG. Busco alguém com a mesma intensidade.',tags:['Competitivo','AG Pódio','RS']},
+  {id:7,name:'Mariana Souza',age:31,city:'São Paulo SP',gender:'F',photo:'https://randomuser.me/api/portraits/women/55.jpg',pace:'6:10/km',ftp:'160w',swim:'1:55/100m',nextRace:'Sprint Guarujá — Set/26',bio:'Publicitária, triatleta nas horas vagas. Mesma prova que você talvez? Se sim, já temos um date marcado.',tags:['SP','Sprint Guarujá','Criativa']},
+  {id:8,name:'Eduardo Nunes',age:44,city:'Salvador BA',gender:'M',photo:'https://randomuser.me/api/portraits/men/43.jpg',pace:'5:40/km',ftp:'220w',swim:'1:45/100m',nextRace:'Sprint Salvador — Jul/26',bio:'Divorciado, pai de dois, triatleta apaixonado. O esporte me salvou. Quero dividir isso com alguém especial.',tags:['Pai coruja','Resistente','BA']},
 ];
 
 let clubState={
@@ -3873,7 +3873,8 @@ function submitClubOnboard(){
 }
 
 function renderClubSwipe(c){
-  const available=CLUB_PROFILES.filter(p=>!clubState.liked.includes(p.id)&&!clubState.passed.includes(p.id));
+  const _busca=clubState.myProfile?.busca||getMytriProfile().busca||'A';
+  const available=CLUB_PROFILES.filter(p=>!clubState.liked.includes(p.id)&&!clubState.passed.includes(p.id)&&(_busca==='A'||p.gender===_busca));
   const p=available[0];
 
   // Header
@@ -3995,7 +3996,8 @@ function renderClubSwipe(c){
 }
 
 function clubAction(action){
-  const available=CLUB_PROFILES.filter(p=>!clubState.liked.includes(p.id)&&!clubState.passed.includes(p.id));
+  const _busca=clubState.myProfile?.busca||getMytriProfile().busca||'A';
+  const available=CLUB_PROFILES.filter(p=>!clubState.liked.includes(p.id)&&!clubState.passed.includes(p.id)&&(_busca==='A'||p.gender===_busca));
   const p=available[0];
   if(!p)return;
 
@@ -4127,9 +4129,12 @@ function getMytriProfile(){
   const stravaTokens=JSON.parse(localStorage.getItem('strava_tokens')||'{}');
   const athlete=stravaTokens.athlete||{};
   const saved=JSON.parse(localStorage.getItem('mytri_profile')||'{}');
+  const gpsCity=localStorage.getItem('mytri_gps_city')||'';
+  // Strava athlete.city is often a neighborhood or generic — deprioritize
+  const stravaCity=athlete.city&&athlete.city!=='Centro'&&athlete.city.length>3?athlete.city:'';
   return {
     name:saved.name||(athlete.firstname&&athlete.lastname?`${athlete.firstname} ${athlete.lastname}`:''),
-    city:saved.city||localStorage.getItem('mytri_gps_city')||(athlete.city&&athlete.country?`${athlete.city}, ${athlete.country}`:athlete.city||''),
+    city:saved.city||gpsCity||stravaCity||'',
     photo:saved.photo||athlete.profile||athlete.profile_medium||'',
     weight:saved.weight||athlete.weight||'',
     age:saved.age||'',
@@ -4379,18 +4384,30 @@ function submitProfile(){
 
 // ── BADGES ──
 const BADGES=[
-  {id:'primeiro_treino',icon:'🏃',label:'Primeiro Treino',desc:'Completou a primeira sessao',color:'#00e676',check:()=>Object.values(loadOverrides()).some(o=>o.stravaData)},
-  {id:'primeira_natacao',icon:'🏊',label:'Primeiro Nado',desc:'Primeira sessao de natacao',color:'#1a6cf0',check:()=>Object.values(loadOverrides()).some(o=>o.stravaData&&o.type==='swim'||false)},
-  {id:'primeiro_brick',icon:'🧱',label:'Brick Warrior',desc:'Completou um treino brick',color:'#f0a500',check:()=>{
+  {id:'primeiro_treino',
+   icon:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2"/><path d="M12 22V12m0 0l-3 4m3-4l3 4"/><path d="M9 8l-4 3m10-3l4 3"/></svg>`,
+   label:'Primeiro Treino',desc:'Completou a primeira sessao',color:'#00e676',
+   check:()=>Object.values(loadOverrides()).some(o=>o.stravaData)},
+  {id:'primeira_natacao',
+   icon:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><path d="M2 17c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><circle cx="12" cy="6" r="2"/><path d="M12 8v4"/></svg>`,
+   label:'Primeiro Nado',desc:'Primeira sessao de natacao',color:'#1a6cf0',
+   check:()=>Object.values(loadOverrides()).some(o=>o.stravaData&&o.type==='swim')},
+  {id:'primeiro_brick',
+   icon:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="7" height="5" rx="1"/><rect x="14" y="11" width="7" height="5" rx="1"/><path d="M10 13.5h4"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/><path d="M12 8V6m-3 2V5m6 3V5"/></svg>`,
+   label:'Brick Warrior',desc:'Completou um treino brick',color:'#f0a500',
+   check:()=>{
     const ovs=loadOverrides();
     return Object.keys(ovs).some(k=>{
-      const parts=k.split('-');if(parts.length<2)return false;
+      const parts=k.split('_');if(parts.length<3)return false;
       const [w,d]=parts;
       const sessions=getEffectiveSessions(parseInt(w),parseInt(d));
       return sessions.some(s=>s.type===BRICK&&ovs[k]&&ovs[k].stravaData);
     });
   }},
-  {id:'semana_completa',icon:'⭐',label:'Semana Perfeita',desc:'7 dias de treino consecutivos',color:'#f0a500',check:()=>{
+  {id:'semana_completa',
+   icon:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`,
+   label:'Semana Perfeita',desc:'5 ou mais treinos numa semana',color:'#f0a500',
+   check:()=>{
     const ovs=loadOverrides();
     for(let w=1;w<=16;w++){
       let count=0;
@@ -4408,29 +4425,45 @@ const BADGES=[
     }
     return false;
   }},
-  {id:'bike_100',icon:'🚴',label:'Centuriao',desc:'100km de bike acumulados',color:'#e05c2a',check:()=>{
-    let total=0;
-    const ovs=loadOverrides();
+  {id:'bike_100',
+   icon:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="18.5" cy="17.5" r="3.5"/><path d="M15 6h-4l-1.5 5.5M8 17.5l2.5-6.5 2 3h5"/><circle cx="17" cy="6" r="1"/></svg>`,
+   label:'Centuriao',desc:'100km de bike acumulados',color:'#e05c2a',
+   check:()=>{
+    let total=0;const ovs=loadOverrides();
     Object.values(ovs).forEach(o=>{if(o.stravaDist&&o.type==='bike')total+=parseFloat(o.stravaDist)||0;});
     return total>=100;
   }},
-  {id:'run_50',icon:'👟',label:'Corredao',desc:'50km de corrida acumulados',color:'#00e676',check:()=>{
-    let total=0;
-    const ovs=loadOverrides();
+  {id:'run_50',
+   icon:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 4a1 1 0 1 0 2 0 1 1 0 0 0-2 0"/><path d="M7.5 19l2-4.5 2.5 2 2-4.5 3 5"/><path d="M6 12l2-3 3 1 2-4"/></svg>`,
+   label:'Corredao',desc:'50km de corrida acumulados',color:'#00e676',
+   check:()=>{
+    let total=0;const ovs=loadOverrides();
     Object.values(ovs).forEach(o=>{if(o.stravaDist&&o.type==='run')total+=parseFloat(o.stravaDist)||0;});
     return total>=50;
   }},
-  {id:'swim_10',icon:'🌊',label:'Peixao',desc:'10km de nado acumulados',color:'#1a6cf0',check:()=>{
-    let total=0;
-    const ovs=loadOverrides();
-    Object.values(ovs).forEach(o=>{if(o.stravaDist)total+=parseFloat(o.stravaDist)||0;});
-    // swim dist is in meters stored as km
+  {id:'swim_10',
+   icon:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><path d="M2 7c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><path d="M2 17c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/></svg>`,
+   label:'Peixao',desc:'10km de nado acumulados',color:'#1a6cf0',
+   check:()=>{
+    let total=0;const ovs=loadOverrides();
+    Object.values(ovs).forEach(o=>{
+      if(o.stravaDist&&o.type==='swim'){
+        const v=parseFloat(o.stravaDist)||0;
+        // stravaDist pode vir em metros (ex: "750m") ou km (ex: "0.75km")
+        total+= o.stravaDist&&String(o.stravaDist).endsWith('m')&&!String(o.stravaDist).endsWith('km') ? v/1000 : v;
+      }
+    });
     return total>=10;
   }},
-  {id:'madrugador',icon:'🌅',label:'Madrugador',desc:'Treinou antes das 6h da manha',color:'#9b6af0',check:()=>false}, // manual unlock
-  {id:'ironheart',icon:'💪',label:'IronHeart',desc:'Completou o plano de 16 semanas',color:'#f0a500',check:()=>{
-    const ovs=loadOverrides();
-    let done=0,total=0;
+  {id:'madrugador',
+   icon:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`,
+   label:'Madrugador',desc:'Treinou antes das 6h da manha',color:'#9b6af0',
+   check:()=>false},
+  {id:'ironheart',
+   icon:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>`,
+   label:'IronHeart',desc:'Completou 80% do plano de 16 semanas',color:'#e05c2a',
+   check:()=>{
+    const ovs=loadOverrides();let done=0,total=0;
     for(let w=1;w<=16;w++)for(let d=0;d<7;d++){
       const s=getEffectiveSessions(w,d);
       s.forEach(sess=>{if(sess.type!==REST){total++;if(sess._origin==='plan'){const ov=getOverride(w,d,sess._si);if(ov&&ov.stravaData)done++;}}});
@@ -4491,10 +4524,10 @@ const PROVAS_BR_2026 = [
 
 const SPORT_INFO={
   'triathlon':{label:'Triathlon',sub:'Nado + Bike + Corrida',color:'#1a6cf0',img:'https://images.unsplash.com/photo-1658748721978-68fc04f3739b?w=800&q=85&auto=format&fit=crop'},
-  'corrida':{label:'Corrida',sub:'Road Running & Trail',color:'#00e676',img:'https://images.unsplash.com/photo-1571008887538-b36bb32f4571?w=800&q=85&auto=format&fit=crop'},
-  'ciclismo':{label:'Ciclismo',sub:'Road & MTB',color:'#e05c2a',img:'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800&q=85&auto=format&fit=crop'},
-  'natacao':{label:'Natacao',sub:'Piscina & Aguas Abertas',color:'#00bcd4',img:'https://images.unsplash.com/photo-1560073743-1d4b5a64e51c?w=800&q=85&auto=format&fit=crop'},
-  'duathlon':{label:'Duathlon',sub:'Corrida + Bike + Corrida',color:'#f0a500',img:'https://images.unsplash.com/photo-1530549387789-4c1017266635?w=800&q=85&auto=format&fit=crop'},
+  'corrida':{label:'Corrida',sub:'Road Running & Trail',color:'#00e676',img:'https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=800&q=85&auto=format&fit=crop'},
+  'ciclismo':{label:'Ciclismo',sub:'Road & MTB',color:'#e05c2a',img:'https://images.unsplash.com/photo-1541625602330-2277a4c46182?w=800&q=85&auto=format&fit=crop'},
+  'natacao':{label:'Natacao',sub:'Piscina & Aguas Abertas',color:'#00bcd4',img:'https://images.unsplash.com/photo-1519315901367-f34ff9154487?w=800&q=85&auto=format&fit=crop'},
+  'duathlon':{label:'Duathlon',sub:'Corrida + Bike + Corrida',color:'#f0a500',img:'https://images.unsplash.com/photo-1571008887538-b36bb32f4571?w=800&q=85&auto=format&fit=crop'},
 };
 
 const DIST_INFO={
@@ -5067,23 +5100,49 @@ function renderPlanSummary(el,profile,text){
     'olimpico':'Olimpico',
     'half':'Half Ironman 70.3',
     'full':'Ironman Full'
-  }[profile.raceDist]||'Sprint';
+  }[profile.raceDist||profile.distancia]||'Sprint';
 
   const daysToRace=profile.raceDate?Math.max(0,Math.round((new Date(profile.raceDate+'T12:00:00')-new Date())/(1000*60*60*24))):'?';
 
-  // Parse sections from Claude response
-  function extractSection(title){
-    const escaped=title.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
-    const re=new RegExp(escaped+'[:\\s]*\\n([\\s\\S]*?)(?=\\n[A-ZÁÉÍÓÚÀÂÊÔÃÕ]{3,}|$)','i');
-    const m=text.match(re);
-    return m?m[1].trim():'';
+  // Strip markdown completamente
+  function stripMd(s){
+    if(!s)return '';
+    return s
+      .replace(/#{1,4}\s*/g,'')
+      .replace(/\*\*([^*]+)\*\*/g,'$1')
+      .replace(/\*([^*]+)\*/g,'$1')
+      .replace(/^[-—–]\s*/gm,'')
+      .replace(/\s*—\s*##[^#\n]*/g,'')
+      .replace(/\s*—+\s*/g,' ')
+      .replace(/`/g,'')
+      .trim();
   }
 
-  const visao=extractSection('VISÃO GERAL')||extractSection('VISAO GERAL')||extractSection('VISAO');
-  const critico=extractSection('PONTO CRÍTICO')||extractSection('PONTO CRITICO');
-  const fases=extractSection('FASES DO PLANO');
-  const estrategia=extractSection('ESTRATÉGIA DE PROVA')||extractSection('ESTRATEGIA DE PROVA');
-  const mensagem=extractSection('MENSAGEM DO COACH');
+  // Parse sections — suporta formatos variados do Haiku
+  function extractSection(titles){
+    const t=titles instanceof Array?titles:[titles];
+    for(const title of t){
+      const escaped=title.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+      // Tenta com ** ao redor também
+      const variants=[escaped,'\\*\\*'+escaped+'\\*\\*'];
+      for(const v of variants){
+        const re=new RegExp('(?:'+v+')[:\\s]*\\n([\\s\\S]*?)(?=\\n(?:\\*\\*)?[A-ZÁÉÍÓÚÀÂÊÔÃÕ]{3}|$)','i');
+        const m=text.match(re);
+        if(m&&m[1].trim())return stripMd(m[1]);
+      }
+    }
+    return '';
+  }
+
+  const visao=extractSection(['VISÃO GERAL','VISAO GERAL','VISAO']);
+  const critico=extractSection(['PONTO CRÍTICO','PONTO CRITICO']);
+  const fases=extractSection(['FASES DO PLANO','FASES']);
+  const estrategia=extractSection(['ESTRATÉGIA DE PROVA','ESTRATEGIA DE PROVA','ESTRATEGIA']);
+  const mensagem=extractSection(['MENSAGEM DO COACH','MENSAGEM']);
+
+  // Se parsing falhou (texto existe mas seções não extraíram), exibe o texto limpo inteiro
+  const anySection=visao||critico||fases||estrategia||mensagem;
+  const fallbackText=!anySection&&text?stripMd(text):'';
 
   el.innerHTML=`
     <div style="padding:52px 20px 16px;border-bottom:1px solid var(--border);background:var(--surface)">
@@ -5097,7 +5156,7 @@ function renderPlanSummary(el,profile,text){
         <div style="width:1px;background:var(--border)"></div>
         <div style="text-align:center">
           <div style="font-family:var(--font-display);font-size:32px;color:var(--text)">${dist}</div>
-          <div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px">DISTÂNCIA</div>
+          <div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px">DISTANCIA</div>
         </div>
         ${profile.goalTime?`<div style="width:1px;background:var(--border)"></div>
         <div style="text-align:center">
@@ -5107,40 +5166,37 @@ function renderPlanSummary(el,profile,text){
       </div>
     </div>
 
-    ${text?`
+    ${anySection?`
     ${visao?`<div class="plan-section">
-      <div class="plan-section-title">Visão Geral</div>
+      <div class="plan-section-title">VISAO GERAL</div>
       <div class="plan-section-body">${visao}</div>
     </div>`:''}
-
     ${critico?`<div class="plan-section">
-      <div class="plan-section-title">Ponto Crítico</div>
+      <div class="plan-section-title">PONTO CRITICO</div>
       <div class="plan-section-body">${critico}</div>
     </div>`:''}
-
     ${fases?`<div class="plan-section">
-      <div class="plan-section-title">Fases do Plano</div>
+      <div class="plan-section-title">FASES DO PLANO</div>
       <div style="margin-top:4px">
-        ${fases.split('\n').filter(l=>l.trim()).map(l=>`
+        ${fases.split('\n').filter(l=>l.trim().length>2).map(l=>`
           <div class="plan-phase">
             <div class="plan-phase-dot"></div>
-            <div class="plan-section-body" style="margin:0">${l.replace(/^[-•*]\s*/,'')}</div>
+            <div class="plan-section-body" style="margin:0">${l.trim()}</div>
           </div>`).join('')}
       </div>
     </div>`:''}
-
     ${estrategia?`<div class="plan-section">
-      <div class="plan-section-title">Estratégia de Prova</div>
+      <div class="plan-section-title">ESTRATEGIA DE PROVA</div>
       <div class="plan-section-body">${estrategia}</div>
     </div>`:''}
-
     ${mensagem?`<div class="plan-section" style="padding-bottom:16px">
       <div style="background:rgba(0,230,118,.08);border:1px solid rgba(0,230,118,.2);border-radius:6px;padding:16px;margin-top:8px">
         <div style="font-family:var(--font-ui);font-size:9px;color:var(--accent);letter-spacing:2px;margin-bottom:8px">MENSAGEM DO COACH</div>
-        <div style="font-family:var(--font-body);font-size:14px;color:var(--text);line-height:1.7;font-style:italic">"${mensagem}"</div>
+        <div style="font-family:var(--font-body);font-size:14px;color:var(--text);line-height:1.7">${mensagem}</div>
       </div>
     </div>`:''}
-    `:`<div class="plan-section"><div class="plan-section-body">Plano criado com base no seu perfil. Boa sorte!</div></div>`}
+    `:fallbackText?`<div class="plan-section"><div class="plan-section-body">${fallbackText.split('\n').filter(l=>l.trim()).join('</div><div class="plan-section-body" style="margin-top:10px">')}</div></div>`
+    :`<div class="plan-section"><div class="plan-section-body">Plano criado com base no seu perfil. Boa sorte na prova!</div></div>`}
 
     <div style="padding:20px 20px 40px">
       <button onclick="closePlanSummary()" style="width:100%;padding:18px;background:var(--accent);color:#000;font-family:var(--font-ui);font-size:14px;font-weight:700;letter-spacing:2px;border:none;border-radius:4px;cursor:pointer">ENTRAR NO MYTRI</button>
