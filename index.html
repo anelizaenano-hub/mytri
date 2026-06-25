@@ -4133,7 +4133,14 @@ async function syncProfileFromSupabase(){
     const remote=await sbGet('mytri_profile');
     if(remote&&Object.keys(remote).length>0){
       const local=JSON.parse(localStorage.getItem('mytri_profile')||'{}');
-      // Only overwrite if remote has more data
+      const isInvalidCity=c=>!c||c==='Centro, Brazil'||c==='Centro'||c==='Brazil'||c==='Brasil'||c.startsWith('Centro,');
+      // Preserva cidade local válida contra sobrescrita do Supabase
+      if(isInvalidCity(remote.city)&&!isInvalidCity(local.city)){
+        remote.city=local.city;
+      }
+      if(isInvalidCity(remote.city)){
+        delete remote.city;
+      }
       if(Object.keys(remote).length>=Object.keys(local).length){
         localStorage.setItem('mytri_profile',JSON.stringify(remote));
         refreshHoje();
