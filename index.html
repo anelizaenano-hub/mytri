@@ -4100,13 +4100,12 @@ async function resetCity(){
   }catch(e){}
   const el=document.getElementById('profile-city-display');
   if(el)el.textContent='Detectando...';
-  await detectGPSLocation(true);
+  detectGPSLocation(true);
 }
 
 function detectGPSLocation(force){
   if(!navigator.geolocation)return;
   const isInvalid=c=>!c||c==='Centro, Brazil'||c==='Centro'||c==='Brazil'||c==='Brasil'||c.startsWith('Centro,');
-  // Limpa cidade inválida do perfil salvo
   try{
     const saved=JSON.parse(localStorage.getItem('mytri_profile')||'{}');
     if(isInvalid(saved.city)){
@@ -4115,7 +4114,6 @@ function detectGPSLocation(force){
       sbSet('mytri_profile',saved).catch(()=>{});
     }
   }catch(e){}
-
   navigator.geolocation.getCurrentPosition(async pos=>{
     try{
       const {latitude:lat,longitude:lon}=pos.coords;
@@ -4193,50 +4191,6 @@ function saveMytriProfile(data){
     clubState.myProfile={...clubState.myProfile,...data};
     saveClubState();
   }
-}
-
-async function resetCity(){
-  try{
-    localStorage.removeItem('mytri_gps_city');
-    const saved=JSON.parse(localStorage.getItem('mytri_profile')||'{}');
-    delete saved.city;
-    localStorage.setItem('mytri_profile',JSON.stringify(saved));
-    await sbSet('mytri_profile',saved);
-  }catch(e){}
-  const el=document.getElementById('profile-city-display');
-  if(el)el.textContent='Detectando...';
-
-  navigator.geolocation.getCurrentPosition(async pos=>{
-    const lat=pos.coords.latitude;
-    const lon=pos.coords.longitude;
-    let loc='';
-    try{
-      const ctrl=new AbortController();
-      const tid=setTimeout(()=>ctrl.abort(),6000);
-      const r=await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&accept-language=pt-BR`,{signal:ctrl.signal});
-      clearTimeout(tid);
-      const d=await r.json();
-      const suburb=d.address?.suburb||d.address?.neighbourhood||d.address?.quarter||d.address?.city_district||'';
-      const city=d.address?.city||d.address?.town||d.address?.municipality||'';
-      const state=d.address?.state||'';
-      loc=suburb&&city?`${suburb}, ${city}`:city&&state?`${city} — ${state}`:city||state||'';
-    }catch(e){
-      // Fallback: coordenadas aproximadas para São Paulo
-      if(lat>=-24&&lat<=-23&&lon>=-47&&lon<=-46) loc='São Paulo — SP';
-      else loc=`${lat.toFixed(3)}, ${lon.toFixed(3)}`;
-    }
-    if(loc){
-      localStorage.setItem('mytri_gps_city',loc);
-      try{
-        const saved2=JSON.parse(localStorage.getItem('mytri_profile')||'{}');
-        saved2.city=loc;
-        localStorage.setItem('mytri_profile',JSON.stringify(saved2));
-        await sbSet('mytri_profile',saved2);
-      }catch(e){}
-      if(el)el.textContent=loc;
-      refreshHoje();
-    }
-  },{timeout:10000,enableHighAccuracy:false});
 }
 
 function openProfile(){
