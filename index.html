@@ -4184,6 +4184,40 @@ function saveMytriProfile(data){
   }
 }
 
+async function resetCity(){
+  try{
+    // Limpa cidade do localStorage
+    localStorage.removeItem('mytri_gps_city');
+    const saved=JSON.parse(localStorage.getItem('mytri_profile')||'{}');
+    delete saved.city;
+    localStorage.setItem('mytri_profile',JSON.stringify(saved));
+    // Limpa cidade do Supabase
+    await sbSet('mytri_profile',saved);
+  }catch(e){}
+  const el=document.getElementById('profile-city-display');
+  if(el)el.textContent='Detectando...';
+  // Força GPS
+  navigator.geolocation.getCurrentPosition(async pos=>{
+    try{
+      const r=await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&format=json&accept-language=pt-BR`);
+      const d=await r.json();
+      const suburb=d.address?.suburb||d.address?.neighbourhood||d.address?.quarter||d.address?.city_district||'';
+      const city=d.address?.city||d.address?.town||d.address?.municipality||'';
+      const state=d.address?.state||'';
+      const loc=suburb&&city?`${suburb}, ${city}`:city&&state?`${city} — ${state}`:city||state||'';
+      if(loc){
+        localStorage.setItem('mytri_gps_city',loc);
+        const saved2=JSON.parse(localStorage.getItem('mytri_profile')||'{}');
+        saved2.city=loc;
+        localStorage.setItem('mytri_profile',JSON.stringify(saved2));
+        await sbSet('mytri_profile',saved2);
+        if(el)el.textContent=loc;
+        refreshHoje();
+      }
+    }catch(e){}
+  },{timeout:10000,enableHighAccuracy:true});
+}
+
 function openProfile(){
   const vp=document.getElementById('view-profile');
   vp.classList.add('active');
@@ -4221,7 +4255,8 @@ function renderProfile(){
       </div>`:`<div onclick="addExtraPhoto()" style="margin-top:8px;font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1px;cursor:pointer">+ ADICIONAR FOTOS</div>`}
       <input type="file" id="profile-extra-photo-input" accept="image/*" style="display:none" onchange="handleExtraPhoto(event)">
       <div class="profile-name">${prof.name||'Sem nome'}</div>
-      <div class="profile-city">${prof.city||''}</div>
+      <div class="profile-city" id="profile-city-display">${prof.city||'Detectando localizacao...'}</div>
+      <div onclick="resetCity()" style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;cursor:pointer;margin-top:2px;text-decoration:underline">ATUALIZAR LOCALIZACAO</div>
       ${athlete.firstname?`<div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:4px">STRAVA: ${athlete.firstname} ${athlete.lastname||''}</div>`:''}
     </div>
 
