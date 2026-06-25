@@ -400,6 +400,18 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 /* ── PLANO GERADO ── */
 #view-plan-summary{display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:250;background:var(--bg);overflow-y:auto}
 #view-plan-summary.active{display:block}
+/* ── SESSION ANALYSIS MODAL ── */
+#session-analysis-modal{display:none;position:fixed;bottom:0;left:0;right:0;z-index:300;background:var(--surface);border-top:1px solid var(--border);border-radius:16px 16px 0 0;padding:24px 20px 40px;max-height:80vh;overflow-y:auto;transform:translateY(100%);transition:transform .35s cubic-bezier(.4,0,.2,1)}
+#session-analysis-modal.active{display:block;transform:translateY(0)}
+.sa-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.sa-label{font-family:var(--font-ui);font-size:9px;color:var(--accent);letter-spacing:2px;text-transform:uppercase}
+.sa-close{font-family:var(--font-ui);font-size:11px;color:var(--muted);letter-spacing:1px;cursor:pointer;padding:4px 8px}
+.sa-spinner{display:flex;align-items:center;gap:12px;padding:16px 0}
+.sa-spinner-ring{width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite;flex-shrink:0}
+.sa-text{font-family:var(--font-body);font-size:14px;color:var(--muted2);line-height:1.75}
+.sa-session-pill{display:inline-flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:6px 10px;margin-bottom:14px}
+.sa-session-pill-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.sa-session-pill-text{font-family:var(--font-ui);font-size:11px;color:var(--muted2);letter-spacing:.5px}
 .plan-loading{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;gap:24px;padding:40px}
 .plan-loading-ring{width:64px;height:64px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -427,6 +439,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 
 <div id="view-onboard"></div>
 <div id="view-plan-summary"></div>
+<div id="session-analysis-modal"></div>
 <div id="view-hoje" class="view active"></div>
 <div id="view-semana" class="view"></div>
 <div id="view-fases" class="view"></div>
@@ -1770,8 +1783,21 @@ function changeHojeDay(dir){
 function toggleCheck(e,key){
   e.stopPropagation();
   const c=loadChecks();
+  const wasChecked=!!c[key];
   if(c[key])delete c[key];else c[key]=true;
+  const nowChecked=!!c[key];
   saveChecks(c);
+  // Dispara análise ao marcar (não ao desmarcar), só na aba HOJE, só sessões do plano
+  if(nowChecked && !wasChecked && currentTab==='hoje'){
+    // Encontra a sessão pelo key (formato: w_d_si)
+    const parts=key.split('_');
+    if(parts.length>=3){
+      const w=parseInt(parts[0]),d=parseInt(parts[1]),si=parseInt(parts[2]);
+      const sessions=getEffectiveSessions(w,d);
+      const sess=sessions.find(s=>s._origin==='plan'&&s._si===si);
+      if(sess) setTimeout(()=>maybeShowSessionAnalysis(key,sess,w,d),600);
+    }
+  }
   if(currentTab==='hoje'){
     _renderHoje(hojeWeek,hojeDay);
     renderStats();
@@ -4463,16 +4489,77 @@ const PROVAS_BR_2026 = [
   {name:'Campeonato Paulista Sprint',date:'2026-03-15',dist:'sprint',local:'São Paulo, SP'},
 ];
 
+const SPORT_INFO={
+  'triathlon':{label:'Triathlon',sub:'Nado + Bike + Corrida',color:'#1a6cf0',img:'https://images.unsplash.com/photo-1658748721978-68fc04f3739b?w=800&q=85&auto=format&fit=crop'},
+  'corrida':{label:'Corrida',sub:'Road Running & Trail',color:'#00e676',img:'https://images.unsplash.com/photo-1571008887538-b36bb32f4571?w=800&q=85&auto=format&fit=crop'},
+  'ciclismo':{label:'Ciclismo',sub:'Road & MTB',color:'#e05c2a',img:'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800&q=85&auto=format&fit=crop'},
+  'natacao':{label:'Natacao',sub:'Piscina & Aguas Abertas',color:'#00bcd4',img:'https://images.unsplash.com/photo-1560073743-1d4b5a64e51c?w=800&q=85&auto=format&fit=crop'},
+  'duathlon':{label:'Duathlon',sub:'Corrida + Bike + Corrida',color:'#f0a500',img:'https://images.unsplash.com/photo-1530549387789-4c1017266635?w=800&q=85&auto=format&fit=crop'},
+};
+
 const DIST_INFO={
-  'super-sprint':{label:'Super Sprint',swim:'400m',bike:'10km',run:'2.5km',color:'#9b6af0'},
-  'sprint':{label:'Sprint',swim:'750m',bike:'20km',run:'5km',color:'#1a6cf0'},
-  'olimpico':{label:'Olimpico',swim:'1.5km',bike:'40km',run:'10km',color:'#00e676'},
-  'half':{label:'Half / 70.3',swim:'1.9km',bike:'90km',run:'21km',color:'#f0a500'},
-  'full':{label:'Full / Ironman',swim:'3.8km',bike:'180km',run:'42km',color:'#e05c2a'},
+  // Triathlon
+  'super-sprint':{label:'Super Sprint',sub:'400m · 10km · 2.5km',color:'#9b6af0',sport:'triathlon'},
+  'sprint':{label:'Sprint',sub:'750m · 20km · 5km',color:'#1a6cf0',sport:'triathlon'},
+  'olimpico':{label:'Olimpico',sub:'1.5km · 40km · 10km',color:'#00e676',sport:'triathlon'},
+  'half':{label:'Half / 70.3',sub:'1.9km · 90km · 21km',color:'#f0a500',sport:'triathlon'},
+  'full':{label:'Full / Ironman',sub:'3.8km · 180km · 42km',color:'#e05c2a',sport:'triathlon'},
+  // Corrida
+  'corrida-5k':{label:'5km',sub:'Prova curta de velocidade',color:'#00e676',sport:'corrida'},
+  'corrida-10k':{label:'10km',sub:'Classico do atletismo',color:'#00e676',sport:'corrida'},
+  'corrida-meia':{label:'Meia Maratona',sub:'21.097km',color:'#00c853',sport:'corrida'},
+  'corrida-maratona':{label:'Maratona',sub:'42.195km',color:'#00897b',sport:'corrida'},
+  'corrida-trail':{label:'Trail Run',sub:'Corrida em trilha',color:'#8d6e63',sport:'corrida'},
+  // Ciclismo
+  'bike-gran-fondo':{label:'Gran Fondo',sub:'Prova de longa distancia',color:'#e05c2a',sport:'ciclismo'},
+  'bike-criterium':{label:'Criterium',sub:'Circuito urbano de velocidade',color:'#ff7043',sport:'ciclismo'},
+  'bike-mtb':{label:'MTB',sub:'Mountain Bike off-road',color:'#8d6e63',sport:'ciclismo'},
+  'bike-century':{label:'Century Ride',sub:'160km de pedalada',color:'#bf360c',sport:'ciclismo'},
+  // Natacao
+  'swim-1500':{label:'1.500m',sub:'Distancia olimpica',color:'#00bcd4',sport:'natacao'},
+  'swim-3800':{label:'3.800m',sub:'Ironman swim',color:'#0097a7',sport:'natacao'},
+  'swim-open':{label:'Aguas Abertas',sub:'Lagos, rios e mar',color:'#006064',sport:'natacao'},
+  // Duathlon
+  'du-sprint':{label:'Sprint Duathlon',sub:'5km · 20km · 2.5km',color:'#f0a500',sport:'duathlon'},
+  'du-standard':{label:'Duathlon Standard',sub:'10km · 40km · 5km',color:'#ff8f00',sport:'duathlon'},
+  'du-long':{label:'Long Duathlon',sub:'20km · 80km · 10km',color:'#e65100',sport:'duathlon'},
+};
+
+const DIST_IMAGES_BY_SPORT={
+  triathlon:{
+    'super-sprint':'https://images.unsplash.com/photo-1560073743-1d4b5a64e51c?w=800&q=85&auto=format&fit=crop',
+    'sprint':'https://images.unsplash.com/photo-1658748721978-68fc04f3739b?w=800&q=85&auto=format&fit=crop',
+    'olimpico':'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800&q=85&auto=format&fit=crop',
+    'half':'https://images.unsplash.com/photo-1571008887538-b36bb32f4571?w=800&q=85&auto=format&fit=crop',
+    'full':'https://images.unsplash.com/photo-1530549387789-4c1017266635?w=800&q=85&auto=format&fit=crop',
+  },
+  corrida:{
+    'corrida-5k':'https://images.unsplash.com/photo-1461896836934-ffe607ba8211?w=800&q=85&auto=format&fit=crop',
+    'corrida-10k':'https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=800&q=85&auto=format&fit=crop',
+    'corrida-meia':'https://images.unsplash.com/photo-1571008887538-b36bb32f4571?w=800&q=85&auto=format&fit=crop',
+    'corrida-maratona':'https://images.unsplash.com/photo-1530549387789-4c1017266635?w=800&q=85&auto=format&fit=crop',
+    'corrida-trail':'https://images.unsplash.com/photo-1551632436-cbf8dd35adfa?w=800&q=85&auto=format&fit=crop',
+  },
+  ciclismo:{
+    'bike-gran-fondo':'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800&q=85&auto=format&fit=crop',
+    'bike-criterium':'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&q=85&auto=format&fit=crop',
+    'bike-mtb':'https://images.unsplash.com/photo-1544191696-102dbdaeeaa0?w=800&q=85&auto=format&fit=crop',
+    'bike-century':'https://images.unsplash.com/photo-1502744688674-c619d1586c9e?w=800&q=85&auto=format&fit=crop',
+  },
+  natacao:{
+    'swim-1500':'https://images.unsplash.com/photo-1560073743-1d4b5a64e51c?w=800&q=85&auto=format&fit=crop',
+    'swim-3800':'https://images.unsplash.com/photo-1600965962361-9035dbfd1c50?w=800&q=85&auto=format&fit=crop',
+    'swim-open':'https://images.unsplash.com/photo-1519315901367-f34ff9154487?w=800&q=85&auto=format&fit=crop',
+  },
+  duathlon:{
+    'du-sprint':'https://images.unsplash.com/photo-1571008887538-b36bb32f4571?w=800&q=85&auto=format&fit=crop',
+    'du-standard':'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800&q=85&auto=format&fit=crop',
+    'du-long':'https://images.unsplash.com/photo-1530549387789-4c1017266635?w=800&q=85&auto=format&fit=crop',
+  },
 };
 
 let obStep=0;
-let obData={raceDist:'sprint',goalTime:null,swimLevel:'beginner',bikeLevel:'beginner',runLevel:'beginner',weeklyHours:'3-4',fcMax:'',ftp:'',selectedDays:{swim:[],bike:[],run:[]}};
+let obData={sport:'triathlon',raceDist:'sprint',goalTime:null,swimLevel:'beginner',bikeLevel:'beginner',runLevel:'beginner',weeklyHours:'3-4',fcMax:'',ftp:'',selectedDays:{swim:[],bike:[],run:[]}};
 
 async function checkOnboarding(){
   let done=localStorage.getItem('mytri_onboard_done');
@@ -4504,6 +4591,7 @@ function renderOnboarding(){
   el.innerHTML='';
   const screens=[
     renderObWelcome,
+    renderObEsporte,
     renderObDistancia,
     renderObProva,
     renderObMeta,
@@ -4540,20 +4628,69 @@ function renderObWelcome(c){
     </div>`;
 }
 
+function renderObEsporte(c){
+  const sports=Object.keys(SPORT_INFO);
+  c.innerHTML=`
+    <div style="padding:32px 24px 0">
+      <div class="ob-title">Qual e<br>o seu esporte?</div>
+      <div class="ob-sub">Vamos personalizar tudo para a sua modalidade.</div>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
+        ${sports.map(s=>{
+          const info=SPORT_INFO[s];
+          const sel=obData.sport===s;
+          return `<div onclick="obSelectSport('${s}')" style="position:relative;height:90px;border-radius:10px;overflow:hidden;cursor:pointer;border:2.5px solid ${sel?info.color:'transparent'};transition:border-color .2s">
+            <img src="${info.img}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center top" loading="lazy" onerror="this.style.display='none'">
+            <div style="position:absolute;inset:0;background:linear-gradient(90deg,rgba(8,10,13,.88) 0%,rgba(8,10,13,.5) 60%,rgba(8,10,13,.15) 100%)"></div>
+            <div style="position:absolute;inset:0;padding:0 18px;display:flex;align-items:center;gap:14px">
+              <div style="flex:1">
+                <div style="font-family:var(--font-display);font-size:22px;letter-spacing:.5px;color:${sel?info.color:'#fff'};line-height:1;margin-bottom:3px">${info.label.toUpperCase()}</div>
+                <div style="font-family:var(--font-ui);font-size:10px;color:rgba(255,255,255,0.5);letter-spacing:.5px">${info.sub}</div>
+              </div>
+              ${sel
+                ?`<div style="width:22px;height:22px;border-radius:50%;background:${info.color};display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="color:#000;font-size:13px;font-weight:900">&#10003;</span></div>`
+                :`<div style="width:22px;height:22px;border-radius:50%;border:1.5px solid rgba(255,255,255,0.25);flex-shrink:0"></div>`}
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+    <div style="padding:0 24px 24px;margin-top:auto">
+      <button class="ob-btn" onclick="obNext()">CONTINUAR</button>
+    </div>`;
+}
+
+function obSelectSport(s){
+  obData.sport=s;
+  const firstDist=Object.keys(DIST_INFO).find(k=>DIST_INFO[k].sport===s);
+  obData.raceDist=firstDist||s;
+  setTimeout(()=>obNext(),220);
+}
+
 function renderObDistancia(c){
-  const dists=['super-sprint','sprint','olimpico','half','full'];
+  const sport=obData.sport||'triathlon';
+  const sportInfo=SPORT_INFO[sport]||SPORT_INFO.triathlon;
+  const imgs=DIST_IMAGES_BY_SPORT[sport]||{};
+  const dists=Object.keys(DIST_INFO).filter(k=>DIST_INFO[k].sport===sport);
   c.innerHTML=`
     <div style="padding:32px 24px 0">
       <div class="ob-title">Qual a distancia<br>da sua prova?</div>
       <div class="ob-sub">Selecione o formato da sua proxima competicao.</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
         ${dists.map(d=>{
           const info=DIST_INFO[d];
           const sel=obData.raceDist===d;
-          return `<div onclick="obSelectDist('${d}')" style="padding:20px 16px;background:${sel?info.color+'22':'var(--surface)'};border:2px solid ${sel?info.color:'var(--border)'};border-radius:8px;cursor:pointer;transition:all .2s">
-            <div style="font-family:var(--font-ui);font-size:14px;font-weight:700;letter-spacing:.5px;color:${sel?info.color:'var(--text)'};margin-bottom:8px">${info.label}</div>
-            <div style="font-family:var(--font-body);font-size:11px;color:var(--muted2);line-height:1.8">
-              ${info.swim} nado<br>${info.bike} bike<br>${info.run} corrida
+          const img=imgs[d]||sportInfo.img;
+          return `<div onclick="obSelectDist('${d}')" style="position:relative;height:100px;border-radius:10px;overflow:hidden;cursor:pointer;border:2.5px solid ${sel?info.color:'transparent'};transition:border-color .2s">
+            <img src="${img}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center" loading="lazy" onerror="this.style.display='none'">
+            <div style="position:absolute;inset:0;background:linear-gradient(90deg,rgba(8,10,13,.88) 0%,rgba(8,10,13,.5) 60%,rgba(8,10,13,.15) 100%)"></div>
+            <div style="position:absolute;inset:0;padding:0 18px;display:flex;align-items:center;gap:14px">
+              <div style="flex:1">
+                <div style="font-family:var(--font-display);font-size:20px;letter-spacing:.5px;color:${sel?info.color:'#fff'};line-height:1;margin-bottom:4px">${info.label.toUpperCase()}</div>
+                <div style="font-family:var(--font-ui);font-size:10px;color:rgba(255,255,255,0.5);letter-spacing:.5px">${info.sub}</div>
+              </div>
+              ${sel
+                ?`<div style="width:22px;height:22px;border-radius:50%;background:${info.color};display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="color:#000;font-size:13px;font-weight:900">&#10003;</span></div>`
+                :`<div style="width:22px;height:22px;border-radius:50%;border:1.5px solid rgba(255,255,255,0.25);flex-shrink:0"></div>`}
             </div>
           </div>`;
         }).join('')}
@@ -4566,7 +4703,7 @@ function renderObDistancia(c){
 
 function obSelectDist(d){
   obData.raceDist=d;
-  renderOnboarding();
+  setTimeout(()=>obNext(),220);
 }
 
 function renderObProva(c){
@@ -5045,6 +5182,116 @@ function renderBikeFitText(el, text){
 detectGPSLocation();
 syncProfileFromSupabase();
 checkOnboarding();
+
+// ── SESSION ANALYSIS ──
+const SA_CACHE_KEY = 'mytri_session_analysis';
+
+function loadAnalysisCache(){
+  try{ return JSON.parse(localStorage.getItem(SA_CACHE_KEY)||'{}'); }catch{ return {}; }
+}
+function saveAnalysisCache(cache){
+  try{ localStorage.setItem(SA_CACHE_KEY, JSON.stringify(cache)); }catch{}
+}
+
+async function maybeShowSessionAnalysis(key, sess, w, d){
+  // Só dispara se sessão do plano com dados Strava
+  const ov = getOverride(w, d, sess._si);
+  if(!ov || !ov.stravaData) return;
+
+  const modal = document.getElementById('session-analysis-modal');
+  const colorMap2 = {swim:'#1a6cf0',bike:'#e05c2a',run:'#00e676',gym:'#9b6af0',brick:'#f0a500',tennis:'#c8cad0',rest:'#3a3f4a'};
+  const typeNames2 = {swim:'Natacao',bike:'Bike',run:'Corrida',gym:'Musculacao',brick:'Tijolo',tennis:'Tenis',rest:'Descanso'};
+  const dotColor = colorMap2[sess.type] || '#5a6070';
+  const typeName = typeNames2[sess.type] || sess.type || 'Treino';
+  const pillText = (sess.text || typeName) + (sess.dist ? ' ' + sess.dist : '');
+
+  // Check cache
+  const cache = loadAnalysisCache();
+  if(cache[key]){
+    renderSessionAnalysis(modal, dotColor, pillText, cache[key]);
+    return;
+  }
+
+  // Show loading
+  modal.innerHTML = `
+    <div class="sa-header">
+      <span class="sa-label">Analise do Treino</span>
+      <span class="sa-close" onclick="closeSessionAnalysis()">FECHAR</span>
+    </div>
+    <div class="sa-session-pill">
+      <div class="sa-session-pill-dot" style="background:${dotColor}"></div>
+      <span class="sa-session-pill-text">${pillText}</span>
+    </div>
+    <div class="sa-spinner">
+      <div class="sa-spinner-ring"></div>
+      <span style="font-family:var(--font-ui);font-size:11px;color:var(--muted);letter-spacing:1px">ANALISANDO SEU TREINO...</span>
+    </div>`;
+  modal.classList.add('active');
+
+  // Build strava string
+  const stravaStr = [
+    ov.stravaDist ? 'Distancia: ' + ov.stravaDist : '',
+    ov.stravaTime ? 'Tempo: ' + ov.stravaTime : '',
+    ov.stravaHR   ? 'FC media: ' + ov.stravaHR + 'bpm' : '',
+    ov.stravaCal  ? 'Calorias: ' + ov.stravaCal + 'kcal' : '',
+    ov.stravaZone ? 'Zona: ' + ov.stravaZone : '',
+    ov.stravaData ? 'Dados extras: ' + ov.stravaData : ''
+  ].filter(Boolean).join(', ');
+
+  const profile = getMytriProfile();
+  const {w: cw} = getCurrentWeekAndDay();
+  const week2 = getWeek(w);
+  const phase = week2 ? week2.phase : 'Base';
+  const raceDate = profile.raceDate || '2026-09-13';
+  const daysToRace = Math.max(0, Math.round((new Date(raceDate+'T12:00:00') - new Date()) / (1000*60*60*24)));
+
+  try{
+    const resp = await fetch('/.netlify/functions/session-analysis', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        session: {type: sess.type, text: sess.text, dist: sess.dist},
+        strava: stravaStr,
+        profile: {name: profile.name || 'Nano'},
+        daysToRace,
+        week: w,
+        phase
+      })
+    });
+    const data = await resp.json();
+    const text = data.text || '';
+    if(text){
+      const c2 = loadAnalysisCache();
+      c2[key] = text;
+      saveAnalysisCache(c2);
+      renderSessionAnalysis(modal, dotColor, pillText, text);
+    } else {
+      modal.classList.remove('active');
+    }
+  }catch{
+    modal.classList.remove('active');
+  }
+}
+
+function renderSessionAnalysis(modal, dotColor, pillText, text){
+  modal.innerHTML = `
+    <div class="sa-header">
+      <span class="sa-label">Analise do Treino</span>
+      <span class="sa-close" onclick="closeSessionAnalysis()">FECHAR</span>
+    </div>
+    <div class="sa-session-pill">
+      <div class="sa-session-pill-dot" style="background:${dotColor}"></div>
+      <span class="sa-session-pill-text">${pillText}</span>
+    </div>
+    <div class="sa-text">${text.replace(/\n\n/g,'</p><p style="margin-top:12px">').replace(/\n/g,' ')}</div>`;
+  modal.classList.add('active');
+}
+
+function closeSessionAnalysis(){
+  const modal = document.getElementById('session-analysis-modal');
+  modal.classList.remove('active');
+  setTimeout(()=>{ modal.innerHTML=''; }, 400);
+}
 </script>
 </body>
 </html>
