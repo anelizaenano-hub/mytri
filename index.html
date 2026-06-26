@@ -4126,11 +4126,10 @@ function detectGPSLocation(force){
       const {latitude:lat,longitude:lon}=pos.coords;
       const r=await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=pt`);
       const d=await r.json();
-      const city=d.city||d.principalSubdivision||'';
-      // Mostra campos disponíveis para debug
-      const campos=Object.keys(d).join(', ');
-      const admNames=(d.localityInfo?.administrative||[]).map(a=>`${a.order}:${a.name}`).join(' | ');
-      const loc=d.city&&d.locality?`${d.locality}, ${d.city}`:d.city||d.locality||d.principalSubdivision||'';
+      const adm=d.localityInfo?.administrative||[];
+      const bairro=adm.find(a=>a.order===11)?.name||adm.find(a=>a.order===10)?.name||d.locality||'';
+      const cidade=adm.find(a=>a.order===10)?.name||d.city||'';
+      const loc=bairro&&cidade&&bairro!==cidade?`${bairro}, ${cidade}`:cidade||bairro||'';
       if(loc){
         localStorage.setItem('mytri_gps_city',loc);
         const saved=JSON.parse(localStorage.getItem('mytri_profile')||'{}');
@@ -4140,7 +4139,7 @@ function detectGPSLocation(force){
         if(el)el.textContent=loc;
         refreshHoje();
       }
-      if(el)el.textContent=`city:${d.city} loc:${d.locality} adm:${admNames}`;
+      if(el)el.textContent=loc||'Sem bairro';
     }catch(e){
       if(el)el.textContent='Erro API: '+e.message;
     }
