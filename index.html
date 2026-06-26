@@ -440,22 +440,21 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 <div id="view-onboard"></div>
 <div id="view-plan-summary"></div>
 <div id="session-analysis-modal"></div>
-<div id="view-hoje" class="view active"></div>
-<div id="view-semana" class="view"></div>
+<div id="view-agenda" class="view active"></div>
+<div id="view-hoje" class="view" style="display:none"></div>
+<div id="view-semana" class="view" style="display:none"></div>
 <div id="view-fases" class="view"></div>
 <div id="view-stats" class="view"></div>
-<div id="view-calendario" class="view"></div>
+<div id="view-calendario" class="view" style="display:none"></div>
 <div id="view-conquistas" class="view"></div>
 <div id="view-bikefit" class="view"></div>
 <div id="view-club" class="view"></div>
 <div id="view-profile"></div>
 
 <div class="bottom-nav">
-  <div class="bnav-item active" onclick="switchTab('hoje')">Hoje</div>
-  <div class="bnav-item" onclick="switchTab('semana')">Semana</div>
+  <div class="bnav-item active" onclick="switchTab('agenda')">Agenda</div>
   <div class="bnav-item" onclick="switchTab('fases')">Fases</div>
   <div class="bnav-item" onclick="switchTab('stats')">Stats</div>
-  <div class="bnav-item" onclick="switchTab('calendario')">Cal</div>
   <div class="bnav-item" onclick="switchTab('conquistas')">Hist</div>
   <div class="bnav-item" onclick="switchTab('bikefit')">Fit</div>
   <div class="bnav-item" onclick="switchTab('club')">Club</div>
@@ -783,30 +782,56 @@ function getVolume(){
 
 // ── TAB SWITCHING ──
 let currentTab='hoje';
-const TAB_ORDER=['hoje','semana','fases','stats','calendario','conquistas','bikefit','club'];
+const TAB_ORDER=['agenda','fases','stats','conquistas','bikefit','club'];
+let agendaSubTab='hoje';
+
 function switchTab(tab){
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   document.querySelectorAll('.bnav-item').forEach(b=>b.classList.remove('active'));
-  document.getElementById('view-'+tab).classList.add('active');
-  const idx=TAB_ORDER.indexOf(tab);
+  const viewId=tab==='hoje'||tab==='semana'||tab==='calendario'?'agenda':tab;
+  document.getElementById('view-'+viewId).classList.add('active');
+  const idx=TAB_ORDER.indexOf(viewId);
   if(idx>=0)document.querySelectorAll('.bnav-item')[idx].classList.add('active');
   currentTab=tab;
-  if(tab==='hoje')renderHoje();
-  else if(tab==='semana')renderSemana();
+  if(tab==='agenda'||tab==='hoje'||tab==='semana'||tab==='calendario'){
+    currentTab='agenda';
+    if(tab!=='agenda')agendaSubTab=tab;
+    renderAgenda();
+  }
   else if(tab==='fases')renderFases();
   else if(tab==='stats')renderStats();
-  else if(tab==='calendario')renderCalendario();
   else if(tab==='conquistas')renderConquistas();
   else if(tab==='bikefit')renderBikeFit();
   else if(tab==='club')renderClub();
 }
+
 function switchTabHoje(){
-  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
-  document.querySelectorAll('.bnav-item').forEach(b=>b.classList.remove('active'));
-  document.getElementById('view-hoje').classList.add('active');
-  document.querySelectorAll('.bnav-item')[0].classList.add('active');
-  currentTab='hoje';
-  _renderHoje(hojeWeek,hojeDay);
+  agendaSubTab='hoje';
+  switchTab('agenda');
+}
+
+function switchAgendaSubTab(sub){
+  agendaSubTab=sub;
+  renderAgenda();
+}
+
+function renderAgenda(){
+  const el=document.getElementById('view-agenda');
+  if(!el)return;
+  // Sub-nav
+  const subTabs=[{id:'hoje',label:'HOJE'},{id:'semana',label:'SEMANA'},{id:'calendario',label:'CAL'}];
+  el.innerHTML=`
+    <div style="display:flex;border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:10">
+      ${subTabs.map(t=>`
+        <div onclick="switchAgendaSubTab('${t.id}')" style="flex:1;text-align:center;padding:12px 0;font-family:var(--font-ui);font-size:11px;letter-spacing:1.5px;cursor:pointer;color:${agendaSubTab===t.id?'var(--accent)':'var(--muted)'};border-bottom:2px solid ${agendaSubTab===t.id?'var(--accent)':'transparent'};transition:all .2s">
+          ${t.label}
+        </div>`).join('')}
+    </div>
+    <div id="agenda-content"></div>`;
+  // Renderiza conteúdo da sub-aba
+  if(agendaSubTab==='hoje') renderHoje();
+  else if(agendaSubTab==='semana') renderSemana();
+  else if(agendaSubTab==='calendario') renderCalendario();
 }
 
 function updateCountdown(){
@@ -1184,7 +1209,7 @@ function attachLongPressReorder(wrap,card,list,w,d){
     dragging=false;
     reorderMode=false;
     // Parar wiggle: remover classe reordering do container imediatamente
-    const vh=document.getElementById('view-hoje');
+    const vh=document.getElementById('agenda-content')||document.getElementById('view-hoje');
     if(vh)vh.classList.remove('reordering');
     // Restaurar card posição
     card.style.transition='';card.style.transform='';card.style.zIndex='';
@@ -1256,7 +1281,7 @@ function attachLongPressReorder(wrap,card,list,w,d){
     lpY=t.clientY;
     lpTimer=setTimeout(()=>{
       reorderMode=true;
-      const c=document.getElementById('view-hoje');
+      const c=document.getElementById('agenda-content')||document.getElementById('view-hoje');
       if(c)c.classList.add('reordering');
       const rb=document.getElementById('reorder-btn');
       if(rb){rb.innerHTML='SOLTE PARA CONFIRMAR';rb.classList.add('active');}
@@ -1638,7 +1663,7 @@ function _buildDaySlide(w,d){
 }
 
 function _renderHoje(w,d){
-  const viewHoje=document.getElementById('view-hoje');
+  const viewHoje=document.getElementById('agenda-content')||document.getElementById('view-hoje');
   // Remover slides mas preservar o weather-widget fixo
   [...viewHoje.children].forEach(el=>{
     if(el.id!=='weather-widget')viewHoje.removeChild(el);
@@ -1649,7 +1674,7 @@ function _renderHoje(w,d){
 let _swipeLocked=false;
 (function _setupDaySwipe(){
   // Roda UMA vez no init — escuta no view-hoje que é fixo no DOM
-  function getView(){return document.getElementById('view-hoje');}
+  function getView(){return document.getElementById('agenda-content')||document.getElementById('view-hoje');}
   function getSlide(view){
     // O slide é o filho que não é o weather-widget
     return [...(view?.children||[])].find(el=>el.id!=='weather-widget')||null;
@@ -1843,7 +1868,7 @@ function updateVolumeSummary(w){
 let semanaWeek;
 function renderSemana(){const {w}=getCurrentWeekAndDay();semanaWeek=w;_renderSemana(w);}
 function _renderSemana(w){
-  semanaWeek=w;const container=document.getElementById('view-semana');container.innerHTML='';
+  semanaWeek=w;const container=document.getElementById('agenda-content')||document.getElementById('view-semana');container.innerHTML='';
   const week=getWeek(w);if(!week)return;
   const nav=document.createElement('div');nav.className='week-nav';
   nav.innerHTML=`
@@ -2939,7 +2964,7 @@ function getWDFromDate(date){
 }
 
 function renderCalendario(){
-  const container=document.getElementById('view-calendario');
+  const container=document.getElementById('agenda-content')||document.getElementById('view-calendario');
   container.innerHTML='';
   const checks=loadChecks();
   const now=new Date();
@@ -3396,7 +3421,7 @@ else if(actType.includes('ski')||actType.includes('snow')||actType.includes('sur
           const ok=ovKey(wd.w,wd.d,sess._si);
           const existing=o[ok]||{};
           // Sempre sobrescreve dados do Strava com os mais recentes
-          o[ok]={...existing,stravaData:realData,stravaDist:targetType===SWIM?actDistSwimFmt:actDistKmFmt,stravaTime:actTime,stravaHR:actHR,stravaCal:actCal,stravaZone:actZone};
+          o[ok]={...existing,type:sess.type,stravaData:realData,stravaDist:targetType===SWIM?actDistSwimFmt:actDistKmFmt,stravaTime:actTime,stravaHR:actHR,stravaCal:actCal,stravaZone:actZone};
           saveOverrides(o);
         }
         foundMatch=true;
@@ -3687,14 +3712,14 @@ IMPORTANTE: Responda em texto limpo, sem markdown, sem asteriscos, sem hashtags,
 // ── CLUB — TURMA DA MEIA AZUL ──
 
 const CLUB_PROFILES=[
-  {id:1,name:'Camila Rocha',age:34,city:'São Paulo SP',gender:'F',photo:'https://randomuser.me/api/portraits/women/44.jpg',pace:'5:45/km',ftp:'180w',swim:'1:45/100m',nextRace:'Sprint Guarujá — Set/26',bio:'Triatleta há 3 anos, amo treinar cedo. Procuro alguém pra treinar junto e quem sabe ir pra próxima prova.',tags:['Sprint','Z2 lover','Madrugadora']},
-  {id:2,name:'Rafael Lima',age:38,city:'Campinas SP',gender:'M',photo:'https://randomuser.me/api/portraits/men/32.jpg',pace:'5:10/km',ftp:'240w',swim:'1:30/100m',nextRace:'Olímpico Floripa — Nov/26',bio:'Ex-corredor migrando pro tri. Forte no bike, fraco na natação. Busco companhia pra treinos longos.',tags:['Olímpico','Ciclista','Fim de semana']},
-  {id:3,name:'Juliana Matos',age:29,city:'Rio de Janeiro RJ',gender:'F',photo:'https://randomuser.me/api/portraits/women/68.jpg',pace:'6:00/km',ftp:'155w',swim:'2:00/100m',nextRace:'Sprint Rio — Out/26',bio:'Iniciante no tri, ex-nadadora. Treino 5x/semana e levando muito a sério. Procuro parceiro de treino e de vida.',tags:['Natação forte','Iniciante','Determinada']},
-  {id:4,name:'Thiago Mendes',age:41,city:'Belo Horizonte MG',gender:'M',photo:'https://randomuser.me/api/portraits/men/55.jpg',pace:'5:30/km',ftp:'260w',swim:'1:40/100m',nextRace:'70.3 Brasília — Mar/27',bio:'Médico, treino nas horas vagas. Já fiz 3 sprints e um olímpico. Sonho é fazer um 70.3.',tags:['70.3 goal','Consistente','BH']},
-  {id:5,name:'Fernanda Costa',age:36,city:'Curitiba PR',gender:'F',photo:'https://randomuser.me/api/portraits/women/22.jpg',pace:'5:50/km',ftp:'190w',swim:'1:50/100m',nextRace:'Sprint Curitiba — Ago/26',bio:'Professora de educação física. O tri mudou minha vida. Quero encontrar alguém que entenda esse estilo de vida.',tags:['Coach','Sprint','Sul']},
-  {id:6,name:'Bruno Alves',age:33,city:'Porto Alegre RS',gender:'M',photo:'https://randomuser.me/api/portraits/men/77.jpg',pace:'4:55/km',ftp:'290w',swim:'1:25/100m',nextRace:'Olímpico POA — Set/26',bio:'Engenheiro e triatleta competitivo. Já fui ao pódio no meu AG. Busco alguém com a mesma intensidade.',tags:['Competitivo','AG Pódio','RS']},
-  {id:7,name:'Mariana Souza',age:31,city:'São Paulo SP',gender:'F',photo:'https://randomuser.me/api/portraits/women/55.jpg',pace:'6:10/km',ftp:'160w',swim:'1:55/100m',nextRace:'Sprint Guarujá — Set/26',bio:'Publicitária, triatleta nas horas vagas. Mesma prova que você talvez? Se sim, já temos um date marcado.',tags:['SP','Sprint Guarujá','Criativa']},
-  {id:8,name:'Eduardo Nunes',age:44,city:'Salvador BA',gender:'M',photo:'https://randomuser.me/api/portraits/men/43.jpg',pace:'5:40/km',ftp:'220w',swim:'1:45/100m',nextRace:'Sprint Salvador — Jul/26',bio:'Divorciado, pai de dois, triatleta apaixonado. O esporte me salvou. Quero dividir isso com alguém especial.',tags:['Pai coruja','Resistente','BA']},
+  {id:1,name:'Camila Rocha',age:34,city:'São Paulo SP',gender:'F',weight:58,height:164,photo:'https://randomuser.me/api/portraits/women/44.jpg',pace:'5:45/km',ftp:'180w',swim:'1:45/100m',nextRace:'Sprint Guarujá — Set/26',bio:'Triatleta há 3 anos, amo treinar cedo. Procuro alguém pra treinar junto e quem sabe ir pra próxima prova.',tags:['Sprint','Z2 lover','Madrugadora']},
+  {id:2,name:'Rafael Lima',age:38,city:'Campinas SP',gender:'M',weight:74,height:178,photo:'https://randomuser.me/api/portraits/men/32.jpg',pace:'5:10/km',ftp:'240w',swim:'1:30/100m',nextRace:'Olímpico Floripa — Nov/26',bio:'Ex-corredor migrando pro tri. Forte no bike, fraco na natação. Busco companhia pra treinos longos.',tags:['Olímpico','Ciclista','Fim de semana']},
+  {id:3,name:'Juliana Matos',age:29,city:'Rio de Janeiro RJ',gender:'F',weight:54,height:162,photo:'https://randomuser.me/api/portraits/women/68.jpg',pace:'6:00/km',ftp:'155w',swim:'2:00/100m',nextRace:'Sprint Rio — Out/26',bio:'Iniciante no tri, ex-nadadora. Treino 5x/semana e levando muito a sério. Procuro parceiro de treino e de vida.',tags:['Natação forte','Iniciante','Determinada']},
+  {id:4,name:'Thiago Mendes',age:41,city:'Belo Horizonte MG',gender:'M',weight:78,height:181,photo:'https://randomuser.me/api/portraits/men/55.jpg',pace:'5:30/km',ftp:'260w',swim:'1:40/100m',nextRace:'70.3 Brasília — Mar/27',bio:'Médico, treino nas horas vagas. Já fiz 3 sprints e um olímpico. Sonho é fazer um 70.3.',tags:['70.3 goal','Consistente','BH']},
+  {id:5,name:'Fernanda Costa',age:36,city:'Curitiba PR',gender:'F',weight:61,height:167,photo:'https://randomuser.me/api/portraits/women/22.jpg',pace:'5:50/km',ftp:'190w',swim:'1:50/100m',nextRace:'Sprint Curitiba — Ago/26',bio:'Professora de educação física. O tri mudou minha vida. Quero encontrar alguém que entenda esse estilo de vida.',tags:['Coach','Sprint','Sul']},
+  {id:6,name:'Bruno Alves',age:33,city:'Porto Alegre RS',gender:'M',weight:71,height:175,photo:'https://randomuser.me/api/portraits/men/77.jpg',pace:'4:55/km',ftp:'290w',swim:'1:25/100m',nextRace:'Olímpico POA — Set/26',bio:'Engenheiro e triatleta competitivo. Já fui ao pódio no meu AG. Busco alguém com a mesma intensidade.',tags:['Competitivo','AG Pódio','RS']},
+  {id:7,name:'Mariana Souza',age:31,city:'São Paulo SP',gender:'F',weight:56,height:163,photo:'https://randomuser.me/api/portraits/women/55.jpg',pace:'6:10/km',ftp:'160w',swim:'1:55/100m',nextRace:'Sprint Guarujá — Set/26',bio:'Publicitária, triatleta nas horas vagas. Mesma prova que você talvez? Se sim, já temos um date marcado.',tags:['SP','Sprint Guarujá','Criativa']},
+  {id:8,name:'Eduardo Nunes',age:44,city:'Salvador BA',gender:'M',weight:80,height:179,photo:'https://randomuser.me/api/portraits/men/43.jpg',pace:'5:40/km',ftp:'220w',swim:'1:45/100m',nextRace:'Sprint Salvador — Jul/26',bio:'Divorciado, pai de dois, triatleta apaixonado. O esporte me salvou. Quero dividir isso com alguém especial.',tags:['Pai coruja','Resistente','BA']},
 ];
 
 let clubState={
@@ -3778,60 +3803,61 @@ function renderClubReal(){
 }
 
 function renderClubOnboard(c){
+  const prof=getMytriProfile();
   const stravaTokens=JSON.parse(localStorage.getItem('strava_tokens')||'{}');
   const athlete=stravaTokens.athlete||{};
-  const stravaName=athlete.firstname&&athlete.lastname?`${athlete.firstname} ${athlete.lastname}`:'';
-  const stravaCity=athlete.city&&athlete.country?`${athlete.city}, ${athlete.country}`:athlete.city||'';
-  const stravaPhoto=athlete.profile||athlete.profile_medium||'';
-  const stravaWeight=athlete.weight?Math.round(athlete.weight):'';
+  const stravaPhoto=athlete.profile||athlete.profile_medium||prof.photo||'';
+  // Pré-preenche tudo do perfil central
+  const nome=prof.name||'';
+  const cidade=prof.city||localStorage.getItem('mytri_gps_city')||'';
+  const idade=prof.age||'';
+  const pace=prof.pace||'';
+  const ftp=prof.ftp||'';
+  const swim=prof.swim||'';
+  const nextRace=prof.nextRace||'';
   c.innerHTML=`
     <div style="padding:28px 24px 24px">
       <div style="font-family:var(--font-display);font-size:32px;letter-spacing:1px;margin-bottom:4px">CLUBE DA <span style="color:#1a6cf0">MEIA</span> <span style="color:#1a6cf0">AZUL</span></div>
       <div style="font-family:var(--font-body);font-size:13px;color:var(--muted2);line-height:1.6;margin-bottom:28px">Triatletas que buscam mais do que uma prova para compartilhar.</div>
 
-      ${stravaPhoto?`<div style="display:flex;align-items:center;gap:14px;padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:4px;margin-bottom:4px"><img src="${stravaPhoto}" style="width:52px;height:52px;border-radius:50%;object-fit:cover"><div><div style="font-family:var(--font-ui);font-size:11px;color:var(--muted);letter-spacing:1px">FOTO DO STRAVA</div><div style="font-family:var(--font-body);font-size:13px;color:var(--muted2);margin-top:2px">Nome e cidade preenchidos automaticamente</div></div></div>`:''}
+      ${stravaPhoto?`<div style="display:flex;align-items:center;gap:14px;padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:4px;margin-bottom:16px"><img src="${stravaPhoto}" style="width:52px;height:52px;border-radius:50%;object-fit:cover"><div><div style="font-family:var(--font-ui);font-size:11px;color:var(--accent);letter-spacing:1px">PERFIL PREENCHIDO AUTOMATICAMENTE</div><div style="font-family:var(--font-body);font-size:12px;color:var(--muted2);margin-top:2px">Dados do seu perfil MyTri. Ajuste se necessario.</div></div></div>`:''}
 
       <div style="display:flex;flex-direction:column;gap:14px">
-
         <div>
-          <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;display:block;margin-bottom:6px">Seu nome</label>
-          <input id="cl-nome" type="text" placeholder="Fernando Garcia" value="${stravaName}" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:13px;border-radius:4px">
+          <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;display:block;margin-bottom:6px">SEU NOME</label>
+          <input id="cl-nome" type="text" value="${nome}" placeholder="Fernando Garcia" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:13px;border-radius:4px">
         </div>
-
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
           <div>
-            <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;display:block;margin-bottom:6px">Idade</label>
-            <input id="cl-idade" type="number" placeholder="41" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:13px;border-radius:4px">
+            <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;display:block;margin-bottom:6px">IDADE</label>
+            <input id="cl-idade" type="number" value="${idade}" placeholder="41" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:13px;border-radius:4px">
           </div>
           <div>
-            <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;display:block;margin-bottom:6px">Cidade</label>
-            <input id="cl-cidade" type="text" placeholder="Guarujá SP" autocomplete="off" value="${stravaCity}" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:13px;border-radius:4px;color-scheme:dark">
+            <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;display:block;margin-bottom:6px">CIDADE</label>
+            <input id="cl-cidade" type="text" value="${cidade}" placeholder="Sao Paulo SP" autocomplete="off" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:13px;border-radius:4px;color-scheme:dark">
           </div>
         </div>
-
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
           <div>
-            <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;display:block;margin-bottom:6px">Pace/km</label>
-            <input id="cl-pace" type="text" placeholder="5:30" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:13px;border-radius:4px">
+            <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;display:block;margin-bottom:6px">PACE/KM</label>
+            <input id="cl-pace" type="text" value="${pace}" placeholder="5:30" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:13px;border-radius:4px">
           </div>
           <div>
-            <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;display:block;margin-bottom:6px">FTP</label>
-            <input id="cl-ftp" type="text" placeholder="220w" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:13px;border-radius:4px">
+            <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;display:block;margin-bottom:6px">FTP</label>
+            <input id="cl-ftp" type="text" value="${ftp}" placeholder="220w" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:13px;border-radius:4px">
           </div>
           <div>
-            <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;display:block;margin-bottom:6px">Nado</label>
-            <input id="cl-swim" type="text" placeholder="1:45" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:13px;border-radius:4px">
+            <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;display:block;margin-bottom:6px">NADO</label>
+            <input id="cl-swim" type="text" value="${swim}" placeholder="1:45" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:13px;border-radius:4px">
           </div>
         </div>
-
         <div>
-          <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;display:block;margin-bottom:6px">Próxima prova</label>
-          <input id="cl-prova" type="text" placeholder="Sprint Guarujá — Set/26" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:13px;border-radius:4px">
+          <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;display:block;margin-bottom:6px">PROXIMA PROVA</label>
+          <input id="cl-prova" type="text" value="${nextRace}" placeholder="Sprint Guarujá — Set/26" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:13px;border-radius:4px">
         </div>
-
         <div>
-          <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;display:block;margin-bottom:6px">Sobre você</label>
-          <textarea id="cl-bio" placeholder="Me conta um pouco sobre você e o que busca..." style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:13px;border-radius:4px;resize:none;height:90px;line-height:1.6"></textarea>
+          <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;display:block;margin-bottom:6px">SOBRE VOCE</label>
+          <textarea id="cl-bio" placeholder="Me conta um pouco sobre voce e o que busca..." style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:13px;border-radius:4px;resize:none;height:90px;line-height:1.6"></textarea>
         </div>
 
         <div>
@@ -3843,6 +3869,17 @@ function renderClubOnboard(c){
           </select>
         </div>
 
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <div style="font-family:var(--font-ui);font-size:12px;color:var(--text);letter-spacing:.5px">Compartilhar peso e altura</div>
+            <div style="font-family:var(--font-body);font-size:11px;color:var(--muted);margin-top:2px">Voce vera as mesmas infos dos outros</div>
+          </div>
+          <label style="position:relative;display:inline-block;width:44px;height:24px;flex-shrink:0">
+            <input type="checkbox" id="cl-share-metrics" style="opacity:0;width:0;height:0">
+            <span onclick="this.previousElementSibling.click()" style="position:absolute;inset:0;background:var(--border);border-radius:12px;cursor:pointer;transition:.3s"></span>
+          </label>
+        </div>
+
         <button onclick="submitClubOnboard()" style="width:100%;margin-top:8px;padding:18px;background:var(--accent);color:#000;font-family:var(--font-ui);font-size:14px;font-weight:700;letter-spacing:2px;border:none;cursor:pointer;border-radius:4px">ENTRAR NA TURMA</button>
       </div>
     </div>`;
@@ -3852,8 +3889,10 @@ function submitClubOnboard(){
   const nome=document.getElementById('cl-nome').value.trim();
   const idade=document.getElementById('cl-idade').value.trim();
   if(!nome||!idade){alert('Preencha nome e idade.');return;}
+  const prof=getMytriProfile();
   const stravaTokens2=JSON.parse(localStorage.getItem('strava_tokens')||'{}');
   const athlete2=stravaTokens2.athlete||{};
+  const shareEl=document.getElementById('cl-share-metrics');
   clubState.myProfile={
     name:nome,age:idade,
     city:document.getElementById('cl-cidade').value.trim(),
@@ -3863,13 +3902,78 @@ function submitClubOnboard(){
     nextRace:document.getElementById('cl-prova').value.trim(),
     bio:document.getElementById('cl-bio').value.trim(),
     busca:document.getElementById('cl-busca').value,
-    photo:athlete2.profile||athlete2.profile_medium||'',
-    weight:athlete2.weight?Math.round(athlete2.weight):'',
+    photo:athlete2.profile||athlete2.profile_medium||prof.photo||'',
+    weight:prof.weight||athlete2.weight||'',
+    height:prof.altura||'',
+    shareMetrics:shareEl?shareEl.checked:false,
   };
   clubState.step='swipe';
   clubState.currentIdx=0;
   saveClubState();
   renderClub();
+}
+
+function clubShareMetrics(){
+  if(clubState.myProfile) clubState.myProfile.shareMetrics=true;
+  saveClubState();
+  renderClub();
+}
+
+function showClubProfile(id){
+  const p=CLUB_PROFILES.find(x=>x.id===id);
+  if(!p)return;
+  const myShare=clubState.myProfile?.shareMetrics;
+  const modal=document.createElement('div');
+  modal.style.cssText='position:fixed;inset:0;z-index:400;background:var(--bg);overflow-y:auto';
+  modal.innerHTML=`
+    <div style="position:relative">
+      <img src="${p.photo}" style="width:100%;height:300px;object-fit:cover;object-position:top">
+      <div style="position:absolute;inset:0;background:linear-gradient(to bottom,transparent 30%,var(--bg) 100%)"></div>
+      <button onclick="this.closest('[style*=fixed]').remove()" style="position:absolute;top:16px;left:16px;background:rgba(0,0,0,0.5);border:none;color:#fff;font-family:var(--font-ui);font-size:11px;letter-spacing:1px;padding:8px 14px;border-radius:4px;cursor:pointer">VOLTAR</button>
+    </div>
+    <div style="padding:0 20px 40px">
+      <div style="font-family:var(--font-display);font-size:32px;letter-spacing:.5px;margin-bottom:4px">${p.name}, ${p.age}</div>
+      <div style="font-family:var(--font-ui);font-size:11px;color:var(--muted);letter-spacing:1px;margin-bottom:20px">${p.city}</div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center">
+          <div style="font-family:var(--font-display);font-size:18px;color:#00e676">${p.pace}</div>
+          <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:2px">PACE</div>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center">
+          <div style="font-family:var(--font-display);font-size:18px;color:#e05c2a">${p.ftp}</div>
+          <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:2px">FTP</div>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center">
+          <div style="font-family:var(--font-display);font-size:18px;color:#1a6cf0">${p.swim}</div>
+          <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:2px">NADO</div>
+        </div>
+      </div>
+
+      ${myShare?`
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center">
+          <div style="font-family:var(--font-display);font-size:18px;color:var(--text)">${p.weight}kg</div>
+          <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:2px">PESO</div>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center">
+          <div style="font-family:var(--font-display);font-size:18px;color:var(--text)">${p.height}cm</div>
+          <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:2px">ALTURA</div>
+        </div>
+      </div>`:''}
+
+      <div style="background:rgba(26,108,240,0.1);border:1px solid rgba(26,108,240,0.25);border-radius:8px;padding:12px 16px;margin-bottom:16px">
+        <div style="font-family:var(--font-ui);font-size:9px;color:#1a6cf0;letter-spacing:1.5px;margin-bottom:4px">PROXIMA PROVA</div>
+        <div style="font-family:var(--font-body);font-size:13px;color:var(--text)">${p.nextRace}</div>
+      </div>
+
+      <div style="font-family:var(--font-body);font-size:14px;color:var(--muted2);line-height:1.7;margin-bottom:16px">${p.bio}</div>
+
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:28px">
+        ${p.tags.map(t=>`<span style="background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:5px 12px;font-family:var(--font-ui);font-size:9px;color:var(--muted2);letter-spacing:.5px">${t}</span>`).join('')}
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
 }
 
 function renderClubSwipe(c){
@@ -3919,7 +4023,7 @@ function renderClubSwipe(c){
 
     <div style="padding:16px 18px">
       <!-- Stats -->
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px">
         <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center">
           <div style="font-family:var(--font-display);font-size:15px;color:#00e676">${p.pace}</div>
           <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:2px">PACE</div>
@@ -3934,19 +4038,43 @@ function renderClubSwipe(c){
         </div>
       </div>
 
+      <!-- Peso/Altura — share condicional -->
+      ${(()=>{
+        const myShare=clubState.myProfile?.shareMetrics;
+        if(myShare){
+          return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+            <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center">
+              <div style="font-family:var(--font-display);font-size:15px;color:var(--text)">${p.weight}kg</div>
+              <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:2px">PESO</div>
+            </div>
+            <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center">
+              <div style="font-family:var(--font-display);font-size:15px;color:var(--text)">${p.height}cm</div>
+              <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:2px">ALTURA</div>
+            </div>
+          </div>`;
+        }
+        return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between">
+          <span style="font-family:var(--font-body);font-size:12px;color:var(--muted)">Peso e altura ocultos</span>
+          <span onclick="clubShareMetrics()" style="font-family:var(--font-ui);font-size:9px;color:var(--accent);letter-spacing:1px;cursor:pointer">COMPARTILHAR PARA VER</span>
+        </div>`;
+      })()}
+
       <!-- Próxima prova -->
-      <div style="background:rgba(26,108,240,0.1);border:1px solid rgba(26,108,240,0.25);border-radius:8px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;gap:8px">
-        <span style="font-size:14px">🏁</span>
+      <div style="background:rgba(26,108,240,0.1);border:1px solid rgba(26,108,240,0.25);border-radius:8px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;gap:8px">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1a6cf0" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
         <span style="font-family:var(--font-ui);font-size:11px;color:#1a6cf0;letter-spacing:.5px">${p.nextRace}</span>
       </div>
 
       <!-- Bio -->
-      <div style="font-family:var(--font-body);font-size:13px;color:var(--muted2);line-height:1.6;margin-bottom:14px">${p.bio}</div>
+      <div style="font-family:var(--font-body);font-size:13px;color:var(--muted2);line-height:1.6;margin-bottom:12px">${p.bio}</div>
 
       <!-- Tags -->
-      <div style="display:flex;flex-wrap:wrap;gap:6px">
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">
         ${p.tags.map(t=>`<span style="background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:4px 10px;font-family:var(--font-ui);font-size:9px;color:var(--muted2);letter-spacing:.5px">${t}</span>`).join('')}
       </div>
+
+      <!-- Ver perfil completo -->
+      <button onclick="showClubProfile(${p.id})" style="width:100%;padding:12px;background:transparent;border:1px solid var(--border);color:var(--muted);font-family:var(--font-ui);font-size:11px;letter-spacing:1.5px;border-radius:6px;cursor:pointer">VER PERFIL COMPLETO</button>
     </div>
 
     <!-- Like/Pass overlay -->
@@ -4060,7 +4188,7 @@ function init(){
   try{updateCountdown();}catch(e){console.error('countdown',e);}
   try{renderHoje();}catch(e){
     console.error('renderHoje',e);
-    var el=document.getElementById('view-hoje');
+    var el=document.getElementById('agenda-content')||document.getElementById('view-hoje');
     if(el)el.innerHTML='<div style="padding:20px;color:red;font-size:12px">Erro: '+e.message+'</div>';
   }
   // Inicializar sync com Supabase em background
@@ -4552,21 +4680,39 @@ function calcPRs(){
 
 // ── ONBOARDING ──
 const PROVAS_BR_2026 = [
-  {name:'Sprint Triathlon Santa Cecilia TV',date:'2026-09-13',dist:'sprint',local:'Guaruja, SP'},
-  {name:'Troféu Brasil — Santos (Abr)',date:'2026-04-05',dist:'sprint',local:'Santos, SP'},
-  {name:'Troféu Brasil — Santos (Jun)',date:'2026-06-07',dist:'sprint',local:'Santos, SP'},
-  {name:'Troféu Brasil — Santos (Set)',date:'2026-09-06',dist:'sprint',local:'Santos, SP'},
-  {name:'Troféu Brasil — Santos (Dez)',date:'2026-12-06',dist:'sprint',local:'Santos, SP'},
-  {name:'CBTri — Caiobá PR',date:'2026-02-22',dist:'sprint',local:'Caiobá, PR'},
-  {name:'CBTri — Indaiatuba SP',date:'2026-06-13',dist:'olimpico',local:'Indaiatuba, SP'},
-  {name:'CBTri — Vila Velha ES',date:'2026-07-05',dist:'olimpico',local:'Vila Velha, ES'},
-  {name:'Ironman Brasil — Florianópolis',date:'2026-05-24',dist:'full',local:'Florianópolis, SC'},
-  {name:'Ironman 70.3 — Fortaleza',date:'2026-08-30',dist:'half',local:'Fortaleza, CE'},
-  {name:'Ironman 70.3 — São Paulo',date:'2026-09-20',dist:'half',local:'São Paulo, SP'},
-  {name:'Ironman 70.3 — Florianópolis',date:'2026-10-18',dist:'half',local:'Florianópolis, SC'},
-  {name:'Brotas Triathlon',date:'2026-09-19',dist:'sprint',local:'Brotas, SP'},
-  {name:'Challenge Florianópolis',date:'2026-11-29',dist:'half',local:'Florianópolis, SC'},
-  {name:'Campeonato Paulista Sprint',date:'2026-03-15',dist:'sprint',local:'São Paulo, SP'},
+  // Triathlon
+  {name:'Sprint Triathlon Santa Cecilia TV',date:'2026-09-13',dist:'sprint',local:'Guaruja, SP',sport:'triathlon'},
+  {name:'Troféu Brasil — Santos (Abr)',date:'2026-04-05',dist:'sprint',local:'Santos, SP',sport:'triathlon'},
+  {name:'Troféu Brasil — Santos (Jun)',date:'2026-06-07',dist:'sprint',local:'Santos, SP',sport:'triathlon'},
+  {name:'Troféu Brasil — Santos (Set)',date:'2026-09-06',dist:'sprint',local:'Santos, SP',sport:'triathlon'},
+  {name:'Troféu Brasil — Santos (Dez)',date:'2026-12-06',dist:'sprint',local:'Santos, SP',sport:'triathlon'},
+  {name:'CBTri — Caiobá PR',date:'2026-02-22',dist:'sprint',local:'Caiobá, PR',sport:'triathlon'},
+  {name:'CBTri — Indaiatuba SP',date:'2026-06-13',dist:'olimpico',local:'Indaiatuba, SP',sport:'triathlon'},
+  {name:'CBTri — Vila Velha ES',date:'2026-07-05',dist:'olimpico',local:'Vila Velha, ES',sport:'triathlon'},
+  {name:'Ironman Brasil — Florianópolis',date:'2026-05-24',dist:'full',local:'Florianópolis, SC',sport:'triathlon'},
+  {name:'Ironman 70.3 — Fortaleza',date:'2026-08-30',dist:'half',local:'Fortaleza, CE',sport:'triathlon'},
+  {name:'Ironman 70.3 — São Paulo',date:'2026-09-20',dist:'half',local:'São Paulo, SP',sport:'triathlon'},
+  {name:'Ironman 70.3 — Florianópolis',date:'2026-10-18',dist:'half',local:'Florianópolis, SC',sport:'triathlon'},
+  {name:'Brotas Triathlon',date:'2026-09-19',dist:'sprint',local:'Brotas, SP',sport:'triathlon'},
+  {name:'Challenge Florianópolis',date:'2026-11-29',dist:'half',local:'Florianópolis, SC',sport:'triathlon'},
+  {name:'Campeonato Paulista Sprint',date:'2026-03-15',dist:'sprint',local:'São Paulo, SP',sport:'triathlon'},
+  // Corrida
+  {name:'Corrida de São Silvestre',date:'2026-12-31',dist:'corrida-15k',local:'São Paulo, SP',sport:'corrida'},
+  {name:'Maratona de São Paulo',date:'2026-04-26',dist:'corrida-maratona',local:'São Paulo, SP',sport:'corrida'},
+  {name:'Maratona do Rio',date:'2026-06-21',dist:'corrida-maratona',local:'Rio de Janeiro, RJ',sport:'corrida'},
+  {name:'Meia Maratona Internacional de SP',date:'2026-08-02',dist:'corrida-meia',local:'São Paulo, SP',sport:'corrida'},
+  {name:'Track&Field Run Series — SP',date:'2026-05-10',dist:'corrida-10k',local:'São Paulo, SP',sport:'corrida'},
+  {name:'Asics Golden Run',date:'2026-09-06',dist:'corrida-10k',local:'São Paulo, SP',sport:'corrida'},
+  // Ciclismo
+  {name:'Gran Fondo Specialized — SP',date:'2026-07-12',dist:'bike-gran-fondo',local:'São Paulo, SP',sport:'ciclismo'},
+  {name:'Volta Ciclística de São Paulo',date:'2026-08-23',dist:'bike-gran-fondo',local:'São Paulo, SP',sport:'ciclismo'},
+  {name:'Desafio Internacional da Serra Gaúcha',date:'2026-10-04',dist:'bike-gran-fondo',local:'Bento Gonçalves, RS',sport:'ciclismo'},
+  // Natação
+  {name:'Travessia Mar Grande — Salvador',date:'2026-02-01',dist:'swim-open',local:'Salvador, BA',sport:'natacao'},
+  {name:'Maratona Aquática de Belo Horizonte',date:'2026-06-28',dist:'swim-open',local:'Belo Horizonte, MG',sport:'natacao'},
+  // Duathlon
+  {name:'Duathlon Brasil — Brasília',date:'2026-05-03',dist:'du-standard',local:'Brasília, DF',sport:'duathlon'},
+  {name:'Duathlon Sprint — São Paulo',date:'2026-08-16',dist:'du-sprint',local:'São Paulo, SP',sport:'duathlon'},
 ];
 
 const SPORT_INFO={
@@ -4638,7 +4784,7 @@ const DIST_IMAGES_BY_SPORT={
   },
 };
 
-let obStep=0;
+function hexToRgba(hex,a){const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return `rgba(${r},${g},${b},${a})`;}
 let obData={sport:'triathlon',raceDist:'sprint',goalTime:null,swimLevel:'beginner',bikeLevel:'beginner',runLevel:'beginner',weeklyHours:'3-4',fcMax:'',ftp:'',selectedDays:{swim:[],bike:[],run:[]}};
 
 async function checkOnboarding(){
@@ -4678,6 +4824,7 @@ function renderOnboarding(){
     renderObModalidades,
     renderObFitness,
     renderObHoras,
+    renderObDias,
     renderObStrava,
     renderObFim,
   ];
@@ -4692,20 +4839,57 @@ function renderOnboarding(){
 function renderObWelcome(c){
   const stravaTokens=JSON.parse(localStorage.getItem('strava_tokens')||'{}');
   const athlete=stravaTokens.athlete||{};
-  const nome=athlete.firstname?` ${athlete.firstname}`:'';
+  const nome=athlete.firstname?`, ${athlete.firstname}`:'';
   c.innerHTML=`
-    <div style="flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;gap:20px;padding:40px 32px">
-      <div style="font-family:var(--font-display);font-size:72px;letter-spacing:-3px;line-height:1">
-        <span style="color:#fff">MY</span><span style="color:#1a6cf0">T</span><span style="color:#e05c2a">R</span><span style="color:#00e676">I</span>
+    <style>
+      @keyframes ob-letter-in{0%{opacity:0;transform:translateY(40px) scale(.8)}60%{transform:translateY(-6px) scale(1.08)}100%{opacity:1;transform:translateY(0) scale(1)}}
+      @keyframes ob-fade-up{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+      .ob-letter{display:inline-block;opacity:0;animation:ob-letter-in .6s cubic-bezier(.34,1.56,.64,1) forwards}
+      .ob-sub-anim{opacity:0;animation:ob-fade-up .8s ease forwards}
+    </style>
+    <div style="position:relative;display:flex;flex-direction:column;justify-content:flex-end;min-height:100vh;overflow:hidden;background:#000">
+      <div id="ob-videos" style="position:absolute;inset:0;overflow:hidden">
+        <video id="ob-vid-0" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:1;transition:opacity 1.5s ease" autoplay muted playsinline>
+          <source src="https://videos.pexels.com/video-files/12204020/12204020-hd_1920_1080_24fps.mp4" type="video/mp4">
+        </video>
+        <video id="ob-vid-1" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 1.5s ease" muted playsinline>
+          <source src="https://videos.pexels.com/video-files/5790072/5790072-hd_1280_720_30fps.mp4" type="video/mp4">
+        </video>
+        <video id="ob-vid-2" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 1.5s ease" muted playsinline>
+          <source src="https://videos.pexels.com/video-files/12510396/12510396-hd_1920_1080_25fps.mp4" type="video/mp4">
+        </video>
       </div>
-      <div style="font-family:var(--font-ui);font-size:11px;color:var(--muted);letter-spacing:3px">CUSTOMIZED TRIATHLON TRAINING</div>
-      <div style="font-family:var(--font-body);font-size:16px;color:var(--muted2);line-height:1.7;max-width:280px">
-        Seu co-piloto personalizado para chegar na linha de chegada pronto${nome?','+nome:''}.
+      <div style="position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,0.05) 0%,rgba(0,0,0,0.35) 45%,rgba(0,0,0,0.93) 100%)"></div>
+      <div style="position:relative;padding:0 32px 56px;text-align:center">
+        <div style="margin-bottom:8px;line-height:1;white-space:nowrap">
+          <span class="ob-letter" style="font-family:var(--font-display);font-size:88px;color:#fff;letter-spacing:-4px;animation-delay:.15s">M</span><span class="ob-letter" style="font-family:var(--font-display);font-size:88px;color:#fff;letter-spacing:-4px;animation-delay:.28s">Y</span><span class="ob-letter" style="font-family:var(--font-display);font-size:88px;color:#1a6cf0;letter-spacing:-4px;animation-delay:.42s">T</span><span class="ob-letter" style="font-family:var(--font-display);font-size:88px;color:#e05c2a;letter-spacing:-4px;animation-delay:.56s">R</span><span class="ob-letter" style="font-family:var(--font-display);font-size:88px;color:#00e676;letter-spacing:-4px;animation-delay:.70s">I</span>
+        </div>
+        <div class="ob-sub-anim" style="font-family:var(--font-ui);font-size:10px;color:rgba(255,255,255,0.4);letter-spacing:4px;margin-bottom:20px;animation-delay:1.1s">CUSTOMIZED TRAINING</div>
+        <div class="ob-sub-anim" style="font-family:var(--font-body);font-size:16px;color:rgba(255,255,255,0.78);line-height:1.7;margin-bottom:36px;animation-delay:1.3s">
+          Seu co-piloto personalizado para chegar na linha de chegada pronto${nome}.
+        </div>
+        <div class="ob-sub-anim" style="animation-delay:1.6s">
+          <button onclick="obNext()" style="background:var(--accent);color:#000;border:none;width:100%;padding:20px;font-family:var(--font-ui);font-size:14px;font-weight:700;letter-spacing:2px;border-radius:6px;cursor:pointer">COMECAR</button>
+        </div>
       </div>
-    </div>
-    <div style="padding:24px">
-      <button class="ob-btn" onclick="obNext()">COMECAR</button>
     </div>`;
+
+  // Alterna vídeos a cada 5s
+  let cur=0;
+  const vids=[
+    document.getElementById('ob-vid-0'),
+    document.getElementById('ob-vid-1'),
+    document.getElementById('ob-vid-2'),
+  ];
+  vids[0].play().catch(()=>{});
+  const iv=setInterval(()=>{
+    vids[cur].style.opacity='0';
+    cur=(cur+1)%vids.length;
+    vids[cur].style.opacity='1';
+    vids[cur].play().catch(()=>{});
+  },5000);
+  // Para o intervalo quando sair do onboarding
+  c._clearVideoInterval=()=>clearInterval(iv);
 }
 
 function renderObEsporte(c){
@@ -4743,7 +4927,7 @@ function obSelectSport(s){
   obData.sport=s;
   const firstDist=Object.keys(DIST_INFO).find(k=>DIST_INFO[k].sport===s);
   obData.raceDist=firstDist||s;
-  setTimeout(()=>obNext(),220);
+  setTimeout(()=>obNext(),500);
 }
 
 function renderObDistancia(c){
@@ -4783,25 +4967,28 @@ function renderObDistancia(c){
 
 function obSelectDist(d){
   obData.raceDist=d;
-  setTimeout(()=>obNext(),220);
+  setTimeout(()=>obNext(),500);
 }
 
 function renderObProva(c){
-  const dist=obData.raceDist;
-  const matching=PROVAS_BR_2026.filter(p=>p.dist===dist||dist==='olimpico'&&p.dist==='sprint');
+  const sport=obData.sport||'triathlon';
+  const provas=PROVAS_BR_2026.filter(p=>p.sport===sport);
+  const sportInfo=SPORT_INFO[sport]||SPORT_INFO.triathlon;
   c.innerHTML=`
     <div style="padding:32px 24px 0">
       <div class="ob-title">Qual e<br>sua prova?</div>
       <div class="ob-sub">Selecione ou cadastre manualmente.</div>
       <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
-        ${PROVAS_BR_2026.map((p,i)=>`
-          <div onclick="obSelectProva(${i})" style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:${obData.provaIdx===i?'rgba(0,230,118,.08)':'var(--surface)'};border:1.5px solid ${obData.provaIdx===i?'var(--accent)':'var(--border)'};border-radius:6px;cursor:pointer">
+        ${provas.map((p,i)=>{
+          const globalIdx=PROVAS_BR_2026.indexOf(p);
+          return `<div onclick="obSelectProva(${globalIdx})" style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:${obData.provaIdx===globalIdx?hexToRgba(sportInfo.color,0.08):'var(--surface)'};border:1.5px solid ${obData.provaIdx===globalIdx?sportInfo.color:'var(--border)'};border-radius:6px;cursor:pointer">
             <div style="flex:1">
               <div style="font-family:var(--font-ui);font-size:13px;font-weight:700;letter-spacing:.3px">${p.name}</div>
               <div style="font-family:var(--font-body);font-size:11px;color:var(--muted2);margin-top:3px">${p.local} &middot; ${p.date?new Date(p.date+'T12:00:00').toLocaleDateString('pt-BR',{day:'numeric',month:'short',year:'numeric'}):''}</div>
             </div>
-            ${obData.provaIdx===i?'<div style="color:var(--accent);font-size:18px">&#10003;</div>':''}
-          </div>`).join('')}
+            ${obData.provaIdx===globalIdx?`<div style="color:${sportInfo.color};font-size:18px">&#10003;</div>`:''}
+          </div>`;
+        }).join('')}
         <div onclick="obSelectProva(-1)" style="padding:14px 16px;background:${obData.provaIdx===-1?'rgba(0,230,118,.08)':'var(--surface)'};border:1.5px solid ${obData.provaIdx===-1?'var(--accent)':'var(--border)'};border-radius:6px;cursor:pointer;text-align:center;font-family:var(--font-ui);font-size:12px;color:var(--muted);letter-spacing:1px">
           + OUTRA PROVA (cadastrar manualmente)
         </div>
@@ -4875,50 +5062,78 @@ function obSaveMeta(){
 }
 
 function renderObModalidades(c){
+  const sport=obData.sport||'triathlon';
+  const sportInfo=SPORT_INFO[sport]||SPORT_INFO.triathlon;
   const levels=[
-    {v:'nao-nado',l:'Nao nado ainda'},
     {v:'beginner',l:'Iniciante'},
     {v:'intermediate',l:'Intermediario'},
     {v:'advanced',l:'Avancado'},
   ];
-  const bikelevels=[
-    {v:'beginner',l:'Iniciante'},
-    {v:'intermediate',l:'Intermediario'},
-    {v:'advanced',l:'Avancado'},
-  ];
-  const runlevels=[
-    {v:'beginner',l:'Iniciante'},
-    {v:'intermediate',l:'Intermediario'},
-    {v:'advanced',l:'Avancado'},
-  ];
+  const swimLevels=[{v:'nao-nado',l:'Nunca nadei'},...levels];
+
+  // Título e campos por modalidade
+  const configs={
+    triathlon:{
+      title:'Sua performance',
+      sub:'Nivel atual em cada modalidade.',
+      sections:[
+        {key:'swimLevel',label:'NATACAO',color:'#1a6cf0',levels:swimLevels,
+         extra:`<input id="ob-swim-pace" placeholder="Pace nado/100m (ex: 1:45)" value="${obData.swimPace||''}" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">`},
+        {key:'bikeLevel',label:'BIKE',color:'#e05c2a',levels,
+         extra:`<input id="ob-ftp" placeholder="FTP em watts (ex: 200)" value="${obData.ftp||''}" type="number" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">`},
+        {key:'runLevel',label:'CORRIDA',color:'#00e676',levels,
+         extra:`<input id="ob-run-pace" placeholder="Pace corrida/km (ex: 5:30)" value="${obData.runPace||''}" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">`},
+      ]
+    },
+    corrida:{
+      title:'Seu nivel de corrida',
+      sub:'Onde voce se encontra hoje.',
+      sections:[
+        {key:'runLevel',label:'CORRIDA',color:'#00e676',levels,
+         extra:`<input id="ob-run-pace" placeholder="Pace/km atual (ex: 5:30)" value="${obData.runPace||''}" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">`},
+      ]
+    },
+    ciclismo:{
+      title:'Seu nivel no bike',
+      sub:'Onde voce se encontra hoje.',
+      sections:[
+        {key:'bikeLevel',label:'CICLISMO',color:'#e05c2a',levels,
+         extra:`<input id="ob-ftp" placeholder="FTP em watts (ex: 200, opcional)" value="${obData.ftp||''}" type="number" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">`},
+      ]
+    },
+    natacao:{
+      title:'Seu nivel na natacao',
+      sub:'Onde voce se encontra hoje.',
+      sections:[
+        {key:'swimLevel',label:'NATACAO',color:'#00bcd4',levels:swimLevels,
+         extra:`<input id="ob-swim-pace" placeholder="Pace/100m atual (ex: 1:45, opcional)" value="${obData.swimPace||''}" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">`},
+      ]
+    },
+    duathlon:{
+      title:'Sua performance',
+      sub:'Nivel atual em cada modalidade.',
+      sections:[
+        {key:'runLevel',label:'CORRIDA',color:'#00e676',levels,
+         extra:`<input id="ob-run-pace" placeholder="Pace corrida/km (ex: 5:30)" value="${obData.runPace||''}" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">`},
+        {key:'bikeLevel',label:'BIKE',color:'#e05c2a',levels,
+         extra:`<input id="ob-ftp" placeholder="FTP em watts (ex: 200, opcional)" value="${obData.ftp||''}" type="number" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">`},
+      ]
+    },
+  };
+  const cfg=configs[sport]||configs.triathlon;
+
   c.innerHTML=`
     <div style="padding:32px 24px 0">
-      <div class="ob-title">Sua<br>performance</div>
-      <div class="ob-sub">Nivel atual em cada modalidade.</div>
-
-      <div style="margin-bottom:20px">
-        <div style="font-family:var(--font-ui);font-size:10px;color:#1a6cf0;letter-spacing:2px;margin-bottom:10px">NATACAO</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          ${levels.map(l=>`<button onclick="obData.swimLevel='${l.v}';renderOnboarding()" style="padding:10px 14px;background:${obData.swimLevel===l.v?'rgba(26,108,240,.2)':'var(--surface)'};border:1.5px solid ${obData.swimLevel===l.v?'#1a6cf0':'var(--border)'};color:${obData.swimLevel===l.v?'#1a6cf0':'var(--muted2)'};font-family:var(--font-ui);font-size:11px;letter-spacing:.5px;border-radius:4px;cursor:pointer">${l.l}</button>`).join('')}
-        </div>
-        <input id="ob-swim-pace" placeholder="Pace nado/100m (ex: 1:45)" value="${obData.swimPace||''}" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">
-      </div>
-
-      <div style="margin-bottom:20px">
-        <div style="font-family:var(--font-ui);font-size:10px;color:#e05c2a;letter-spacing:2px;margin-bottom:10px">BIKE</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          ${bikelevels.map(l=>`<button onclick="obData.bikeLevel='${l.v}';renderOnboarding()" style="padding:10px 14px;background:${obData.bikeLevel===l.v?'rgba(224,92,42,.2)':'var(--surface)'};border:1.5px solid ${obData.bikeLevel===l.v?'#e05c2a':'var(--border)'};color:${obData.bikeLevel===l.v?'#e05c2a':'var(--muted2)'};font-family:var(--font-ui);font-size:11px;letter-spacing:.5px;border-radius:4px;cursor:pointer">${l.l}</button>`).join('')}
-        </div>
-        <input id="ob-ftp" placeholder="FTP em watts (ex: 200)" value="${obData.ftp||''}" type="number" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">
-      </div>
-
-      <div style="margin-bottom:20px">
-        <div style="font-family:var(--font-ui);font-size:10px;color:#00e676;letter-spacing:2px;margin-bottom:10px">CORRIDA</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          ${runlevels.map(l=>`<button onclick="obData.runLevel='${l.v}';renderOnboarding()" style="padding:10px 14px;background:${obData.runLevel===l.v?'rgba(0,230,118,.15)':'var(--surface)'};border:1.5px solid ${obData.runLevel===l.v?'var(--accent)':'var(--border)'};color:${obData.runLevel===l.v?'var(--accent)':'var(--muted2)'};font-family:var(--font-ui);font-size:11px;letter-spacing:.5px;border-radius:4px;cursor:pointer">${l.l}</button>`).join('')}
-        </div>
-        <input id="ob-run-pace" placeholder="Pace corrida/km (ex: 5:30)" value="${obData.runPace||''}" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">
-      </div>
+      <div class="ob-title">${cfg.title}</div>
+      <div class="ob-sub">${cfg.sub}</div>
+      ${cfg.sections.map(sec=>`
+        <div style="margin-bottom:24px">
+          <div style="font-family:var(--font-ui);font-size:10px;color:${sec.color};letter-spacing:2px;margin-bottom:10px">${sec.label}</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            ${sec.levels.map(l=>`<button onclick="obData.${sec.key}='${l.v}';renderOnboarding()" style="padding:10px 14px;background:${obData[sec.key]===l.v?hexToRgba(sec.color,0.2):'var(--surface)'};border:1.5px solid ${obData[sec.key]===l.v?sec.color:'var(--border)'};color:${obData[sec.key]===l.v?sec.color:'var(--muted2)'};font-family:var(--font-ui);font-size:11px;letter-spacing:.5px;border-radius:4px;cursor:pointer">${l.l}</button>`).join('')}
+          </div>
+          ${sec.extra}
+        </div>`).join('')}
     </div>
     <div style="padding:0 24px 24px;margin-top:auto">
       <button class="ob-btn" onclick="obSaveModalidades();obNext()">CONTINUAR</button>
@@ -4980,7 +5195,7 @@ function obSaveFitness(){
 
 function renderObHoras(c){
   const opts=[
-    {v:'menos-3',l:'Menos de 3h',s:'Novo no tri ou voltando apos pausa'},
+    {v:'menos-3',l:'Menos de 3h',s:'Novo no esporte ou voltando apos pausa'},
     {v:'3-4',l:'3 a 4 horas',s:'Treino regular com alguma experiencia'},
     {v:'4-6',l:'4 a 6 horas',s:'Rotina de treino estabelecida'},
     {v:'6-8',l:'6 a 8 horas',s:'Atleta dedicado com tempo disponivel'},
@@ -5003,6 +5218,54 @@ function renderObHoras(c){
     <div style="padding:0 24px 24px;margin-top:auto">
       <button class="ob-btn" onclick="obNext()">CONTINUAR</button>
     </div>`;
+}
+
+function renderObDias(c){
+  const dias=[
+    {v:'seg',l:'Segunda'},
+    {v:'ter',l:'Terca'},
+    {v:'qua',l:'Quarta'},
+    {v:'qui',l:'Quinta'},
+    {v:'sex',l:'Sexta'},
+    {v:'sab',l:'Sabado'},
+    {v:'dom',l:'Domingo'},
+  ];
+  if(!obData.diasDisponiveis) obData.diasDisponiveis=[];
+  const toggle=(v)=>{
+    const idx=obData.diasDisponiveis.indexOf(v);
+    if(idx>=0) obData.diasDisponiveis.splice(idx,1);
+    else obData.diasDisponiveis.push(v);
+    renderOnboarding();
+  };
+  c.innerHTML=`
+    <div style="padding:32px 24px 0">
+      <div class="ob-title">Quais dias voce<br>pode treinar?</div>
+      <div class="ob-sub">Seu plano sera montado respeitando sua disponibilidade.</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
+        ${dias.map(d=>{
+          const sel=obData.diasDisponiveis.includes(d.v);
+          return `<div onclick="obToggleDia('${d.v}')" style="padding:18px;background:${sel?'rgba(0,230,118,.08)':'var(--surface)'};border:2px solid ${sel?'var(--accent)':'var(--border)'};border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:space-between">
+            <span style="font-family:var(--font-ui);font-size:13px;letter-spacing:.5px;color:${sel?'var(--accent)':'var(--text)'}">${d.l.toUpperCase()}</span>
+            ${sel?'<span style="color:var(--accent);font-size:16px">&#10003;</span>':'<div style="width:16px;height:16px;border-radius:50%;border:1.5px solid var(--border)"></div>'}
+          </div>`;
+        }).join('')}
+      </div>
+      <div style="font-family:var(--font-body);font-size:12px;color:var(--muted);text-align:center;margin-bottom:8px">
+        ${obData.diasDisponiveis.length} dia${obData.diasDisponiveis.length!==1?'s':''} selecionado${obData.diasDisponiveis.length!==1?'s':''}
+      </div>
+    </div>
+    <div style="padding:0 24px 24px;margin-top:auto">
+      <button class="ob-btn" onclick="obNext()" ${obData.diasDisponiveis.length===0?'disabled style="opacity:.4"':''}>CONTINUAR</button>
+      <button class="ob-btn-skip" onclick="obData.diasDisponiveis=['seg','ter','qua','qui','sex'];obNext()">Pular — usar dias uteis</button>
+    </div>`;
+}
+
+function obToggleDia(v){
+  if(!obData.diasDisponiveis) obData.diasDisponiveis=[];
+  const idx=obData.diasDisponiveis.indexOf(v);
+  if(idx>=0) obData.diasDisponiveis.splice(idx,1);
+  else obData.diasDisponiveis.push(v);
+  renderOnboarding();
 }
 
 function renderObStrava(c){
@@ -5104,6 +5367,8 @@ function obFinish(){
     swimLevel:obData.swimLevel||'beginner',
     bikeLevel:obData.bikeLevel||'beginner',
     runLevel:obData.runLevel||'beginner',
+    diasDisponiveis:obData.diasDisponiveis||['seg','ter','qua','qui','sex'],
+    sport:obData.sport||'triathlon',
     fcMax:obData.fcMax||'',
   };
   saveMytriProfile(finalProfile);
