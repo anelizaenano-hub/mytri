@@ -4126,7 +4126,7 @@ function detectGPSLocation(force){
       const {latitude:lat,longitude:lon}=pos.coords;
       const r=await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=pt`);
       const d=await r.json();
-      const bairro=d.locality||'';
+      const bairro=d.localityInfo?.administrative?.find(a=>a.order>=8)?.name||d.locality||'';
       const cidade=d.city||d.principalSubdivision||'';
       const loc=bairro&&cidade?`${bairro}, ${cidade}`:cidade||bairro||'';
       if(loc){
