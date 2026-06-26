@@ -453,7 +453,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 
 <div class="bottom-nav">
   <div class="bnav-item active" onclick="switchTab('agenda')">Agenda</div>
-  <div class="bnav-item" onclick="switchTab('fases')">Fases</div>
   <div class="bnav-item" onclick="switchTab('stats')">Stats</div>
   <div class="bnav-item" onclick="switchTab('conquistas')">Hist</div>
   <div class="bnav-item" onclick="switchTab('bikefit')">Fit</div>
@@ -782,7 +781,7 @@ function getVolume(){
 
 // ── TAB SWITCHING ──
 let currentTab='hoje';
-const TAB_ORDER=['agenda','fases','stats','conquistas','bikefit','club'];
+const TAB_ORDER=['agenda','stats','conquistas','bikefit','club'];
 let agendaSubTab='hoje';
 
 function switchTab(tab){
@@ -818,19 +817,18 @@ function switchAgendaSubTab(sub){
 function renderAgenda(){
   const el=document.getElementById('view-agenda');
   if(!el)return;
-  // Sub-nav
-  const subTabs=[{id:'hoje',label:'HOJE'},{id:'semana',label:'SEMANA'},{id:'calendario',label:'CAL'}];
+  const subTabs=[{id:'hoje',label:'HOJE'},{id:'semana',label:'SEMANA'},{id:'fases',label:'FASES'},{id:'calendario',label:'CAL'}];
   el.innerHTML=`
     <div style="display:flex;border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:10">
       ${subTabs.map(t=>`
-        <div onclick="switchAgendaSubTab('${t.id}')" style="flex:1;text-align:center;padding:12px 0;font-family:var(--font-ui);font-size:11px;letter-spacing:1.5px;cursor:pointer;color:${agendaSubTab===t.id?'var(--accent)':'var(--muted)'};border-bottom:2px solid ${agendaSubTab===t.id?'var(--accent)':'transparent'};transition:all .2s">
+        <div onclick="switchAgendaSubTab('${t.id}')" style="flex:1;text-align:center;padding:12px 0;font-family:var(--font-ui);font-size:10px;letter-spacing:1.5px;cursor:pointer;color:${agendaSubTab===t.id?'var(--accent)':'var(--muted)'};border-bottom:2px solid ${agendaSubTab===t.id?'var(--accent)':'transparent'};transition:all .2s">
           ${t.label}
         </div>`).join('')}
     </div>
     <div id="agenda-content"></div>`;
-  // Renderiza conteúdo da sub-aba
   if(agendaSubTab==='hoje') renderHoje();
   else if(agendaSubTab==='semana') renderSemana();
+  else if(agendaSubTab==='fases') renderFases();
   else if(agendaSubTab==='calendario') renderCalendario();
 }
 
@@ -1673,20 +1671,27 @@ function _renderHoje(w,d){
 
 let _swipeLocked=false;
 (function _setupDaySwipe(){
-  // Roda UMA vez no init — escuta no view-hoje que é fixo no DOM
-  function getView(){return document.getElementById('agenda-content')||document.getElementById('view-hoje');}
+  function getView(){
+    const ac=document.getElementById('agenda-content');
+    if(ac)return ac;
+    return document.getElementById('view-hoje');
+  }
+  function isViewActive(){
+    const agenda=document.getElementById('view-agenda');
+    const hoje=document.getElementById('view-hoje');
+    return (agenda&&agenda.classList.contains('active'))||(hoje&&hoje.classList.contains('active'));
+  }
   function getSlide(view){
-    // O slide é o filho que não é o weather-widget
-    return [...(view?.children||[])].find(el=>el.id!=='weather-widget')||null;
+    return [...(view?.children||[])].find(el=>el.id!=='weather-widget'&&el.tagName!=='STYLE')||null;
   }
   let sx=0,sy=0,isH=false,decided=false,active=false;
   const THRESH=35;
 
   document.addEventListener('touchstart',function(e){
-    const view=getView();
-    if(!view||!view.classList.contains('active'))return;
+    if(!isViewActive())return;
+    if(agendaSubTab&&agendaSubTab!=='hoje')return;
     if(e.target.closest('.swipe-wrap')||e.target.closest('.modal-overlay')||e.target.closest('.cal-modal-overlay')||e.target.closest('.modal'))return;
-    if(e.target.closest('#weather-widget'))return; // deixar scroll do widget funcionar
+    if(e.target.closest('#weather-widget'))return;
     if(_swipeLocked)return;
     const t=e.touches[0];
     sx=t.clientX;sy=t.clientY;
@@ -4562,11 +4567,11 @@ const BADGES=[
   {id:'primeiro_treino',
    icon:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2"/><path d="M12 22V12m0 0l-3 4m3-4l3 4"/><path d="M9 8l-4 3m10-3l4 3"/></svg>`,
    label:'Primeiro Treino',desc:'Completou a primeira sessao',color:'#00e676',
-   check:()=>Object.values(loadOverrides()).some(o=>o.stravaData)},
+   check:()=>loadAllStravaData().length>0},
   {id:'primeira_natacao',
    icon:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><path d="M2 17c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><circle cx="12" cy="6" r="2"/><path d="M12 8v4"/></svg>`,
    label:'Primeiro Nado',desc:'Primeira sessao de natacao',color:'#1a6cf0',
-   check:()=>Object.values(loadOverrides()).some(o=>o.stravaData&&o.type==='swim')},
+   check:()=>loadAllStravaData().some(o=>o.type===SWIM||o.type==='swim')},
   {id:'primeiro_brick',
    icon:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="7" height="5" rx="1"/><rect x="14" y="11" width="7" height="5" rx="1"/><path d="M10 13.5h4"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/><path d="M12 8V6m-3 2V5m6 3V5"/></svg>`,
    label:'Brick Warrior',desc:'Completou um treino brick',color:'#f0a500',
@@ -4604,28 +4609,27 @@ const BADGES=[
    icon:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="18.5" cy="17.5" r="3.5"/><path d="M15 6h-4l-1.5 5.5M8 17.5l2.5-6.5 2 3h5"/><circle cx="17" cy="6" r="1"/></svg>`,
    label:'Centuriao',desc:'100km de bike acumulados',color:'#e05c2a',
    check:()=>{
-    let total=0;const ovs=loadOverrides();
-    Object.values(ovs).forEach(o=>{if(o.stravaDist&&o.type==='bike')total+=parseFloat(o.stravaDist)||0;});
+    let total=0;
+    loadAllStravaData().forEach(o=>{if((o.type===BIKE||o.type==='bike')&&o.stravaDist)total+=parseFloat(o.stravaDist)||0;});
     return total>=100;
   }},
   {id:'run_50',
    icon:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 4a1 1 0 1 0 2 0 1 1 0 0 0-2 0"/><path d="M7.5 19l2-4.5 2.5 2 2-4.5 3 5"/><path d="M6 12l2-3 3 1 2-4"/></svg>`,
    label:'Corredao',desc:'50km de corrida acumulados',color:'#00e676',
    check:()=>{
-    let total=0;const ovs=loadOverrides();
-    Object.values(ovs).forEach(o=>{if(o.stravaDist&&o.type==='run')total+=parseFloat(o.stravaDist)||0;});
+    let total=0;
+    loadAllStravaData().forEach(o=>{if((o.type===RUN||o.type==='run')&&o.stravaDist)total+=parseFloat(o.stravaDist)||0;});
     return total>=50;
   }},
   {id:'swim_10',
    icon:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><path d="M2 7c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><path d="M2 17c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/></svg>`,
    label:'Peixao',desc:'10km de nado acumulados',color:'#1a6cf0',
    check:()=>{
-    let total=0;const ovs=loadOverrides();
-    Object.values(ovs).forEach(o=>{
-      if(o.stravaDist&&o.type==='swim'){
+    let total=0;
+    loadAllStravaData().forEach(o=>{
+      if((o.type===SWIM||o.type==='swim')&&o.stravaDist){
         const v=parseFloat(o.stravaDist)||0;
-        // stravaDist pode vir em metros (ex: "750m") ou km (ex: "0.75km")
-        total+= o.stravaDist&&String(o.stravaDist).endsWith('m')&&!String(o.stravaDist).endsWith('km') ? v/1000 : v;
+        total+=String(o.stravaDist).endsWith('m')&&!String(o.stravaDist).endsWith('km')?v/1000:v;
       }
     });
     return total>=10;
@@ -4647,8 +4651,26 @@ const BADGES=[
   }},
 ];
 
+function loadAllStravaData(){
+  // Combina overrides (sessões do plano com Strava) e extras (atividades não planejadas)
+  const ovs=loadOverrides();
+  const extras=loadExtras();
+  const all=[];
+  Object.values(ovs).forEach(o=>{if(o.stravaData)all.push(o);});
+  Object.values(extras).forEach(arr=>{
+    (arr||[]).forEach(e=>{if(e.stravaDist||e.dist)all.push({
+      type:e.type,
+      stravaData:e.note||e.text||'extra',
+      stravaDist:e.stravaDist||e.dist||'',
+      stravaTime:e.stravaTime||'',
+      stravaHR:e.stravaHR||'',
+      stravaCal:e.stravaCal||e.cal||'',
+    });});
+  });
+  return all;
+}
+
 function calcPRs(){
-  const prs={bestPaceRun:null,longestRun:0,longestBike:0,bestHR:999,totalSessions:0};
   const ovs=loadOverrides();
   Object.values(ovs).forEach(o=>{
     if(!o.stravaData)return;
@@ -4681,38 +4703,38 @@ function calcPRs(){
 // ── ONBOARDING ──
 const PROVAS_BR_2026 = [
   // Triathlon
-  {name:'Sprint Triathlon Santa Cecilia TV',date:'2026-09-13',dist:'sprint',local:'Guaruja, SP',sport:'triathlon'},
-  {name:'Troféu Brasil — Santos (Abr)',date:'2026-04-05',dist:'sprint',local:'Santos, SP',sport:'triathlon'},
-  {name:'Troféu Brasil — Santos (Jun)',date:'2026-06-07',dist:'sprint',local:'Santos, SP',sport:'triathlon'},
-  {name:'Troféu Brasil — Santos (Set)',date:'2026-09-06',dist:'sprint',local:'Santos, SP',sport:'triathlon'},
-  {name:'Troféu Brasil — Santos (Dez)',date:'2026-12-06',dist:'sprint',local:'Santos, SP',sport:'triathlon'},
-  {name:'CBTri — Caiobá PR',date:'2026-02-22',dist:'sprint',local:'Caiobá, PR',sport:'triathlon'},
-  {name:'CBTri — Indaiatuba SP',date:'2026-06-13',dist:'olimpico',local:'Indaiatuba, SP',sport:'triathlon'},
-  {name:'CBTri — Vila Velha ES',date:'2026-07-05',dist:'olimpico',local:'Vila Velha, ES',sport:'triathlon'},
-  {name:'Ironman Brasil — Florianópolis',date:'2026-05-24',dist:'full',local:'Florianópolis, SC',sport:'triathlon'},
-  {name:'Ironman 70.3 — Fortaleza',date:'2026-08-30',dist:'half',local:'Fortaleza, CE',sport:'triathlon'},
-  {name:'Ironman 70.3 — São Paulo',date:'2026-09-20',dist:'half',local:'São Paulo, SP',sport:'triathlon'},
-  {name:'Ironman 70.3 — Florianópolis',date:'2026-10-18',dist:'half',local:'Florianópolis, SC',sport:'triathlon'},
-  {name:'Brotas Triathlon',date:'2026-09-19',dist:'sprint',local:'Brotas, SP',sport:'triathlon'},
-  {name:'Challenge Florianópolis',date:'2026-11-29',dist:'half',local:'Florianópolis, SC',sport:'triathlon'},
-  {name:'Campeonato Paulista Sprint',date:'2026-03-15',dist:'sprint',local:'São Paulo, SP',sport:'triathlon'},
+  {name:'Sprint Triathlon Santa Cecilia TV',date:'2026-09-13',dist:'sprint',local:'Guaruja, SP',sport:'triathlon',url:'https://www.ticket.com.br/comprar/santa-cecilia'},
+  {name:'Troféu Brasil — Santos (Abr)',date:'2026-04-05',dist:'sprint',local:'Santos, SP',sport:'triathlon',url:'https://www.cbtri.org.br'},
+  {name:'Troféu Brasil — Santos (Jun)',date:'2026-06-07',dist:'sprint',local:'Santos, SP',sport:'triathlon',url:'https://www.cbtri.org.br'},
+  {name:'Troféu Brasil — Santos (Set)',date:'2026-09-06',dist:'sprint',local:'Santos, SP',sport:'triathlon',url:'https://www.cbtri.org.br'},
+  {name:'Troféu Brasil — Santos (Dez)',date:'2026-12-06',dist:'sprint',local:'Santos, SP',sport:'triathlon',url:'https://www.cbtri.org.br'},
+  {name:'CBTri — Caiobá PR',date:'2026-02-22',dist:'sprint',local:'Caiobá, PR',sport:'triathlon',url:'https://www.cbtri.org.br'},
+  {name:'CBTri — Indaiatuba SP',date:'2026-06-13',dist:'olimpico',local:'Indaiatuba, SP',sport:'triathlon',url:'https://www.cbtri.org.br'},
+  {name:'CBTri — Vila Velha ES',date:'2026-07-05',dist:'olimpico',local:'Vila Velha, ES',sport:'triathlon',url:'https://www.cbtri.org.br'},
+  {name:'Ironman Brasil — Florianópolis',date:'2026-05-24',dist:'full',local:'Florianópolis, SC',sport:'triathlon',url:'https://www.ironman.com/im-brazil'},
+  {name:'Ironman 70.3 — Fortaleza',date:'2026-08-30',dist:'half',local:'Fortaleza, CE',sport:'triathlon',url:'https://www.ironman.com/im703-fortaleza'},
+  {name:'Ironman 70.3 — São Paulo',date:'2026-09-20',dist:'half',local:'São Paulo, SP',sport:'triathlon',url:'https://www.ironman.com/im703-saopaulo'},
+  {name:'Ironman 70.3 — Florianópolis',date:'2026-10-18',dist:'half',local:'Florianópolis, SC',sport:'triathlon',url:'https://www.ironman.com/im703-florianopolis'},
+  {name:'Brotas Triathlon',date:'2026-09-19',dist:'sprint',local:'Brotas, SP',sport:'triathlon',url:'https://www.brotastriathlon.com.br'},
+  {name:'Challenge Florianópolis',date:'2026-11-29',dist:'half',local:'Florianópolis, SC',sport:'triathlon',url:'https://www.challenge-florianopolis.com'},
+  {name:'Campeonato Paulista Sprint',date:'2026-03-15',dist:'sprint',local:'São Paulo, SP',sport:'triathlon',url:'https://www.cbtri.org.br'},
   // Corrida
-  {name:'Corrida de São Silvestre',date:'2026-12-31',dist:'corrida-15k',local:'São Paulo, SP',sport:'corrida'},
-  {name:'Maratona de São Paulo',date:'2026-04-26',dist:'corrida-maratona',local:'São Paulo, SP',sport:'corrida'},
-  {name:'Maratona do Rio',date:'2026-06-21',dist:'corrida-maratona',local:'Rio de Janeiro, RJ',sport:'corrida'},
-  {name:'Meia Maratona Internacional de SP',date:'2026-08-02',dist:'corrida-meia',local:'São Paulo, SP',sport:'corrida'},
-  {name:'Track&Field Run Series — SP',date:'2026-05-10',dist:'corrida-10k',local:'São Paulo, SP',sport:'corrida'},
-  {name:'Asics Golden Run',date:'2026-09-06',dist:'corrida-10k',local:'São Paulo, SP',sport:'corrida'},
+  {name:'Maratona de São Paulo',date:'2026-04-26',dist:'corrida-maratona',local:'São Paulo, SP',sport:'corrida',url:'https://www.maratonadesaopaulo.com.br'},
+  {name:'Meia Maratona Internacional de SP',date:'2026-08-02',dist:'corrida-meia',local:'São Paulo, SP',sport:'corrida',url:'https://www.meiamaratonasp.com.br'},
+  {name:'Maratona do Rio',date:'2026-06-21',dist:'corrida-maratona',local:'Rio de Janeiro, RJ',sport:'corrida',url:'https://www.maratonadorio.com.br'},
+  {name:'Asics Golden Run',date:'2026-09-06',dist:'corrida-10k',local:'São Paulo, SP',sport:'corrida',url:'https://www.asicsgoldenrun.com.br'},
+  {name:'Track&Field Run Series — SP',date:'2026-05-10',dist:'corrida-10k',local:'São Paulo, SP',sport:'corrida',url:'https://www.trackandfield.com.br/runseries'},
+  {name:'Corrida de São Silvestre',date:'2026-12-31',dist:'corrida-15k',local:'São Paulo, SP',sport:'corrida',url:'https://www.saosilvestre.com.br'},
   // Ciclismo
-  {name:'Gran Fondo Specialized — SP',date:'2026-07-12',dist:'bike-gran-fondo',local:'São Paulo, SP',sport:'ciclismo'},
-  {name:'Volta Ciclística de São Paulo',date:'2026-08-23',dist:'bike-gran-fondo',local:'São Paulo, SP',sport:'ciclismo'},
-  {name:'Desafio Internacional da Serra Gaúcha',date:'2026-10-04',dist:'bike-gran-fondo',local:'Bento Gonçalves, RS',sport:'ciclismo'},
+  {name:'Gran Fondo Specialized — SP',date:'2026-07-12',dist:'bike-gran-fondo',local:'São Paulo, SP',sport:'ciclismo',url:'https://www.specialized.com/granfondo'},
+  {name:'Volta Ciclística de São Paulo',date:'2026-08-23',dist:'bike-gran-fondo',local:'São Paulo, SP',sport:'ciclismo',url:'https://www.voltaciclistica.com.br'},
+  {name:'Desafio Serra Gaúcha',date:'2026-10-04',dist:'bike-gran-fondo',local:'Bento Gonçalves, RS',sport:'ciclismo',url:'https://www.desafioserragaucha.com.br'},
   // Natação
-  {name:'Travessia Mar Grande — Salvador',date:'2026-02-01',dist:'swim-open',local:'Salvador, BA',sport:'natacao'},
-  {name:'Maratona Aquática de Belo Horizonte',date:'2026-06-28',dist:'swim-open',local:'Belo Horizonte, MG',sport:'natacao'},
+  {name:'Travessia Mar Grande — Salvador',date:'2026-02-01',dist:'swim-open',local:'Salvador, BA',sport:'natacao',url:'https://www.travessiamargrande.com.br'},
+  {name:'Maratona Aquática de BH',date:'2026-06-28',dist:'swim-open',local:'Belo Horizonte, MG',sport:'natacao',url:'https://www.maratonaaquaticabh.com.br'},
   // Duathlon
-  {name:'Duathlon Brasil — Brasília',date:'2026-05-03',dist:'du-standard',local:'Brasília, DF',sport:'duathlon'},
-  {name:'Duathlon Sprint — São Paulo',date:'2026-08-16',dist:'du-sprint',local:'São Paulo, SP',sport:'duathlon'},
+  {name:'Duathlon Brasil — Brasília',date:'2026-05-03',dist:'du-standard',local:'Brasília, DF',sport:'duathlon',url:'https://www.duathlonbrasil.com.br'},
+  {name:'Duathlon Sprint — São Paulo',date:'2026-08-16',dist:'du-sprint',local:'São Paulo, SP',sport:'duathlon',url:'https://www.duathlonsaopaulo.com.br'},
 ];
 
 const SPORT_INFO={
@@ -4847,48 +4869,48 @@ function renderObWelcome(c){
       .ob-letter{display:inline-block;opacity:0;animation:ob-letter-in .6s cubic-bezier(.34,1.56,.64,1) forwards}
       .ob-sub-anim{opacity:0;animation:ob-fade-up .8s ease forwards}
     </style>
-    <div style="position:relative;display:flex;flex-direction:column;justify-content:flex-end;min-height:100vh;overflow:hidden;background:#000">
+    <div style="position:relative;display:flex;flex-direction:column;justify-content:center;align-items:center;min-height:100vh;overflow:hidden;background:#000">
       <div id="ob-videos" style="position:absolute;inset:0;overflow:hidden">
-        <video id="ob-vid-0" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:1;transition:opacity 1.5s ease" autoplay muted playsinline>
+        <video id="ob-vid-0" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:1;transition:opacity .8s ease" autoplay muted playsinline preload="auto">
           <source src="https://videos.pexels.com/video-files/12204020/12204020-hd_1920_1080_24fps.mp4" type="video/mp4">
         </video>
-        <video id="ob-vid-1" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 1.5s ease" muted playsinline>
+        <video id="ob-vid-1" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .8s ease" muted playsinline preload="auto">
           <source src="https://videos.pexels.com/video-files/5790072/5790072-hd_1280_720_30fps.mp4" type="video/mp4">
         </video>
-        <video id="ob-vid-2" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 1.5s ease" muted playsinline>
+        <video id="ob-vid-2" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .8s ease" muted playsinline preload="auto">
           <source src="https://videos.pexels.com/video-files/12510396/12510396-hd_1920_1080_25fps.mp4" type="video/mp4">
         </video>
       </div>
-      <div style="position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,0.05) 0%,rgba(0,0,0,0.35) 45%,rgba(0,0,0,0.93) 100%)"></div>
-      <div style="position:relative;padding:0 32px 56px;text-align:center">
-        <div style="margin-bottom:8px;line-height:1;white-space:nowrap">
-          <span class="ob-letter" style="font-family:var(--font-display);font-size:88px;color:#fff;letter-spacing:-4px;animation-delay:.15s">M</span><span class="ob-letter" style="font-family:var(--font-display);font-size:88px;color:#fff;letter-spacing:-4px;animation-delay:.28s">Y</span><span class="ob-letter" style="font-family:var(--font-display);font-size:88px;color:#1a6cf0;letter-spacing:-4px;animation-delay:.42s">T</span><span class="ob-letter" style="font-family:var(--font-display);font-size:88px;color:#e05c2a;letter-spacing:-4px;animation-delay:.56s">R</span><span class="ob-letter" style="font-family:var(--font-display);font-size:88px;color:#00e676;letter-spacing:-4px;animation-delay:.70s">I</span>
+      <div style="position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,0.2) 0%,rgba(0,0,0,0.5) 50%,rgba(0,0,0,0.85) 100%)"></div>
+      <div style="position:relative;text-align:center;padding:0 28px;display:flex;flex-direction:column;align-items:center;gap:0;width:100%">
+        <div style="line-height:.9;margin-bottom:6px;white-space:nowrap">
+          <span class="ob-letter" style="font-family:var(--font-display);font-size:min(28vw,120px);color:#fff;letter-spacing:-4px;animation-delay:.1s">M</span><span class="ob-letter" style="font-family:var(--font-display);font-size:min(28vw,120px);color:#fff;letter-spacing:-4px;animation-delay:.22s">Y</span><span class="ob-letter" style="font-family:var(--font-display);font-size:min(28vw,120px);color:#1a6cf0;letter-spacing:-4px;animation-delay:.36s">T</span><span class="ob-letter" style="font-family:var(--font-display);font-size:min(28vw,120px);color:#e05c2a;letter-spacing:-4px;animation-delay:.50s">R</span><span class="ob-letter" style="font-family:var(--font-display);font-size:min(28vw,120px);color:#00e676;letter-spacing:-4px;animation-delay:.64s">I</span>
         </div>
-        <div class="ob-sub-anim" style="font-family:var(--font-ui);font-size:10px;color:rgba(255,255,255,0.4);letter-spacing:4px;margin-bottom:20px;animation-delay:1.1s">CUSTOMIZED TRAINING</div>
-        <div class="ob-sub-anim" style="font-family:var(--font-body);font-size:16px;color:rgba(255,255,255,0.78);line-height:1.7;margin-bottom:36px;animation-delay:1.3s">
+        <div class="ob-sub-anim" style="font-family:var(--font-ui);font-size:11px;color:rgba(255,255,255,0.5);letter-spacing:5px;margin-bottom:32px;animation-delay:.9s">CUSTOMIZED TRAINING</div>
+        <div class="ob-sub-anim" style="font-family:var(--font-body);font-size:16px;color:rgba(255,255,255,0.82);line-height:1.7;margin-bottom:40px;animation-delay:1.1s;max-width:300px">
           Seu co-piloto personalizado para chegar na linha de chegada pronto${nome}.
         </div>
-        <div class="ob-sub-anim" style="animation-delay:1.6s">
+        <div class="ob-sub-anim" style="animation-delay:1.4s;width:100%;max-width:340px">
           <button onclick="obNext()" style="background:var(--accent);color:#000;border:none;width:100%;padding:20px;font-family:var(--font-ui);font-size:14px;font-weight:700;letter-spacing:2px;border-radius:6px;cursor:pointer">COMECAR</button>
         </div>
       </div>
     </div>`;
 
-  // Alterna vídeos a cada 5s
+  // Preload todos e alterna a cada 4s
   let cur=0;
   const vids=[
     document.getElementById('ob-vid-0'),
     document.getElementById('ob-vid-1'),
     document.getElementById('ob-vid-2'),
   ];
-  vids[0].play().catch(()=>{});
+  vids.forEach(v=>{ v.load(); v.play().catch(()=>{}); });
+  vids[1].style.opacity='0';
+  vids[2].style.opacity='0';
   const iv=setInterval(()=>{
     vids[cur].style.opacity='0';
     cur=(cur+1)%vids.length;
     vids[cur].style.opacity='1';
-    vids[cur].play().catch(()=>{});
-  },5000);
-  // Para o intervalo quando sair do onboarding
+  },4000);
   c._clearVideoInterval=()=>clearInterval(iv);
 }
 
@@ -4981,38 +5003,45 @@ function renderObProva(c){
       <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
         ${provas.map((p,i)=>{
           const globalIdx=PROVAS_BR_2026.indexOf(p);
-          return `<div onclick="obSelectProva(${globalIdx})" style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:${obData.provaIdx===globalIdx?hexToRgba(sportInfo.color,0.08):'var(--surface)'};border:1.5px solid ${obData.provaIdx===globalIdx?sportInfo.color:'var(--border)'};border-radius:6px;cursor:pointer">
-            <div style="flex:1">
-              <div style="font-family:var(--font-ui);font-size:13px;font-weight:700;letter-spacing:.3px">${p.name}</div>
-              <div style="font-family:var(--font-body);font-size:11px;color:var(--muted2);margin-top:3px">${p.local} &middot; ${p.date?new Date(p.date+'T12:00:00').toLocaleDateString('pt-BR',{day:'numeric',month:'short',year:'numeric'}):''}</div>
+          const sel=obData.provaIdx===globalIdx;
+          return `<div style="border-radius:8px;overflow:hidden;border:2px solid ${sel?sportInfo.color:'var(--border)'};background:${sel?hexToRgba(sportInfo.color,0.08):'var(--surface)'};cursor:pointer" onclick="obSelectProvaAuto(${globalIdx})">
+            <div style="padding:14px 16px;display:flex;align-items:center;gap:12px">
+              <div style="flex:1">
+                <div style="font-family:var(--font-ui);font-size:14px;font-weight:700;letter-spacing:.3px;color:${sel?sportInfo.color:'var(--text)'}">${p.name}</div>
+                <div style="font-family:var(--font-body);font-size:11px;color:var(--muted2);margin-top:3px">${p.local} &middot; ${p.date?new Date(p.date+'T12:00:00').toLocaleDateString('pt-BR',{day:'numeric',month:'short',year:'numeric'}):''}</div>
+              </div>
             </div>
-            ${obData.provaIdx===globalIdx?`<div style="color:${sportInfo.color};font-size:18px">&#10003;</div>`:''}
+            ${p.url?`<div onclick="event.stopPropagation();window.open('${p.url}','_blank')" style="border-top:1px solid ${sel?sportInfo.color+'44':'var(--border)'};padding:8px 16px;font-family:var(--font-ui);font-size:9px;color:${sel?sportInfo.color:'var(--muted)'};letter-spacing:1.5px;cursor:pointer">VER INSCRICOES</div>`:''}
           </div>`;
         }).join('')}
-        <div onclick="obSelectProva(-1)" style="padding:14px 16px;background:${obData.provaIdx===-1?'rgba(0,230,118,.08)':'var(--surface)'};border:1.5px solid ${obData.provaIdx===-1?'var(--accent)':'var(--border)'};border-radius:6px;cursor:pointer;text-align:center;font-family:var(--font-ui);font-size:12px;color:var(--muted);letter-spacing:1px">
+        <div onclick="obSelectProvaAuto(-1)" style="padding:14px 16px;background:${obData.provaIdx===-1?'rgba(0,230,118,.08)':'var(--surface)'};border:2px solid ${obData.provaIdx===-1?'var(--accent)':'var(--border)'};border-radius:8px;cursor:pointer;text-align:center;font-family:var(--font-ui);font-size:12px;color:var(--muted);letter-spacing:1px">
           + OUTRA PROVA (cadastrar manualmente)
         </div>
       </div>
       ${obData.provaIdx===-1?`
         <div class="ob-field"><label>Nome da prova</label><input id="ob-prova-nome" value="${obData.raceName||''}" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:12px;border-radius:4px"></div>
         <div class="ob-field"><label>Data da prova</label><input id="ob-data" type="date" value="${obData.raceDate||''}" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:12px;border-radius:4px"></div>
+        <button class="ob-btn" onclick="obNext()" style="margin-top:12px">CONTINUAR</button>
       `:''}
     </div>
     <div style="padding:0 24px 24px;margin-top:auto">
-      <button class="ob-btn" onclick="obNext()">CONTINUAR</button>
       <button class="ob-btn-skip" onclick="obNext()">Pular por agora</button>
     </div>`;
 }
 
-function obSelectProva(i){
+function obSelectProvaAuto(i){
   obData.provaIdx=i;
   if(i>=0&&i<PROVAS_BR_2026.length){
     const p=PROVAS_BR_2026[i];
     obData.raceName=p.name;
     obData.raceDate=p.date;
     obData.raceLocal=p.local;
+    obData.raceUrl=p.url||'';
+    renderOnboarding();
+    setTimeout(()=>obNext(),500);
+  } else {
+    renderOnboarding();
   }
-  renderOnboarding();
 }
 
 function renderObMeta(c){
@@ -5244,9 +5273,8 @@ function renderObDias(c){
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
         ${dias.map(d=>{
           const sel=obData.diasDisponiveis.includes(d.v);
-          return `<div onclick="obToggleDia('${d.v}')" style="padding:18px;background:${sel?'rgba(0,230,118,.08)':'var(--surface)'};border:2px solid ${sel?'var(--accent)':'var(--border)'};border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:space-between">
-            <span style="font-family:var(--font-ui);font-size:13px;letter-spacing:.5px;color:${sel?'var(--accent)':'var(--text)'}">${d.l.toUpperCase()}</span>
-            ${sel?'<span style="color:var(--accent);font-size:16px">&#10003;</span>':'<div style="width:16px;height:16px;border-radius:50%;border:1.5px solid var(--border)"></div>'}
+          return `<div onclick="obToggleDia('${d.v}')" style="padding:20px;background:${sel?'rgba(0,230,118,.08)':'var(--surface)'};border:2px solid ${sel?'var(--accent)':'var(--border)'};border-radius:8px;cursor:pointer;text-align:center">
+            <span style="font-family:var(--font-display);font-size:22px;letter-spacing:.5px;color:${sel?'var(--accent)':'var(--text)'}">${d.l.toUpperCase()}</span>
           </div>`;
         }).join('')}
       </div>
