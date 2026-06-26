@@ -1,73 +1,94 @@
+const https = require('https');
+
 exports.handler = async (event) => {
-  if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, body: 'Method Not Allowed' };
+  if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Method Not Allowed' };
+  let profile;
+  try { profile = JSON.parse(event.body).profile; } catch { return { statusCode: 400, body: 'Invalid JSON' }; }
+
+  const sport = profile.sport || 'triathlon';
+  const sportNames = { triathlon:'Triathlon', corrida:'Corrida', ciclismo:'Ciclismo', natacao:'Natacao', duathlon:'Duathlon' };
+  const sportName = sportNames[sport] || sport;
+  const raceName = profile.raceName || profile.nextRace || 'prova principal';
+  const raceDate = profile.raceDate || '';
+  const goalTime = profile.goalTime || '';
+  const daysToRace = raceDate ? Math.max(0, Math.round((new Date(raceDate + 'T12:00:00') - new Date()) / (1000*60*60*24))) : '?';
+
+  // Níveis por modalidade
+  let levelStr = '';
+  if (sport === 'triathlon' || sport === 'duathlon') {
+    levelStr = `Natacao: ${profile.swimLevel||'iniciante'} (${profile.swim||'?'}/100m), Bike: ${profile.bikeLevel||'iniciante'} (FTP ${profile.ftp||'?'}w), Corrida: ${profile.runLevel||'iniciante'} (${profile.pace||'?'}/km)`;
+  } else if (sport === 'corrida') {
+    levelStr = `Nivel: ${profile.runLevel||'iniciante'}, Pace atual: ${profile.pace||'?'}/km`;
+  } else if (sport === 'ciclismo') {
+    levelStr = `Nivel: ${profile.bikeLevel||'iniciante'}, FTP: ${profile.ftp||'?'}w`;
+  } else if (sport === 'natacao') {
+    levelStr = `Nivel: ${profile.swimLevel||'iniciante'}, Pace: ${profile.swim||'?'}/100m`;
   }
 
-  try {
-    const body = JSON.parse(event.body);
-    const { profile } = body;
+  const diasStr = profile.diasDisponiveis?.join(', ') || 'seg, ter, qua, qui, sex';
+  const horasStr = profile.weeklyHours || '3-4';
 
-    const prompt = `Você é um coach de triathlon experiente. Com base no perfil abaixo, crie um resumo estratégico do plano de treino até a prova. Seja direto, motivador e específico. Responda em português.
+  const prompt = `Voce e um coach de alto rendimento especialista em ${sportName}. Crie um resumo estrategico do plano de treino personalizado para este atleta:
 
-PERFIL DO ATLETA:
-- Nome: ${profile.name || 'Atleta'}
-- Idade: ${profile.age || '?'} anos
-- Peso: ${profile.weight || '?'}kg | Altura: ${profile.altura || '?'}cm
-- FC Máxima: ${profile.fcMax || '?'}bpm
-- Prova: ${profile.raceName || 'Sprint Triathlon'}
-- Distância: ${profile.raceDist || 'sprint'}
-- Data da prova: ${profile.raceDate || '?'}
-- Meta: ${profile.goalTime || 'completar a prova'}
-- Horas de treino/semana: ${profile.weeklyHours || '3-4'}h
-- Natação: ${profile.swimLevel || 'iniciante'} | Pace: ${profile.swim || 'não informado'}
-- Bike: ${profile.bikeLevel || 'iniciante'} | FTP: ${profile.ftp || 'não informado'}
-- Corrida: ${profile.runLevel || 'iniciante'} | Pace: ${profile.pace || 'não informado'}
+ATLETA: ${profile.name || 'Atleta'}, ${profile.age || '?'} anos, ${profile.weight || '?'}kg
+ESPORTE: ${sportName}
+PROVA: ${raceName}
+DIAS ATE A PROVA: ${daysToRace} dias
+META DE TEMPO: ${goalTime || 'completar a prova'}
+PERFORMANCE ATUAL: ${levelStr}
+HORAS SEMANAIS DISPONIVEIS: ${horasStr}h
+DIAS DE TREINO: ${diasStr}
+FC MAXIMA: ${profile.fcMax || '?'}bpm
 
-Crie um resumo com exatamente estas seções (use estes títulos):
+Escreva o resumo EXCLUSIVAMENTE focado em ${sportName}. NAO mencione outras modalidades a menos que sejam relevantes para o esporte escolhido.
 
-VISÃO GERAL
-2-3 frases resumindo a situação e o objetivo principal.
+Responda EXATAMENTE neste formato (sem markdown, sem asteriscos, sem ##):
 
-PONTO CRÍTICO
-A modalidade ou aspecto que mais vai determinar o resultado. Seja específico.
+VISAO GERAL
+[2-3 paragrafos sobre o perfil do atleta, o desafio da prova e o contexto geral do plano]
+
+PONTO CRITICO
+[O maior gargalo ou desafio especifico para este atleta neste esporte. Seja direto e especifico.]
 
 FASES DO PLANO
-Liste 3-4 fases com nome e foco principal (ex: "Base — construção aeróbica e técnica de nado").
+[4 fases do plano com nome, periodo e objetivos principais. Uma por linha.]
 
-ESTRATÉGIA DE PROVA
-2-3 frases sobre como abordar o dia da prova dado o perfil.
+ESTRATEGIA DE PROVA
+[Como o atleta deve abordar a prova especifica: ritmo, estrategia, pontos de atencao]
 
 MENSAGEM DO COACH
-Uma frase motivadora e personalizada para este atleta específico.`;
+[Mensagem motivacional personalizada e especifica para este atleta e sua jornada]`;
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+  const requestBody = JSON.stringify({
+    model: 'claude-haiku-4-5',
+    max_tokens: 800,
+    messages: [{ role: 'user', content: prompt }]
+  });
+
+  return new Promise((resolve) => {
+    const req = https.request({
+      hostname: 'api.anthropic.com',
+      path: '/v1/messages',
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': process.env.ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5',
-        max_tokens: 1000,
-        messages: [{ role: 'user', content: prompt }]
-      })
+        'anthropic-version': '2023-06-01',
+        'Content-Length': Buffer.byteLength(requestBody)
+      }
+    }, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try {
+          const parsed = JSON.parse(data);
+          const text = parsed?.content?.[0]?.text || '';
+          resolve({ statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) });
+        } catch { resolve({ statusCode: 500, body: JSON.stringify({ text: '' }) }); }
+      });
     });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      return { statusCode: response.status, body: JSON.stringify({ error: data.error?.message || 'API error' }) };
-    }
-
-    const text = data.content?.map(b => b.text || '').join('') || '';
-    return {
-      statusCode: 200,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text })
-    };
-
-  } catch (e) {
-    return { statusCode: 500, body: JSON.stringify({ error: e.message }) };
-  }
+    req.on('error', () => resolve({ statusCode: 500, body: JSON.stringify({ text: '' }) }));
+    req.write(requestBody);
+    req.end();
+  });
 };
