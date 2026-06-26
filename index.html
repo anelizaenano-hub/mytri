@@ -2605,12 +2605,19 @@ function encerrarCiclo(){
 // ── RENDER CONQUISTAS ──
 function renderConquistas(){
   const container=document.getElementById('view-conquistas');
+  if(!container)return;
   container.innerHTML='';
-  const history=loadCycleHistory();
-  const active=loadActiveCycle();
-  const ct=getActiveCycleType();
-  const vol=calcCycleVolume();
-  const pct=Math.round((vol.sessoesDone/Math.max(vol.sessoesTotal,1))*100);
+  let history,active,ct,vol,pct;
+  try{
+    history=loadCycleHistory();
+    active=loadActiveCycle();
+    ct=getActiveCycleType();
+    vol=calcCycleVolume();
+    pct=Math.round((vol.sessoesDone/Math.max(vol.sessoesTotal,1))*100);
+  }catch(e){
+    container.innerHTML='<div style="padding:32px;font-family:var(--font-body);color:var(--muted);text-align:center">Erro ao carregar conquistas.</div>';
+    return;
+  }
 
   const section=document.createElement('div');section.className='conq-section';
 
@@ -3994,14 +4001,14 @@ function renderClubSwipe(c){
       <div style="font-family:var(--font-display);font-size:22px;letter-spacing:1px">CLUBE DA <span style="color:#1a6cf0">MEIA AZUL</span></div>
       <div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1.5px;margin-top:2px">${available.length} ATLETAS DISPONÍVEIS</div>
     </div>
-    <div onclick="clubState.step='profile';saveClubState();renderClub()" style="width:36px;height:36px;border-radius:50%;background:var(--surface);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px">👤</div>`;
+    <div onclick="clubState.step='profile';saveClubState();renderClub()" style="width:36px;height:36px;border-radius:50%;background:var(--surface);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></div>`;
   c.appendChild(hdr);
 
   if(!p){
     const empty=document.createElement('div');
     empty.style.cssText='padding:60px 24px;text-align:center';
     empty.innerHTML=`
-      <div style="font-size:48px;margin-bottom:16px">🏊</div>
+      <div style="font-size:48px;margin-bottom:16px"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5"><path d="M2 12c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><path d="M2 17c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><circle cx="12" cy="6" r="2"/><path d="M12 8v4"/></svg></div>
       <div style="font-family:var(--font-display);font-size:22px;margin-bottom:8px">Você viu todo mundo!</div>
       <div style="font-family:var(--font-body);font-size:13px;color:var(--muted2);line-height:1.6">Novos atletas chegando em breve. Volte depois ou compartilhe o MyTri com amigos triatletas.</div>`;
     c.appendChild(empty);
@@ -4167,7 +4174,7 @@ function renderClubMatch(c){
   c.style.cssText='padding-bottom:80px;min-height:100vh;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:32px 24px';
 
   c.innerHTML=`
-    <div style="font-size:48px;margin-bottom:16px;animation:pulse 1s infinite">🏊🚴🏃</div>
+    <div style="font-size:48px;margin-bottom:16px;animation:pulse 1s infinite"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5"><path d="M2 12c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><path d="M2 17c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><circle cx="12" cy="6" r="2"/><path d="M12 8v4"/></svg>🚴🏃</div>
     <div style="font-family:var(--font-display);font-size:36px;letter-spacing:1px;color:var(--accent);margin-bottom:8px">É UM MATCH!</div>
     <div style="font-family:var(--font-body);font-size:15px;color:var(--muted2);line-height:1.6;margin-bottom:28px">Você e <strong style="color:var(--text)">${p.name}</strong> curtiram um ao outro.<br>Vocês têm muito em comum — incluindo a próxima prova!</div>
 
@@ -4484,11 +4491,11 @@ function resetOnboarding(){
 }
 
 function resetClubTerms(){
-  if(!confirm('Resetar termos do Clube?'))return;
-  localStorage.removeItem('mytri_club_terms');
+  if(!confirm('Resetar o Clube da Meia Azul?'))return;
+  clubState={step:'onboard',myProfile:null,currentIdx:0,liked:[],passed:[],matches:[],matchedWith:null,dragStart:null};
   localStorage.removeItem('mytri_club');
+  localStorage.removeItem('mytri_club_terms');
   closeProfile();
-  alert('Clube resetado.');
 }
 
 function resetFitTerms(){
@@ -4834,6 +4841,7 @@ async function checkOnboarding(){
 
 function showOnboarding(){
   obStep=0;
+  obData={sport:null,raceDist:null,goalTime:null,swimLevel:'beginner',bikeLevel:'beginner',runLevel:'beginner',weeklyHours:null,fcMax:'',ftp:'',diasDisponiveis:[]};
   const el=document.getElementById('view-onboard');
   el.classList.add('active');
   renderOnboarding();
@@ -4905,21 +4913,22 @@ function renderObWelcome(c){
       </div>
     </div>`;
 
-  // Preload todos e alterna a cada 4s
+  // Carrega e toca primeiro video imediatamente
   let cur=0;
   const vids=[
     document.getElementById('ob-vid-0'),
     document.getElementById('ob-vid-1'),
     document.getElementById('ob-vid-2'),
   ];
-  vids.forEach(v=>{ v.load(); v.play().catch(()=>{}); });
-  vids[1].style.opacity='0';
-  vids[2].style.opacity='0';
+  vids[0].play().catch(()=>{});
+  // Pre-carrega os outros enquanto o primeiro toca
+  setTimeout(()=>{vids[1].load();vids[2].load();},1000);
   const iv=setInterval(()=>{
     vids[cur].style.opacity='0';
     cur=(cur+1)%vids.length;
     vids[cur].style.opacity='1';
-  },4000);
+    vids[cur].play().catch(()=>{});
+  },5000);
   c._clearVideoInterval=()=>clearInterval(iv);
 }
 
@@ -5143,7 +5152,7 @@ function renderObModalidades(c){
         {key:'bikeLevel',label:'BIKE',color:'#e05c2a',levels,
          extra:`<input id="ob-ftp" placeholder="FTP em watts (ex: 200)" value="${obData.ftp||''}" type="number" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">`},
         {key:'runLevel',label:'CORRIDA',color:'#00e676',levels,
-         extra:`<input id="ob-run-pace" placeholder="Pace corrida/km (ex: 5:30)" value="${obData.runPace||''}" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">`},
+         extra:`<input id="ob-run-pace" type="tel" inputmode="numeric" placeholder="Pace /km (ex: 530)" value="${obData.runPace||''}" oninput="obFormatPace(this)" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-display);font-size:18px;padding:11px;border-radius:4px">`},
       ]
     },
     corrida:{
@@ -5175,7 +5184,7 @@ function renderObModalidades(c){
       sub:'Nivel atual em cada modalidade.',
       sections:[
         {key:'runLevel',label:'CORRIDA',color:'#00e676',levels,
-         extra:`<input id="ob-run-pace" placeholder="Pace corrida/km (ex: 5:30)" value="${obData.runPace||''}" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">`},
+         extra:`<input id="ob-run-pace" type="tel" inputmode="numeric" placeholder="Pace /km (ex: 530)" value="${obData.runPace||''}" oninput="obFormatPace(this)" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-display);font-size:18px;padding:11px;border-radius:4px">`},
         {key:'bikeLevel',label:'BIKE',color:'#e05c2a',levels,
          extra:`<input id="ob-ftp" placeholder="FTP em watts (ex: 200, opcional)" value="${obData.ftp||''}" type="number" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">`},
       ]
@@ -5201,6 +5210,13 @@ function renderObModalidades(c){
     </div>`;
 }
 
+
+function obFormatPace(el){
+  let v=el.value.replace(/[^0-9]/g,'');
+  if(v.length>=2) v=v.slice(0,v.length-2)+':'+v.slice(-2);
+  if(v.length>5) v=v.slice(0,5);
+  el.value=v;
+}
 function obSaveModalidades(){
   obData.swimPace=document.getElementById('ob-swim-pace')?.value||'';
   obData.ftp=document.getElementById('ob-ftp')?.value||'';
@@ -5435,7 +5451,8 @@ function obFinish(){
     fcMax:obData.fcMax||'',
   };
   saveMytriProfile(finalProfile);
-  // Save onboard flag to Supabase too so PWA picks it up
+  // Força Supabase com dados novos (sobrescreve perfil antigo)
+  sbSet('mytri_profile', finalProfile).catch(()=>{});
   sbSet('mytri_onboard_done','1').catch(()=>{});
   localStorage.setItem('mytri_onboard_done','1');
   document.getElementById('view-onboard').classList.remove('active');
