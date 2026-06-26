@@ -4104,7 +4104,11 @@ async function resetCity(){
 }
 
 function detectGPSLocation(force){
-  if(!navigator.geolocation)return;
+  if(!navigator.geolocation){
+    const el=document.getElementById('profile-city-display');
+    if(el)el.textContent='GPS indisponivel';
+    return;
+  }
   const isInvalid=c=>!c||c==='Centro, Brazil'||c==='Centro'||c==='Brazil'||c==='Brasil'||c.startsWith('Centro,');
   try{
     const saved=JSON.parse(localStorage.getItem('mytri_profile')||'{}');
@@ -4114,27 +4118,33 @@ function detectGPSLocation(force){
       sbSet('mytri_profile',saved).catch(()=>{});
     }
   }catch(e){}
+  const el=document.getElementById('profile-city-display');
+  if(el)el.textContent='Aguardando GPS...';
   navigator.geolocation.getCurrentPosition(async pos=>{
+    if(el)el.textContent='GPS ok, buscando...';
     try{
       const {latitude:lat,longitude:lon}=pos.coords;
       const r=await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=pt`);
       const d=await r.json();
-      const bairro=d.locality||d.localityInfo?.administrative?.[4]?.name||d.localityInfo?.administrative?.[3]?.name||'';
+      const bairro=d.locality||'';
       const cidade=d.city||d.principalSubdivision||'';
       const loc=bairro&&cidade?`${bairro}, ${cidade}`:cidade||bairro||'';
       if(loc){
         localStorage.setItem('mytri_gps_city',loc);
         const saved=JSON.parse(localStorage.getItem('mytri_profile')||'{}');
-        if(force||isInvalid(saved.city)||saved.city!==loc){
-          saved.city=loc;
-          localStorage.setItem('mytri_profile',JSON.stringify(saved));
-          sbSet('mytri_profile',saved).catch(()=>{});
-          const el=document.getElementById('profile-city-display');
-          if(el)el.textContent=loc;
-          refreshHoje();
-        }
+        saved.city=loc;
+        localStorage.setItem('mytri_profile',JSON.stringify(saved));
+        sbSet('mytri_profile',saved).catch(()=>{});
+        if(el)el.textContent=loc;
+        refreshHoje();
+      } else {
+        if(el)el.textContent=`Sem bairro (${lat.toFixed(3)},${lon.toFixed(3)})`;
       }
-    }catch(e){}
+    }catch(e){
+      if(el)el.textContent='Erro API: '+e.message;
+    }
+  },err=>{
+    if(el)el.textContent='Erro GPS: '+err.message;
   },{timeout:10000,enableHighAccuracy:true});
 }
 
@@ -5272,8 +5282,8 @@ function renderBikeFitText(el, text){
 }
 
 // Init GPS on load
-detectGPSLocation();
-syncProfileFromSupabase();
+// Sync primeiro, depois GPS sobrescreve cidade inválida
+syncProfileFromSupabase().finally(()=>detectGPSLocation());
 checkOnboarding();
 
 // ── SESSION ANALYSIS ──
