@@ -1945,7 +1945,7 @@ function _renderSemana(w){
         // Botão delete atrás
         const delBtn=document.createElement('div');
         delBtn.style.cssText='position:absolute;right:0;top:0;bottom:0;width:60px;background:#c0392b;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;z-index:0;';
-        delBtn.innerHTML='🗑';
+        delBtn.innerHTML='&#x1F5D1;';
         delBtn.onclick=()=>{
           if(sess._origin==='plan')deleteSession(w,di,sess._si);
           else{removeExtra(w,di,sess._idx);}
@@ -2615,7 +2615,11 @@ function renderConquistas(){
     vol=calcCycleVolume();
     pct=Math.round((vol.sessoesDone/Math.max(vol.sessoesTotal,1))*100);
   }catch(e){
-    container.innerHTML='<div style="padding:32px;font-family:var(--font-body);color:var(--muted);text-align:center">Erro ao carregar conquistas.</div>';
+    container.innerHTML=`<div style="padding:40px 24px;text-align:center">
+      <div style="font-family:var(--font-display);font-size:22px;color:var(--accent);margin-bottom:12px">HIST</div>
+      <div style="font-family:var(--font-body);font-size:14px;color:var(--muted2);line-height:1.7">Seus treinos e conquistas<br>aparecem aqui conforme<br>voce vai completando sessoes.</div>
+    </div>`;
+    console.error('renderConquistas',e);
     return;
   }
 
@@ -2890,7 +2894,7 @@ function checkWeeklySummary(){
   }
   const pct=total?Math.round(done/total*100):0;
   const phase=w<=4?'Base':w<=8?'Construção I':w<=12?'Construção II':'Taper';
-  const emoji=pct>=90?'🔥':pct>=70?'💪':pct>=50?'👍':'⚠️';
+  const emoji=pct>=90?'':pct>=70?'':pct>=50?'':'';
   const msg=pct>=90?'Semana excelente. Consistência é o que leva à prova preparado.':
     pct>=70?'Boa semana. Recupera as sessões perdidas nos próximos dias.':
     pct>=50?'Semana abaixo do esperado. Identifica o que está impedindo e ajusta.':
@@ -3886,10 +3890,11 @@ function renderClubOnboard(c){
             <div style="font-family:var(--font-ui);font-size:12px;color:var(--text);letter-spacing:.5px">Compartilhar peso e altura</div>
             <div style="font-family:var(--font-body);font-size:11px;color:var(--muted);margin-top:2px">Voce vera as mesmas infos dos outros</div>
           </div>
-          <label style="position:relative;display:inline-block;width:44px;height:24px;flex-shrink:0">
-            <input type="checkbox" id="cl-share-metrics" style="opacity:0;width:0;height:0">
-            <span onclick="this.previousElementSibling.click()" style="position:absolute;inset:0;background:var(--border);border-radius:12px;cursor:pointer;transition:.3s"></span>
-          </label>
+          <div onclick="this.querySelector('input').click();this.querySelector('.tog-bg').style.background=this.querySelector('input').checked?'var(--accent)':'var(--border)';this.querySelector('.tog-dot').style.transform=this.querySelector('input').checked?'translateX(20px)':'translateX(0)'" style="position:relative;width:44px;height:24px;cursor:pointer;flex-shrink:0">
+            <input type="checkbox" id="cl-share-metrics" style="display:none">
+            <div class="tog-bg" style="position:absolute;inset:0;background:var(--border);border-radius:12px;transition:.3s"></div>
+            <div class="tog-dot" style="position:absolute;top:2px;left:2px;width:20px;height:20px;background:#fff;border-radius:50%;transition:.3s"></div>
+          </div>
         </div>
 
         <button onclick="submitClubOnboard()" style="width:100%;margin-top:8px;padding:18px;background:var(--accent);color:#000;font-family:var(--font-ui);font-size:14px;font-weight:700;letter-spacing:2px;border:none;cursor:pointer;border-radius:4px">ENTRAR NA TURMA</button>
@@ -4174,7 +4179,7 @@ function renderClubMatch(c){
   c.style.cssText='padding-bottom:80px;min-height:100vh;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:32px 24px';
 
   c.innerHTML=`
-    <div style="font-size:48px;margin-bottom:16px;animation:pulse 1s infinite"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5"><path d="M2 12c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><path d="M2 17c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><circle cx="12" cy="6" r="2"/><path d="M12 8v4"/></svg>🚴🏃</div>
+    <div style="font-size:48px;margin-bottom:16px;animation:pulse 1s infinite"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5"><path d="M2 12c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><path d="M2 17c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><circle cx="12" cy="6" r="2"/><path d="M12 8v4"/></svg></div>
     <div style="font-family:var(--font-display);font-size:36px;letter-spacing:1px;color:var(--accent);margin-bottom:8px">É UM MATCH!</div>
     <div style="font-family:var(--font-body);font-size:15px;color:var(--muted2);line-height:1.6;margin-bottom:28px">Você e <strong style="color:var(--text)">${p.name}</strong> curtiram um ao outro.<br>Vocês têm muito em comum — incluindo a próxima prova!</div>
 
@@ -4188,7 +4193,7 @@ function renderClubMatch(c){
     </div>
 
     <div style="font-family:var(--font-body);font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:24px;background:rgba(0,230,118,0.06);border:1px solid rgba(0,230,118,0.2);border-radius:8px;padding:14px">
-      Em breve você poderá enviar uma mensagem diretamente pelo app. Por enquanto, nos vemos na largada! 🏁
+      Em breve você poderá enviar uma mensagem diretamente pelo app. Por enquanto, nos vemos na largada!
     </div>
 
     <button onclick="clubState.step='swipe';clubState.matchedWith=null;saveClubState();renderClub()" style="width:100%;padding:16px;background:var(--accent);color:#000;font-family:var(--font-ui);font-size:13px;font-weight:700;letter-spacing:2px;border:none;cursor:pointer;border-radius:4px;margin-bottom:12px">CONTINUAR EXPLORANDO</button>
@@ -4889,13 +4894,13 @@ function renderObWelcome(c){
     <div style="position:relative;display:flex;flex-direction:column;justify-content:center;align-items:center;min-height:100vh;overflow:hidden;background:#000">
       <div id="ob-videos" style="position:absolute;inset:0;overflow:hidden">
         <video id="ob-vid-0" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:1;transition:opacity .8s ease" autoplay muted playsinline preload="auto">
-          <source src="https://videos.pexels.com/video-files/12204020/12204020-hd_1920_1080_24fps.mp4" type="video/mp4">
-        </video>
-        <video id="ob-vid-1" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .8s ease" muted playsinline preload="auto">
           <source src="https://videos.pexels.com/video-files/5790072/5790072-hd_1280_720_30fps.mp4" type="video/mp4">
         </video>
-        <video id="ob-vid-2" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .8s ease" muted playsinline preload="auto">
-          <source src="https://videos.pexels.com/video-files/12510396/12510396-hd_1920_1080_25fps.mp4" type="video/mp4">
+        <video id="ob-vid-1" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .8s ease" muted playsinline preload="none">
+          <source src="https://videos.pexels.com/video-files/12204020/12204020-sd_640_360_24fps.mp4" type="video/mp4">
+        </video>
+        <video id="ob-vid-2" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .8s ease" muted playsinline preload="none">
+          <source src="https://videos.pexels.com/video-files/12510396/12510396-sd_640_360_25fps.mp4" type="video/mp4">
         </video>
       </div>
       <div style="position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,0.2) 0%,rgba(0,0,0,0.5) 50%,rgba(0,0,0,0.85) 100%)"></div>
@@ -4965,8 +4970,7 @@ function renderObEsporte(c){
 
 function obSelectSport(s){
   obData.sport=s;
-  const firstDist=Object.keys(DIST_INFO).find(k=>DIST_INFO[k].sport===s);
-  obData.raceDist=firstDist||null;
+  obData.raceDist=null; // sempre limpa distância ao trocar esporte
   renderOnboarding();
   setTimeout(()=>obNext(),600);
 }
@@ -5148,7 +5152,7 @@ function renderObModalidades(c){
       sub:'Nivel atual em cada modalidade.',
       sections:[
         {key:'swimLevel',label:'NATACAO',color:'#1a6cf0',levels:swimLevels,
-         extra:`<input id="ob-swim-pace" placeholder="Pace nado/100m (ex: 1:45)" value="${obData.swimPace||''}" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">`},
+         extra:`<input id="ob-swim-pace" type="tel" inputmode="numeric" placeholder="Pace nado (ex: 145)" oninput="obFormatPace(this)" value="${obData.swimPace||''}" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">`},
         {key:'bikeLevel',label:'BIKE',color:'#e05c2a',levels,
          extra:`<input id="ob-ftp" placeholder="FTP em watts (ex: 200)" value="${obData.ftp||''}" type="number" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">`},
         {key:'runLevel',label:'CORRIDA',color:'#00e676',levels,
@@ -5160,7 +5164,7 @@ function renderObModalidades(c){
       sub:'Onde voce se encontra hoje.',
       sections:[
         {key:'runLevel',label:'CORRIDA',color:'#00e676',levels,
-         extra:`<input id="ob-run-pace" placeholder="Pace/km atual (ex: 5:30)" value="${obData.runPace||''}" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">`},
+         extra:`<input id="ob-run-pace" type="tel" inputmode="numeric" placeholder="Pace corrida (ex: 530)" oninput="obFormatPace(this)" value="${obData.runPace||''}" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">`},
       ]
     },
     ciclismo:{
@@ -5176,7 +5180,7 @@ function renderObModalidades(c){
       sub:'Onde voce se encontra hoje.',
       sections:[
         {key:'swimLevel',label:'NATACAO',color:'#00bcd4',levels:swimLevels,
-         extra:`<input id="ob-swim-pace" placeholder="Pace/100m atual (ex: 1:45, opcional)" value="${obData.swimPace||''}" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">`},
+         extra:`<input id="ob-swim-pace" type="tel" inputmode="numeric" placeholder="Pace nado (ex: 145)" oninput="obFormatPace(this)" value="${obData.swimPace||''}" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">`},
       ]
     },
     duathlon:{
@@ -5213,8 +5217,8 @@ function renderObModalidades(c){
 
 function obFormatPace(el){
   let v=el.value.replace(/[^0-9]/g,'');
-  if(v.length>=2) v=v.slice(0,v.length-2)+':'+v.slice(-2);
-  if(v.length>5) v=v.slice(0,5);
+  if(v.length>4) v=v.slice(0,4);
+  if(v.length>=3) v=v.slice(0,v.length-2)+':'+v.slice(-2);
   el.value=v;
 }
 function obSaveModalidades(){
@@ -5391,7 +5395,7 @@ function renderObFim(c){
   const nome=obData.name||athlete.firstname||'atleta';
   c.innerHTML=`
     <div style="flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;gap:16px;padding:40px 32px">
-      <div style="font-size:64px">🏁</div>
+      <div style="font-size:64px"><svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.5"><path d="M4 4v16M4 8h12l-2-4M4 12h10l-2 4"/></svg></div>
       <div style="font-family:var(--font-display);font-size:36px;letter-spacing:1px;line-height:1.1">Tudo pronto,<br>${nome.split(' ')[0]}!</div>
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:20px;width:100%;text-align:left;margin-top:8px">
         ${obData.raceName?`<div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;margin-bottom:4px">PROVA</div><div style="font-family:var(--font-body);font-size:14px;margin-bottom:12px">${obData.raceName}</div>`:''}
