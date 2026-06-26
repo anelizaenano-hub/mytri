@@ -1994,7 +1994,7 @@ function changeSemana(dir){semanaWeek=Math.max(1,Math.min(16,semanaWeek+dir));_r
 
 // ── FASES ──
 function renderFases(){
-  const container=document.getElementById('view-fases');container.innerHTML='';const checks=loadChecks();
+  const container=document.getElementById('agenda-content')||document.getElementById('view-fases');container.innerHTML='';const checks=loadChecks();
   plan.forEach(block=>{
     const section=document.createElement('div');section.className='block-section';
     const label=document.createElement('div');label.className='block-label';
@@ -4312,6 +4312,7 @@ function getMytriProfile(){
   const savedCity=saved.city&&!badCities.some(b=>saved.city===b||saved.city.startsWith('Centro,'))?saved.city:'';
   const stravaCity=athlete.city&&!badCities.some(b=>athlete.city===b||athlete.city.startsWith('Centro'))&&athlete.city.length>3?athlete.city:'';
   return {
+    ...saved, // todos os campos do obFinish
     name:saved.name||(athlete.firstname&&athlete.lastname?`${athlete.firstname} ${athlete.lastname}`:''),
     city:savedCity||gpsCity||stravaCity||'',
     photo:saved.photo||athlete.profile||athlete.profile_medium||'',
@@ -4324,6 +4325,13 @@ function getMytriProfile(){
     nextRace:saved.nextRace||'',
     interests:saved.interests||'',
     busca:saved.busca||'A',
+    sport:saved.sport||'triathlon',
+    raceDist:saved.raceDist||'sprint',
+    raceDate:saved.raceDate||'',
+    goalTime:saved.goalTime||'',
+    weeklyHours:saved.weeklyHours||'3-4',
+    diasDisponiveis:saved.diasDisponiveis||[],
+    altura:saved.altura||String(athlete.height||''),
   };
 }
 
@@ -4807,7 +4815,8 @@ const DIST_IMAGES_BY_SPORT={
 };
 
 function hexToRgba(hex,a){const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return `rgba(${r},${g},${b},${a})`;}
-let obData={sport:'triathlon',raceDist:'sprint',goalTime:null,swimLevel:'beginner',bikeLevel:'beginner',runLevel:'beginner',weeklyHours:'3-4',fcMax:'',ftp:'',selectedDays:{swim:[],bike:[],run:[]}};
+let obStep=0;
+let obData={sport:null,raceDist:null,goalTime:null,swimLevel:'beginner',bikeLevel:'beginner',runLevel:'beginner',weeklyHours:null,fcMax:'',ftp:'',diasDisponiveis:[]};
 
 async function checkOnboarding(){
   let done=localStorage.getItem('mytri_onboard_done');
@@ -4948,8 +4957,9 @@ function renderObEsporte(c){
 function obSelectSport(s){
   obData.sport=s;
   const firstDist=Object.keys(DIST_INFO).find(k=>DIST_INFO[k].sport===s);
-  obData.raceDist=firstDist||s;
-  setTimeout(()=>obNext(),500);
+  obData.raceDist=firstDist||null;
+  renderOnboarding();
+  setTimeout(()=>obNext(),600);
 }
 
 function renderObDistancia(c){
@@ -4989,19 +4999,41 @@ function renderObDistancia(c){
 
 function obSelectDist(d){
   obData.raceDist=d;
-  setTimeout(()=>obNext(),500);
+  renderOnboarding();
+  setTimeout(()=>obNext(),600);
 }
 
 function renderObProva(c){
   const sport=obData.sport||'triathlon';
-  const provas=PROVAS_BR_2026.filter(p=>p.sport===sport);
+  const raceDist=obData.raceDist||'';
   const sportInfo=SPORT_INFO[sport]||SPORT_INFO.triathlon;
+  // Mapeia distância selecionada para categoria de prova equivalente
+  const distToProvaTypes={
+    'sprint':['sprint','super-sprint'],
+    'super-sprint':['super-sprint','sprint'],
+    'olimpico':['olimpico'],
+    'half':['half'],
+    'full':['full'],
+    'corrida-5k':['corrida-5k','corrida-10k'],
+    'corrida-10k':['corrida-10k','corrida-5k'],
+    'corrida-meia':['corrida-meia'],
+    'corrida-maratona':['corrida-maratona'],
+    'corrida-trail':['corrida-trail'],
+    'corrida-15k':['corrida-15k','corrida-10k'],
+  };
+  const validDists=distToProvaTypes[raceDist]||null;
+  const provas=PROVAS_BR_2026.filter(p=>{
+    if(p.sport!==sport)return false;
+    if(validDists&&!validDists.includes(p.dist))return false;
+    return true;
+  });
+  const provasList=provas.length>0?provas:PROVAS_BR_2026.filter(p=>p.sport===sport);
   c.innerHTML=`
     <div style="padding:32px 24px 0">
       <div class="ob-title">Qual e<br>sua prova?</div>
       <div class="ob-sub">Selecione ou cadastre manualmente.</div>
       <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
-        ${provas.map((p,i)=>{
+        ${provasList.map((p,i)=>{
           const globalIdx=PROVAS_BR_2026.indexOf(p);
           const sel=obData.provaIdx===globalIdx;
           return `<div style="border-radius:8px;overflow:hidden;border:2px solid ${sel?sportInfo.color:'var(--border)'};background:${sel?hexToRgba(sportInfo.color,0.08):'var(--surface)'};cursor:pointer" onclick="obSelectProvaAuto(${globalIdx})">
@@ -5235,18 +5267,21 @@ function renderObHoras(c){
       <div class="ob-title">Quantas horas<br>treina por semana?</div>
       <div class="ob-sub">Seu plano sera construido a partir do seu volume atual.</div>
       <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
-        ${opts.map(o=>`<div onclick="obData.weeklyHours='${o.v}';renderOnboarding()" style="padding:18px 20px;background:${obData.weeklyHours===o.v?'rgba(0,230,118,.08)':'var(--surface)'};border:2px solid ${obData.weeklyHours===o.v?'var(--accent)':'var(--border)'};border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:space-between">
-          <div>
-            <div style="font-family:var(--font-ui);font-size:14px;font-weight:700;letter-spacing:.5px;color:${obData.weeklyHours===o.v?'var(--accent)':'var(--text)'}">${o.l}</div>
-            <div style="font-family:var(--font-body);font-size:12px;color:var(--muted2);margin-top:3px">${o.s}</div>
-          </div>
-          ${obData.weeklyHours===o.v?'<div style="color:var(--accent);font-size:20px">&#10003;</div>':''}
+        ${opts.map(o=>`<div onclick="obSelectHoras('${o.v}')" style="padding:18px 20px;background:${obData.weeklyHours===o.v?'rgba(0,230,118,.08)':'var(--surface)'};border:2px solid ${obData.weeklyHours===o.v?'var(--accent)':'var(--border)'};border-radius:6px;cursor:pointer">
+          <div style="font-family:var(--font-ui);font-size:14px;font-weight:700;letter-spacing:.5px;color:${obData.weeklyHours===o.v?'var(--accent)':'var(--text)'}">${o.l}</div>
+          <div style="font-family:var(--font-body);font-size:12px;color:var(--muted2);margin-top:3px">${o.s}</div>
         </div>`).join('')}
       </div>
     </div>
     <div style="padding:0 24px 24px;margin-top:auto">
       <button class="ob-btn" onclick="obNext()">CONTINUAR</button>
     </div>`;
+}
+
+function obSelectHoras(v){
+  obData.weeklyHours=v;
+  renderOnboarding();
+  setTimeout(()=>obNext(),600);
 }
 
 function renderObDias(c){
@@ -5545,7 +5580,7 @@ function renderPlanSummary(el,profile,text){
 
 function closePlanSummary(){
   document.getElementById('view-plan-summary').classList.remove('active');
-  renderHoje();
+  renderAgenda();
 }
 
 
@@ -5578,6 +5613,8 @@ function renderBikeFitText(el, text){
 // Sync primeiro, depois GPS sobrescreve cidade inválida
 syncProfileFromSupabase().finally(()=>detectGPSLocation());
 checkOnboarding();
+// Inicializa aba AGENDA
+renderAgenda();
 
 // ── SESSION ANALYSIS ──
 const SA_CACHE_KEY = 'mytri_session_analysis';
