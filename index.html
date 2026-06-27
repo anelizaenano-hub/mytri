@@ -4345,33 +4345,19 @@ function detectGPSLocation(force){
 
 // ── PERFIL CENTRAL ──
 async function syncProfileFromSupabase(){
-  if(localStorage.getItem('mytri_ob_just_saved')){return;}
+  // Se onboarding acabou de salvar, não sobrescreve de jeito nenhum
+  if(localStorage.getItem('mytri_ob_just_saved')) return;
   try{
     const remote=await sbGet('mytri_profile');
-    if(remote&&Object.keys(remote).length>0){
-      const local=JSON.parse(localStorage.getItem('mytri_profile')||'{}');
-      const isInvalidCity=c=>!c||c==='Centro, Brazil'||c==='Centro'||c==='Brazil'||c==='Brasil'||c.startsWith('Centro,');
-      // Não sobrescreve se local tem dados do onboarding mais recentes (tem sport e raceDist)
-      if(local.sport&&local.raceDist&&remote.sport!==local.sport){
-        // Local tem dados mais recentes do onboarding — ignorar remoto
-        // Mas atualiza o Supabase com o local
-        sbSet('mytri_profile',local).catch(()=>{});
-        return;
-      }
-      if(isInvalidCity(remote.city)&&!isInvalidCity(local.city)){remote.city=local.city;}
-      if(isInvalidCity(remote.city)){delete remote.city;}
-      // Preserva sport/raceDist locais se existirem
-      if(local.sport)remote.sport=local.sport;
-      if(local.raceDist)remote.raceDist=local.raceDist;
-      if(local.pace)remote.pace=local.pace;
-      if(local.ftp)remote.ftp=local.ftp;
-      if(local.swim)remote.swim=local.swim;
-      if(local.age)remote.age=local.age;
-      if(local.weight)remote.weight=local.weight;
-      if(local.nextRace)remote.nextRace=local.nextRace;
-      localStorage.setItem('mytri_profile',JSON.stringify(remote));
-      refreshHoje();
-    }
+    if(!remote||!Object.keys(remote).length) return;
+    const local=JSON.parse(localStorage.getItem('mytri_profile')||'{}');
+    // Local tem dados mais recentes do onboarding - não sobrescreve
+    if(local.sport||local.raceDist||local.pace||local.ftp) return;
+    const isInvalidCity=c=>!c||c==='Centro, Brazil'||c==='Centro'||c==='Brazil'||c==='Brasil'||c.startsWith('Centro,');
+    if(isInvalidCity(remote.city)&&!isInvalidCity(local.city)) remote.city=local.city;
+    if(isInvalidCity(remote.city)) delete remote.city;
+    localStorage.setItem('mytri_profile',JSON.stringify(remote));
+    refreshHoje();
   }catch(e){}
 }
 
@@ -4952,11 +4938,12 @@ function renderObWelcome(c){
       .ob-sub-anim{opacity:0;animation:ob-fade-up .8s ease forwards}
     </style>
     <div style="position:relative;display:flex;flex-direction:column;justify-content:center;align-items:center;min-height:100vh;overflow:hidden;background:#000">
-      <div id="ob-videos" style="position:absolute;inset:0;overflow:hidden">
-        <video id="ob-vid" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover" autoplay muted playsinline>
-          <source src="https://videos.pexels.com/video-files/5790072/5790072-hd_1280_720_30fps.mp4" type="video/mp4">
-        </video>
+      <div id="ob-slides" style="position:absolute;inset:0;overflow:hidden">
+        <div id="ob-slide-0" style="position:absolute;inset:0;background-image:url('https://images.unsplash.com/photo-1658748721978-68fc04f3739b?w=900&q=85&auto=format&fit=crop');background-size:cover;background-position:center;opacity:1;transition:opacity 1.2s ease;animation:kbzoom 8s ease-in-out infinite alternate"></div>
+        <div id="ob-slide-1" style="position:absolute;inset:0;background-image:url('https://images.unsplash.com/photo-1541625602330-2277a4c46182?w=900&q=85&auto=format&fit=crop');background-size:cover;background-position:center;opacity:0;transition:opacity 1.2s ease;animation:kbzoom 8s ease-in-out infinite alternate-reverse"></div>
+        <div id="ob-slide-2" style="position:absolute;inset:0;background-image:url('https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=900&q=85&auto=format&fit=crop');background-size:cover;background-position:center;opacity:0;transition:opacity 1.2s ease;animation:kbzoom 8s ease-in-out infinite alternate"></div>
       </div>
+      <style>@keyframes kbzoom{from{transform:scale(1)}to{transform:scale(1.08)}}</style>
       <div style="position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,0.2) 0%,rgba(0,0,0,0.5) 50%,rgba(0,0,0,0.85) 100%)"></div>
       <div style="position:relative;text-align:center;padding:0 28px;display:flex;flex-direction:column;align-items:center;gap:0;width:100%">
         <div style="line-height:.9;margin-bottom:6px;white-space:nowrap">
@@ -4973,24 +4960,19 @@ function renderObWelcome(c){
     </div>`;
 
   // Um único video - troca src a cada 6s (Safari iOS só permite autoplay em 1 video)
-  // Um video, troca src ao terminar cada clipe
-  const VSRCS=[
-    'https://videos.pexels.com/video-files/5790072/5790072-hd_1280_720_30fps.mp4',
-    'https://videos.pexels.com/video-files/12204020/12204020-hd_1920_1080_24fps.mp4',
-    'https://videos.pexels.com/video-files/12510396/12510396-hd_1920_1080_25fps.mp4',
+  // Slides de foto com Ken Burns - sem dependência de vídeo externo
+  let scur=0;
+  const slides=[
+    document.getElementById('ob-slide-0'),
+    document.getElementById('ob-slide-1'),
+    document.getElementById('ob-slide-2'),
   ];
-  let vcur=0;
-  const vid=document.getElementById('ob-vid');
-  function nextVid(){
-    vcur=(vcur+1)%VSRCS.length;
-    vid.src=VSRCS[vcur];
-    vid.play().catch(()=>{});
-  }
-  vid.addEventListener('ended',nextVid);
-  // Fallback por tempo caso o evento ended não dispare (Safari loop)
-  const iv=setInterval(nextVid,8000);
-  vid.play().catch(()=>{});
-  c._clearVideoInterval=()=>{clearInterval(iv);vid.removeEventListener('ended',nextVid);};
+  const iv=setInterval(()=>{
+    slides[scur].style.opacity='0';
+    scur=(scur+1)%slides.length;
+    slides[scur].style.opacity='1';
+  },5000);
+  c._clearVideoInterval=()=>clearInterval(iv);
 }
 
 function renderObEsporte(c){
@@ -5511,11 +5493,12 @@ function obFinish(){
     sport:obData.sport||'triathlon',
     fcMax:obData.fcMax||'',
   };
-  // Bloqueia sync do Supabase por 30s para não sobrescrever dados novos
+  // Bloqueia sync do Supabase por 60s
   localStorage.setItem('mytri_ob_just_saved','1');
-  setTimeout(()=>localStorage.removeItem('mytri_ob_just_saved'),30000);
-  saveMytriProfile(finalProfile);
-  // Força Supabase com dados novos (sobrescreve perfil antigo)
+  setTimeout(()=>localStorage.removeItem('mytri_ob_just_saved'),60000);
+  // Salva localmente PRIMEIRO
+  localStorage.setItem('mytri_profile',JSON.stringify(finalProfile));
+  // Força Supabase com dados novos - apaga o antigo e salva o novo
   sbSet('mytri_profile', finalProfile).catch(()=>{});
   sbSet('mytri_onboard_done','1').catch(()=>{});
   localStorage.setItem('mytri_onboard_done','1');
