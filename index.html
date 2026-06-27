@@ -1406,7 +1406,8 @@ function _renderWeatherWidgetEl(el,data,dateStr){
       </div>
     </div>`:'';
 
-  const _mo=new Date(dayKey+'-01').getMonth()+1;
+  const _mo=new Date(dayKey).getMonth()+1;
+  // Hemisfério Sul: Dez/Jan/Fev=Verão, Mar/Abr/Mai=Outono, Jun/Jul/Ago=Inverno, Set/Out/Nov=Primavera
   const _season=_mo>=12||_mo<=2?'VERAO':_mo<=5?'OUTONO':_mo<=8?'INVERNO':'PRIMAVERA';
   if(isToday){
     el.innerHTML=`
@@ -2605,23 +2606,39 @@ function encerrarCiclo(){
 // ── RENDER CONQUISTAS ──
 function renderConquistas(){
   const container=document.getElementById('view-conquistas');
-  if(!container)return;
-  container.style.display='block';
+  if(!container){console.error('view-conquistas not found');return;}
   container.innerHTML='';
-  let history,active,ct,vol,pct;
+  // Render badges sempre, independente de ciclo
+  const badgeSection=document.createElement('div');
+  badgeSection.style.cssText='padding:20px 16px';
+  badgeSection.innerHTML='<div style="font-family:var(--font-ui);font-size:10px;color:var(--accent);letter-spacing:2px;margin-bottom:16px">CONQUISTAS</div>';
+  const badgeGrid=document.createElement('div');
+  badgeGrid.style.cssText='display:grid;grid-template-columns:repeat(3,1fr);gap:16px';
+  BADGES.forEach(b=>{
+    let unlocked=false;
+    try{unlocked=b.check();}catch(e){}
+    const item=document.createElement('div');
+    item.style.cssText='display:flex;flex-direction:column;align-items:center;gap:8px';
+    item.innerHTML=`
+      <div style="width:64px;height:64px;border-radius:50%;background:${unlocked?b.color+'22':'var(--surface)'};border:2px solid ${unlocked?b.color:'var(--border)'};display:flex;align-items:center;justify-content:center;position:relative">
+        <div style="width:28px;height:28px;color:${unlocked?b.color:'var(--muted)'}">${b.icon}</div>
+        ${unlocked?`<div style="position:absolute;bottom:-2px;right:-2px;background:var(--accent);border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:10px;color:#000;font-weight:900">&#10003;</div>`:''}
+      </div>
+      <div style="font-family:var(--font-ui);font-size:9px;letter-spacing:.5px;text-align:center;color:${unlocked?'var(--text)':'var(--muted)'}">${b.label}</div>`;
+    badgeGrid.appendChild(item);
+  });
+  badgeSection.appendChild(badgeGrid);
+  container.appendChild(badgeSection);
+
+  // Ciclo ativo
+  let active,ct,vol,pct;
   try{
-    history=loadCycleHistory();
     active=loadActiveCycle();
     ct=getActiveCycleType();
     vol=calcCycleVolume();
     pct=Math.round((vol.sessoesDone/Math.max(vol.sessoesTotal,1))*100);
   }catch(e){
-    container.innerHTML=`<div style="padding:40px 24px;text-align:center">
-      <div style="font-family:var(--font-display);font-size:22px;color:var(--accent);margin-bottom:12px">HIST</div>
-      <div style="font-family:var(--font-body);font-size:14px;color:var(--muted2);line-height:1.7">Seus treinos e conquistas<br>aparecem aqui conforme<br>voce vai completando sessoes.</div>
-    </div>`;
-    console.error('renderConquistas',e);
-    return;
+    active=null;
   }
 
   const section=document.createElement('div');section.className='conq-section';
@@ -3934,9 +3951,39 @@ function submitClubOnboard(){
 }
 
 function clubShareMetrics(){
-  if(clubState.myProfile) clubState.myProfile.shareMetrics=true;
+  if(!clubState.myProfile)clubState.myProfile={};
+  clubState.myProfile.shareMetrics=true;
   saveClubState();
-  renderClub();
+  // Re-render do card atual para mostrar peso/altura
+  const available=CLUB_PROFILES.filter(p=>!clubState.liked.includes(p.id)&&!clubState.passed.includes(p.id));
+  const _busca=clubState.myProfile?.busca||getMytriProfile().busca||'A';
+  const filtrado=available.filter(p=>_busca==='A'||p.gender===_busca);
+  if(filtrado.length>0){
+    const p=filtrado[clubState.currentIdx%filtrado.length];
+    const card=document.getElementById('club-card');
+    if(card&&p){
+      // Apenas re-inserir o bloco de peso/altura
+      const blocoOld=card.querySelector('[data-share-block]');
+      if(blocoOld){
+        blocoOld.outerHTML=`<div data-share-block style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+          <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center">
+            <div style="font-family:var(--font-display);font-size:15px;color:var(--text)">${p.weight}kg</div>
+            <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:2px">PESO</div>
+          </div>
+          <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center">
+            <div style="font-family:var(--font-display);font-size:15px;color:var(--text)">${p.height}cm</div>
+            <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:2px">ALTURA</div>
+          </div>
+        </div>`;
+      } else {
+        renderClub();
+      }
+    } else {
+      renderClub();
+    }
+  } else {
+    renderClub();
+  }
 }
 
 function showClubProfile(id){
@@ -4062,7 +4109,7 @@ function renderClubSwipe(c){
       ${(()=>{
         const myShare=clubState.myProfile?.shareMetrics;
         if(myShare){
-          return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+          return `<div data-share-block style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
             <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center">
               <div style="font-family:var(--font-display);font-size:15px;color:var(--text)">${p.weight}kg</div>
               <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:2px">PESO</div>
@@ -4073,7 +4120,7 @@ function renderClubSwipe(c){
             </div>
           </div>`;
         }
-        return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between">
+        return `<div data-share-block style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between">
           <span style="font-family:var(--font-body);font-size:12px;color:var(--muted)">Peso e altura ocultos</span>
           <span onclick="clubShareMetrics()" style="font-family:var(--font-ui);font-size:9px;color:var(--accent);letter-spacing:1px;cursor:pointer">COMPARTILHAR PARA VER</span>
         </div>`;
@@ -4298,20 +4345,32 @@ function detectGPSLocation(force){
 
 // ── PERFIL CENTRAL ──
 async function syncProfileFromSupabase(){
-  // Não sobrescreve se onboarding acabou de salvar (flag dura 30s)
   if(localStorage.getItem('mytri_ob_just_saved')){return;}
   try{
     const remote=await sbGet('mytri_profile');
     if(remote&&Object.keys(remote).length>0){
       const local=JSON.parse(localStorage.getItem('mytri_profile')||'{}');
       const isInvalidCity=c=>!c||c==='Centro, Brazil'||c==='Centro'||c==='Brazil'||c==='Brasil'||c.startsWith('Centro,');
+      // Não sobrescreve se local tem dados do onboarding mais recentes (tem sport e raceDist)
+      if(local.sport&&local.raceDist&&remote.sport!==local.sport){
+        // Local tem dados mais recentes do onboarding — ignorar remoto
+        // Mas atualiza o Supabase com o local
+        sbSet('mytri_profile',local).catch(()=>{});
+        return;
+      }
       if(isInvalidCity(remote.city)&&!isInvalidCity(local.city)){remote.city=local.city;}
       if(isInvalidCity(remote.city)){delete remote.city;}
-      // Só sobrescreve se remoto tem mais campos que o local
-      if(Object.keys(remote).length>Object.keys(local).length){
-        localStorage.setItem('mytri_profile',JSON.stringify(remote));
-        refreshHoje();
-      }
+      // Preserva sport/raceDist locais se existirem
+      if(local.sport)remote.sport=local.sport;
+      if(local.raceDist)remote.raceDist=local.raceDist;
+      if(local.pace)remote.pace=local.pace;
+      if(local.ftp)remote.ftp=local.ftp;
+      if(local.swim)remote.swim=local.swim;
+      if(local.age)remote.age=local.age;
+      if(local.weight)remote.weight=local.weight;
+      if(local.nextRace)remote.nextRace=local.nextRace;
+      localStorage.setItem('mytri_profile',JSON.stringify(remote));
+      refreshHoje();
     }
   }catch(e){}
 }
@@ -4914,6 +4973,7 @@ function renderObWelcome(c){
     </div>`;
 
   // Um único video - troca src a cada 6s (Safari iOS só permite autoplay em 1 video)
+  // Um video, troca src ao terminar cada clipe
   const VSRCS=[
     'https://videos.pexels.com/video-files/5790072/5790072-hd_1280_720_30fps.mp4',
     'https://videos.pexels.com/video-files/12204020/12204020-hd_1920_1080_24fps.mp4',
@@ -4921,17 +4981,16 @@ function renderObWelcome(c){
   ];
   let vcur=0;
   const vid=document.getElementById('ob-vid');
-  vid.play().catch(()=>{});
-  const iv=setInterval(()=>{
+  function nextVid(){
     vcur=(vcur+1)%VSRCS.length;
-    vid.style.opacity='0';
-    setTimeout(()=>{
-      vid.src=VSRCS[vcur];
-      vid.play().catch(()=>{});
-      vid.style.opacity='1';
-    },400);
-  },6000);
-  c._clearVideoInterval=()=>clearInterval(iv);
+    vid.src=VSRCS[vcur];
+    vid.play().catch(()=>{});
+  }
+  vid.addEventListener('ended',nextVid);
+  // Fallback por tempo caso o evento ended não dispare (Safari loop)
+  const iv=setInterval(nextVid,8000);
+  vid.play().catch(()=>{});
+  c._clearVideoInterval=()=>{clearInterval(iv);vid.removeEventListener('ended',nextVid);};
 }
 
 function renderObEsporte(c){
