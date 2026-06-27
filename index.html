@@ -2606,6 +2606,7 @@ function encerrarCiclo(){
 function renderConquistas(){
   const container=document.getElementById('view-conquistas');
   if(!container)return;
+  container.style.display='block';
   container.innerHTML='';
   let history,active,ct,vol,pct;
   try{
@@ -3903,9 +3904,11 @@ function renderClubOnboard(c){
 }
 
 function submitClubOnboard(){
-  const nome=document.getElementById('cl-nome').value.trim();
-  const idade=document.getElementById('cl-idade').value.trim();
-  if(!nome||!idade){alert('Preencha nome e idade.');return;}
+  const nomeEl=document.getElementById('cl-nome');
+  const idadeEl=document.getElementById('cl-idade');
+  const nome=(nomeEl?.value||nomeEl?.defaultValue||'').trim();
+  const idade=(idadeEl?.value||idadeEl?.defaultValue||'').trim();
+  if(!nome||!idade){alert('Preencha nome e idade para continuar.');return;}
   const prof=getMytriProfile();
   const stravaTokens2=JSON.parse(localStorage.getItem('strava_tokens')||'{}');
   const athlete2=stravaTokens2.athlete||{};
@@ -4326,8 +4329,8 @@ function getMytriProfile(){
     name:saved.name||(athlete.firstname&&athlete.lastname?`${athlete.firstname} ${athlete.lastname}`:''),
     city:savedCity||gpsCity||stravaCity||'',
     photo:saved.photo||athlete.profile||athlete.profile_medium||'',
-    weight:saved.weight||athlete.weight||'',
-    age:saved.age||'',
+    weight:saved.weight||String(athlete.weight||'')||'',
+    age:saved.age||String(athlete.age||'')||'',
     bio:saved.bio||'',
     pace:saved.pace||'',
     ftp:saved.ftp||'',
@@ -4921,14 +4924,12 @@ function renderObWelcome(c){
   vid.play().catch(()=>{});
   const iv=setInterval(()=>{
     vcur=(vcur+1)%VSRCS.length;
-    vid.style.transition='opacity .5s';
     vid.style.opacity='0';
     setTimeout(()=>{
       vid.src=VSRCS[vcur];
-      vid.load();
       vid.play().catch(()=>{});
       vid.style.opacity='1';
-    },500);
+    },400);
   },6000);
   c._clearVideoInterval=()=>clearInterval(iv);
 }
@@ -5148,11 +5149,11 @@ function renderObModalidades(c){
       sub:'Nivel atual em cada modalidade.',
       sections:[
         {key:'swimLevel',label:'NATACAO',color:'#1a6cf0',levels:swimLevels,
-         extra:`<input id="ob-swim-pace" type="tel" inputmode="numeric" placeholder="1:45" oninput="obFormatPace(this)" value="${obData.swimPace||''}" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">`},
+         extra:`<input id="ob-swim-pace" type="tel" inputmode="numeric" placeholder="1:45" value="${obData.swimPace||''}" oninput="obData.swimPace=obFormatPace(this)" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">`},
         {key:'bikeLevel',label:'BIKE',color:'#e05c2a',levels,
-         extra:`<input id="ob-ftp" placeholder="FTP em watts (ex: 200)" value="${obData.ftp||''}" type="number" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">`},
+         extra:`<input id="ob-ftp" placeholder="FTP em watts (ex: 200)" value="${obData.ftp||''}" type="number" oninput="obData.ftp=this.value" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">`},
         {key:'runLevel',label:'CORRIDA',color:'#00e676',levels,
-         extra:`<input id="ob-run-pace" type="tel" inputmode="numeric" placeholder="5:30" value="${obData.runPace||''}" oninput="obFormatPace(this)" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-display);font-size:18px;padding:11px;border-radius:4px">`},
+         extra:`<input id="ob-run-pace" type="tel" inputmode="numeric" placeholder="5:30" value="${obData.runPace||''}" oninput="obData.runPace=obFormatPace(this)" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-display);font-size:18px;padding:11px;border-radius:4px">`},
       ]
     },
     corrida:{
@@ -5168,7 +5169,7 @@ function renderObModalidades(c){
       sub:'Onde voce se encontra hoje.',
       sections:[
         {key:'bikeLevel',label:'CICLISMO',color:'#e05c2a',levels,
-         extra:`<input id="ob-ftp" placeholder="FTP em watts (ex: 200, opcional)" value="${obData.ftp||''}" type="number" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">`},
+         extra:`<input id="ob-ftp" placeholder="FTP em watts (ex: 200, opcional)" value="${obData.ftp||''}" type="number" oninput="obData.ftp=this.value" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">`},
       ]
     },
     natacao:{
@@ -5176,7 +5177,7 @@ function renderObModalidades(c){
       sub:'Onde voce se encontra hoje.',
       sections:[
         {key:'swimLevel',label:'NATACAO',color:'#00bcd4',levels:swimLevels,
-         extra:`<input id="ob-swim-pace" type="tel" inputmode="numeric" placeholder="1:45" oninput="obFormatPace(this)" value="${obData.swimPace||''}" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">`},
+         extra:`<input id="ob-swim-pace" type="tel" inputmode="numeric" placeholder="1:45" value="${obData.swimPace||''}" oninput="obData.swimPace=obFormatPace(this)" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">`},
       ]
     },
     duathlon:{
@@ -5184,9 +5185,9 @@ function renderObModalidades(c){
       sub:'Nivel atual em cada modalidade.',
       sections:[
         {key:'runLevel',label:'CORRIDA',color:'#00e676',levels,
-         extra:`<input id="ob-run-pace" type="tel" inputmode="numeric" placeholder="5:30" value="${obData.runPace||''}" oninput="obFormatPace(this)" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-display);font-size:18px;padding:11px;border-radius:4px">`},
+         extra:`<input id="ob-run-pace" type="tel" inputmode="numeric" placeholder="5:30" value="${obData.runPace||''}" oninput="obData.runPace=obFormatPace(this)" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-display);font-size:18px;padding:11px;border-radius:4px">`},
         {key:'bikeLevel',label:'BIKE',color:'#e05c2a',levels,
-         extra:`<input id="ob-ftp" placeholder="FTP em watts (ex: 200, opcional)" value="${obData.ftp||''}" type="number" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">`},
+         extra:`<input id="ob-ftp" placeholder="FTP em watts (ex: 200, opcional)" value="${obData.ftp||''}" type="number" oninput="obData.ftp=this.value" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">`},
       ]
     },
   };
@@ -5216,6 +5217,7 @@ function obFormatPace(el){
   if(v.length>4) v=v.slice(0,4);
   if(v.length>=3) v=v.slice(0,v.length-2)+':'+v.slice(-2);
   el.value=v;
+  return v;
 }
 function obSaveModalidades(){
   obData.swimPace=document.getElementById('ob-swim-pace')?.value||'';
@@ -5231,17 +5233,17 @@ function renderObFitness(c){
 
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px">
         <div><div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;margin-bottom:6px">IDADE</div>
-          <input id="ob-idade" type="number" placeholder="41" value="${obData.age||''}" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:12px;border-radius:4px"></div>
+          <input id="ob-idade" type="number" placeholder="41" value="${obData.age||''}" oninput="obData.age=this.value" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:12px;border-radius:4px"></div>
         <div><div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;margin-bottom:6px">PESO (kg)</div>
-          <input id="ob-peso" type="number" placeholder="70" value="${obData.weight||''}" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:12px;border-radius:4px"></div>
+          <input id="ob-peso" type="number" placeholder="70" value="${obData.weight||''}" oninput="obData.weight=this.value" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:12px;border-radius:4px"></div>
         <div><div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;margin-bottom:6px">ALTURA (cm)</div>
-          <input id="ob-altura" type="number" placeholder="175" value="${obData.altura||''}" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:12px;border-radius:4px"></div>
+          <input id="ob-altura" type="number" placeholder="175" value="${obData.altura||''}" oninput="obData.altura=this.value" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:12px;border-radius:4px"></div>
       </div>
 
       <div style="margin-bottom:16px">
         <div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;margin-bottom:10px">FC MAXIMA (bpm)</div>
         <div style="display:flex;align-items:center;gap:16px">
-          <input id="ob-fcmax" type="number" placeholder="180" value="${obData.fcMax||''}" style="flex:1;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-display);font-size:28px;padding:14px;border-radius:4px;text-align:center">
+          <input id="ob-fcmax" type="number" placeholder="180" value="${obData.fcMax||''}" oninput="obData.fcMax=this.value" style="flex:1;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-display);font-size:28px;padding:14px;border-radius:4px;text-align:center">
           <div style="font-family:var(--font-body);font-size:12px;color:var(--muted2);line-height:1.5">Nao sabe?<br>Use 220<br>menos<br>sua idade</div>
         </div>
         <div style="font-family:var(--font-body);font-size:11px;color:var(--muted);margin-top:8px">
