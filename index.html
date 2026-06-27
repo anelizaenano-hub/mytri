@@ -4295,19 +4295,17 @@ function detectGPSLocation(force){
 
 // ── PERFIL CENTRAL ──
 async function syncProfileFromSupabase(){
+  // Não sobrescreve se onboarding acabou de salvar (flag dura 30s)
+  if(localStorage.getItem('mytri_ob_just_saved')){return;}
   try{
     const remote=await sbGet('mytri_profile');
     if(remote&&Object.keys(remote).length>0){
       const local=JSON.parse(localStorage.getItem('mytri_profile')||'{}');
       const isInvalidCity=c=>!c||c==='Centro, Brazil'||c==='Centro'||c==='Brazil'||c==='Brasil'||c.startsWith('Centro,');
-      // Preserva cidade local válida contra sobrescrita do Supabase
-      if(isInvalidCity(remote.city)&&!isInvalidCity(local.city)){
-        remote.city=local.city;
-      }
-      if(isInvalidCity(remote.city)){
-        delete remote.city;
-      }
-      if(Object.keys(remote).length>=Object.keys(local).length){
+      if(isInvalidCity(remote.city)&&!isInvalidCity(local.city)){remote.city=local.city;}
+      if(isInvalidCity(remote.city)){delete remote.city;}
+      // Só sobrescreve se remoto tem mais campos que o local
+      if(Object.keys(remote).length>Object.keys(local).length){
         localStorage.setItem('mytri_profile',JSON.stringify(remote));
         refreshHoje();
       }
@@ -4893,14 +4891,8 @@ function renderObWelcome(c){
     </style>
     <div style="position:relative;display:flex;flex-direction:column;justify-content:center;align-items:center;min-height:100vh;overflow:hidden;background:#000">
       <div id="ob-videos" style="position:absolute;inset:0;overflow:hidden">
-        <video id="ob-vid-0" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:1;transition:opacity .8s ease" autoplay muted playsinline preload="auto">
+        <video id="ob-vid" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover" autoplay muted playsinline>
           <source src="https://videos.pexels.com/video-files/5790072/5790072-hd_1280_720_30fps.mp4" type="video/mp4">
-        </video>
-        <video id="ob-vid-1" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .8s ease" muted playsinline preload="none">
-          <source src="https://videos.pexels.com/video-files/12204020/12204020-sd_640_360_24fps.mp4" type="video/mp4">
-        </video>
-        <video id="ob-vid-2" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .8s ease" muted playsinline preload="none">
-          <source src="https://videos.pexels.com/video-files/12510396/12510396-sd_640_360_25fps.mp4" type="video/mp4">
         </video>
       </div>
       <div style="position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,0.2) 0%,rgba(0,0,0,0.5) 50%,rgba(0,0,0,0.85) 100%)"></div>
@@ -4918,22 +4910,26 @@ function renderObWelcome(c){
       </div>
     </div>`;
 
-  // Carrega e toca primeiro video imediatamente
-  let cur=0;
-  const vids=[
-    document.getElementById('ob-vid-0'),
-    document.getElementById('ob-vid-1'),
-    document.getElementById('ob-vid-2'),
+  // Um único video - troca src a cada 6s (Safari iOS só permite autoplay em 1 video)
+  const VSRCS=[
+    'https://videos.pexels.com/video-files/5790072/5790072-hd_1280_720_30fps.mp4',
+    'https://videos.pexels.com/video-files/12204020/12204020-hd_1920_1080_24fps.mp4',
+    'https://videos.pexels.com/video-files/12510396/12510396-hd_1920_1080_25fps.mp4',
   ];
-  vids[0].play().catch(()=>{});
-  // Pre-carrega os outros enquanto o primeiro toca
-  setTimeout(()=>{vids[1].load();vids[2].load();},1000);
+  let vcur=0;
+  const vid=document.getElementById('ob-vid');
+  vid.play().catch(()=>{});
   const iv=setInterval(()=>{
-    vids[cur].style.opacity='0';
-    cur=(cur+1)%vids.length;
-    vids[cur].style.opacity='1';
-    vids[cur].play().catch(()=>{});
-  },5000);
+    vcur=(vcur+1)%VSRCS.length;
+    vid.style.transition='opacity .5s';
+    vid.style.opacity='0';
+    setTimeout(()=>{
+      vid.src=VSRCS[vcur];
+      vid.load();
+      vid.play().catch(()=>{});
+      vid.style.opacity='1';
+    },500);
+  },6000);
   c._clearVideoInterval=()=>clearInterval(iv);
 }
 
@@ -5152,11 +5148,11 @@ function renderObModalidades(c){
       sub:'Nivel atual em cada modalidade.',
       sections:[
         {key:'swimLevel',label:'NATACAO',color:'#1a6cf0',levels:swimLevels,
-         extra:`<input id="ob-swim-pace" type="tel" inputmode="numeric" placeholder="Pace nado (ex: 145)" oninput="obFormatPace(this)" value="${obData.swimPace||''}" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">`},
+         extra:`<input id="ob-swim-pace" type="tel" inputmode="numeric" placeholder="1:45" oninput="obFormatPace(this)" value="${obData.swimPace||''}" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">`},
         {key:'bikeLevel',label:'BIKE',color:'#e05c2a',levels,
          extra:`<input id="ob-ftp" placeholder="FTP em watts (ex: 200)" value="${obData.ftp||''}" type="number" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">`},
         {key:'runLevel',label:'CORRIDA',color:'#00e676',levels,
-         extra:`<input id="ob-run-pace" type="tel" inputmode="numeric" placeholder="Pace /km (ex: 530)" value="${obData.runPace||''}" oninput="obFormatPace(this)" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-display);font-size:18px;padding:11px;border-radius:4px">`},
+         extra:`<input id="ob-run-pace" type="tel" inputmode="numeric" placeholder="5:30" value="${obData.runPace||''}" oninput="obFormatPace(this)" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-display);font-size:18px;padding:11px;border-radius:4px">`},
       ]
     },
     corrida:{
@@ -5164,7 +5160,7 @@ function renderObModalidades(c){
       sub:'Onde voce se encontra hoje.',
       sections:[
         {key:'runLevel',label:'CORRIDA',color:'#00e676',levels,
-         extra:`<input id="ob-run-pace" type="tel" inputmode="numeric" placeholder="Pace corrida (ex: 530)" oninput="obFormatPace(this)" value="${obData.runPace||''}" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">`},
+         extra:`<input id="ob-run-pace" type="tel" inputmode="numeric" placeholder="5:30" oninput="obFormatPace(this)" value="${obData.runPace||''}" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">`},
       ]
     },
     ciclismo:{
@@ -5180,7 +5176,7 @@ function renderObModalidades(c){
       sub:'Onde voce se encontra hoje.',
       sections:[
         {key:'swimLevel',label:'NATACAO',color:'#00bcd4',levels:swimLevels,
-         extra:`<input id="ob-swim-pace" type="tel" inputmode="numeric" placeholder="Pace nado (ex: 145)" oninput="obFormatPace(this)" value="${obData.swimPace||''}" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">`},
+         extra:`<input id="ob-swim-pace" type="tel" inputmode="numeric" placeholder="1:45" oninput="obFormatPace(this)" value="${obData.swimPace||''}" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">`},
       ]
     },
     duathlon:{
@@ -5188,7 +5184,7 @@ function renderObModalidades(c){
       sub:'Nivel atual em cada modalidade.',
       sections:[
         {key:'runLevel',label:'CORRIDA',color:'#00e676',levels,
-         extra:`<input id="ob-run-pace" type="tel" inputmode="numeric" placeholder="Pace /km (ex: 530)" value="${obData.runPace||''}" oninput="obFormatPace(this)" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-display);font-size:18px;padding:11px;border-radius:4px">`},
+         extra:`<input id="ob-run-pace" type="tel" inputmode="numeric" placeholder="5:30" value="${obData.runPace||''}" oninput="obFormatPace(this)" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-display);font-size:18px;padding:11px;border-radius:4px">`},
         {key:'bikeLevel',label:'BIKE',color:'#e05c2a',levels,
          extra:`<input id="ob-ftp" placeholder="FTP em watts (ex: 200, opcional)" value="${obData.ftp||''}" type="number" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">`},
       ]
@@ -5454,6 +5450,9 @@ function obFinish(){
     sport:obData.sport||'triathlon',
     fcMax:obData.fcMax||'',
   };
+  // Bloqueia sync do Supabase por 30s para não sobrescrever dados novos
+  localStorage.setItem('mytri_ob_just_saved','1');
+  setTimeout(()=>localStorage.removeItem('mytri_ob_just_saved'),30000);
   saveMytriProfile(finalProfile);
   // Força Supabase com dados novos (sobrescreve perfil antigo)
   sbSet('mytri_profile', finalProfile).catch(()=>{});
