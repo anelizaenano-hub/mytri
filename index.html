@@ -2618,13 +2618,14 @@ function renderConquistas(){
     let unlocked=false;
     try{unlocked=b.check();}catch(e){}
     const item=document.createElement('div');
-    item.style.cssText='display:flex;flex-direction:column;align-items:center;gap:8px';
+    item.style.cssText='display:flex;flex-direction:column;align-items:center;gap:8px;cursor:pointer';
     item.innerHTML=`
       <div style="width:64px;height:64px;border-radius:50%;background:${unlocked?b.color+'22':'var(--surface)'};border:2px solid ${unlocked?b.color:'var(--border)'};display:flex;align-items:center;justify-content:center;position:relative">
         <div style="width:28px;height:28px;color:${unlocked?b.color:'var(--muted)'}">${b.icon}</div>
         ${unlocked?`<div style="position:absolute;bottom:-2px;right:-2px;background:var(--accent);border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:10px;color:#000;font-weight:900">&#10003;</div>`:''}
       </div>
-      <div style="font-family:var(--font-ui);font-size:9px;letter-spacing:.5px;text-align:center;color:${unlocked?'var(--text)':'var(--muted)'}">${b.label}</div>`;
+      <div style="font-family:var(--font-ui);font-size:9px;letter-spacing:.5px;text-align:center;color:${unlocked?'var(--text)':'var(--muted)'}">${b.label}</div>
+      <div style="font-family:var(--font-body);font-size:9px;color:var(--muted);text-align:center;line-height:1.4;max-width:80px">${b.desc}</div>`;
     badgeGrid.appendChild(item);
   });
   badgeSection.appendChild(badgeGrid);
@@ -3908,13 +3909,34 @@ function renderClubOnboard(c){
             <div style="font-family:var(--font-ui);font-size:12px;color:var(--text);letter-spacing:.5px">Compartilhar peso e altura</div>
             <div style="font-family:var(--font-body);font-size:11px;color:var(--muted);margin-top:2px">Voce vera as mesmas infos dos outros</div>
           </div>
-          <div onclick="this.querySelector('input').click();this.querySelector('.tog-bg').style.background=this.querySelector('input').checked?'var(--accent)':'var(--border)';this.querySelector('.tog-dot').style.transform=this.querySelector('input').checked?'translateX(20px)':'translateX(0)'" style="position:relative;width:44px;height:24px;cursor:pointer;flex-shrink:0">
+          <div onclick="
+          const inp=this.querySelector('input');
+          inp.click();
+          const on=inp.checked;
+          this.querySelector('.tog-bg').style.background=on?'var(--accent)':'var(--border)';
+          this.querySelector('.tog-dot').style.transform=on?'translateX(20px)':'translateX(0)';
+          const preview=document.getElementById('cl-metrics-preview');
+          if(preview)preview.style.display=on?'flex':'none';
+        " style="position:relative;width:44px;height:24px;cursor:pointer;flex-shrink:0">
             <input type="checkbox" id="cl-share-metrics" style="display:none">
             <div class="tog-bg" style="position:absolute;inset:0;background:var(--border);border-radius:12px;transition:.3s"></div>
             <div class="tog-dot" style="position:absolute;top:2px;left:2px;width:20px;height:20px;background:#fff;border-radius:50%;transition:.3s"></div>
           </div>
         </div>
 
+        <div id="cl-metrics-preview" style="display:none;background:rgba(0,230,118,0.08);border:1px solid rgba(0,230,118,0.25);border-radius:8px;padding:12px 16px;gap:16px;align-items:center;margin-top:8px">
+          <div style="font-family:var(--font-ui);font-size:10px;color:var(--accent);letter-spacing:1px">SEUS DADOS QUE SERAO COMPARTILHADOS</div>
+          <div style="display:flex;gap:16px;margin-top:8px">
+            <div style="text-align:center">
+              <div style="font-family:var(--font-display);font-size:20px;color:var(--text)">${getMytriProfile().weight||'—'}kg</div>
+              <div style="font-family:var(--font-ui);font-size:9px;color:var(--muted)">PESO</div>
+            </div>
+            <div style="text-align:center">
+              <div style="font-family:var(--font-display);font-size:20px;color:var(--text)">${getMytriProfile().altura||'—'}cm</div>
+              <div style="font-family:var(--font-ui);font-size:9px;color:var(--muted)">ALTURA</div>
+            </div>
+          </div>
+        </div>
         <button onclick="submitClubOnboard()" style="width:100%;margin-top:8px;padding:18px;background:var(--accent);color:#000;font-family:var(--font-ui);font-size:14px;font-weight:700;letter-spacing:2px;border:none;cursor:pointer;border-radius:4px">ENTRAR NA TURMA</button>
       </div>
     </div>`;
@@ -3940,9 +3962,12 @@ function submitClubOnboard(){
     bio:document.getElementById('cl-bio').value.trim(),
     busca:document.getElementById('cl-busca').value,
     photo:athlete2.profile||athlete2.profile_medium||prof.photo||'',
-    weight:prof.weight||athlete2.weight||'',
+    weight:prof.weight||String(athlete2.weight||'')||'',
     height:prof.altura||'',
     shareMetrics:shareEl?shareEl.checked:false,
+    // Exibe imediatamente no card se compartilhou
+    _myWeight:prof.weight||String(athlete2.weight||'')||'',
+    _myHeight:prof.altura||'',
   };
   clubState.step='swipe';
   clubState.currentIdx=0;
@@ -4469,12 +4494,11 @@ function renderProfile(){
       <div class="profile-section-title">Esporte</div>
       <div class="profile-field"><label>Modalidade principal</label>
         <select id="pf-modalidade">
-          <option value="tri" ${prof.modalidade==='tri'?'selected':''}>Triatlon</option>
-          <option value="bike" ${prof.modalidade==='bike'?'selected':''}>Ciclismo</option>
-          <option value="run" ${prof.modalidade==='run'?'selected':''}>Corrida</option>
-          <option value="swim" ${prof.modalidade==='swim'?'selected':''}>Natacao</option>
-          <option value="duatlon" ${prof.modalidade==='duatlon'?'selected':''}>Duatlon</option>
-          <option value="aquatlon" ${prof.modalidade==='aquatlon'?'selected':''}>Aquatlon</option>
+          <option value="triathlon" ${(prof.sport||prof.modalidade)==='triathlon'||(prof.sport||prof.modalidade)==='tri'?'selected':''}>Triathlon</option>
+          <option value="corrida" ${(prof.sport||prof.modalidade)==='corrida'||(prof.sport||prof.modalidade)==='run'?'selected':''}>Corrida</option>
+          <option value="ciclismo" ${(prof.sport||prof.modalidade)==='ciclismo'||(prof.sport||prof.modalidade)==='bike'?'selected':''}>Ciclismo</option>
+          <option value="natacao" ${(prof.sport||prof.modalidade)==='natacao'||(prof.sport||prof.modalidade)==='swim'?'selected':''}>Natacao</option>
+          <option value="duathlon" ${(prof.sport||prof.modalidade)==='duathlon'||(prof.sport||prof.modalidade)==='duatlon'?'selected':''}>Duathlon</option>
         </select>
       </div>
       <div class="profile-field"><label>Nivel</label>
@@ -4610,6 +4634,7 @@ function submitProfile(){
     altura:document.getElementById('pf-altura').value.trim(),
     city:document.getElementById('pf-cidade').value.trim(),
     sexo:document.getElementById('pf-sexo').value,
+    sport:document.getElementById('pf-modalidade').value,
     modalidade:document.getElementById('pf-modalidade').value,
     nivel:document.getElementById('pf-nivel').value,
     distancia:document.getElementById('pf-distancia').value,
@@ -4938,12 +4963,11 @@ function renderObWelcome(c){
       .ob-sub-anim{opacity:0;animation:ob-fade-up .8s ease forwards}
     </style>
     <div style="position:relative;display:flex;flex-direction:column;justify-content:center;align-items:center;min-height:100vh;overflow:hidden;background:#000">
-      <div id="ob-slides" style="position:absolute;inset:0;overflow:hidden">
-        <div id="ob-slide-0" style="position:absolute;inset:0;background-image:url('https://images.unsplash.com/photo-1658748721978-68fc04f3739b?w=900&q=85&auto=format&fit=crop');background-size:cover;background-position:center;opacity:1;transition:opacity 1.2s ease;animation:kbzoom 8s ease-in-out infinite alternate"></div>
-        <div id="ob-slide-1" style="position:absolute;inset:0;background-image:url('https://images.unsplash.com/photo-1541625602330-2277a4c46182?w=900&q=85&auto=format&fit=crop');background-size:cover;background-position:center;opacity:0;transition:opacity 1.2s ease;animation:kbzoom 8s ease-in-out infinite alternate-reverse"></div>
-        <div id="ob-slide-2" style="position:absolute;inset:0;background-image:url('https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=900&q=85&auto=format&fit=crop');background-size:cover;background-position:center;opacity:0;transition:opacity 1.2s ease;animation:kbzoom 8s ease-in-out infinite alternate"></div>
+      <div id="ob-vid-wrap" style="position:absolute;inset:0;overflow:hidden;background:#000">
+        <video id="ob-vid" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover" autoplay muted playsinline loop crossorigin="anonymous" referrerpolicy="no-referrer">
+          <source src="https://videos.pexels.com/video-files/5790072/5790072-hd_1280_720_30fps.mp4" type="video/mp4">
+        </video>
       </div>
-      <style>@keyframes kbzoom{from{transform:scale(1)}to{transform:scale(1.08)}}</style>
       <div style="position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,0.2) 0%,rgba(0,0,0,0.5) 50%,rgba(0,0,0,0.85) 100%)"></div>
       <div style="position:relative;text-align:center;padding:0 28px;display:flex;flex-direction:column;align-items:center;gap:0;width:100%">
         <div style="line-height:.9;margin-bottom:6px;white-space:nowrap">
@@ -4960,18 +4984,28 @@ function renderObWelcome(c){
     </div>`;
 
   // Um único video - troca src a cada 6s (Safari iOS só permite autoplay em 1 video)
-  // Slides de foto com Ken Burns - sem dependência de vídeo externo
-  let scur=0;
-  const slides=[
-    document.getElementById('ob-slide-0'),
-    document.getElementById('ob-slide-1'),
-    document.getElementById('ob-slide-2'),
+  // Video único com troca de src usando referrerpolicy no-referrer
+  const VSRCS=[
+    'https://videos.pexels.com/video-files/5790072/5790072-hd_1280_720_30fps.mp4',
+    'https://videos.pexels.com/video-files/12204020/12204020-hd_1920_1080_24fps.mp4',
+    'https://videos.pexels.com/video-files/12510396/12510396-hd_1920_1080_25fps.mp4',
   ];
+  let vcur=0;
+  const vid=document.getElementById('ob-vid');
+  vid.play().catch(()=>{});
   const iv=setInterval(()=>{
-    slides[scur].style.opacity='0';
-    scur=(scur+1)%slides.length;
-    slides[scur].style.opacity='1';
-  },5000);
+    const next=(vcur+1)%VSRCS.length;
+    // Pré-carrega o próximo via fetch com no-referrer
+    fetch(VSRCS[next],{referrerPolicy:'no-referrer'}).catch(()=>{});
+    vid.style.opacity='0';
+    setTimeout(()=>{
+      vid.src=VSRCS[next];
+      vid.setAttribute('referrerpolicy','no-referrer');
+      vid.play().catch(()=>{});
+      vid.style.opacity='1';
+      vcur=next;
+    },600);
+  },7000);
   c._clearVideoInterval=()=>clearInterval(iv);
 }
 
