@@ -457,7 +457,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   <div class="bnav-item" onclick="switchTab('conquistas')">Hist</div>
   <div class="bnav-item" onclick="switchTab('bikefit')">Fit</div>
   <div class="bnav-item" onclick="switchTab('club')">Club</div>
-  <div class="bnav-item" onclick="openProfile()">Perfil</div>
+  <div class="bnav-item" onclick="switchTab('perfil')">Perfil</div>
 </div>
 
 <script>
@@ -782,16 +782,20 @@ function getVolume(){
 
 // ── TAB SWITCHING ──
 let currentTab='hoje';
-const TAB_ORDER=['agenda','stats','conquistas','bikefit','club'];
+const TAB_ORDER=['agenda','stats','conquistas','bikefit','club','perfil'];
 let agendaSubTab='hoje';
 
 function switchTab(tab){
-  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   document.querySelectorAll('.bnav-item').forEach(b=>b.classList.remove('active'));
+  const idx=TAB_ORDER.indexOf(tab==='hoje'||tab==='semana'||tab==='calendario'?'agenda':tab);
+  if(idx>=0)document.querySelectorAll('.bnav-item')[idx].classList.add('active');
+  if(tab==='perfil'){
+    openProfile();
+    return;
+  }
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   const viewId=tab==='hoje'||tab==='semana'||tab==='calendario'?'agenda':tab;
   document.getElementById('view-'+viewId).classList.add('active');
-  const idx=TAB_ORDER.indexOf(viewId);
-  if(idx>=0)document.querySelectorAll('.bnav-item')[idx].classList.add('active');
   currentTab=tab;
   if(tab==='agenda'||tab==='hoje'||tab==='semana'||tab==='calendario'){
     currentTab='agenda';
@@ -4408,6 +4412,7 @@ function openProfile(){
 
 function closeProfile(){
   document.getElementById('view-profile').classList.remove('active');
+  switchTab('agenda');
 }
 
 function renderProfile(){
@@ -4419,13 +4424,19 @@ function renderProfile(){
     `<div class="profile-avatar-placeholder">?</div>`;
 
   vp.innerHTML=`
+    <div onclick="changeCoverPhoto()" style="position:relative;height:120px;background:${prof.coverPhoto?`url('${prof.coverPhoto}') center/cover`:'linear-gradient(135deg,#1a6cf0,#0d3a8a)'};cursor:pointer">
+      <div style="position:absolute;inset:0;background:rgba(0,0,0,0.15)"></div>
+      <div style="position:absolute;bottom:10px;right:10px;background:rgba(0,0,0,0.5);border-radius:4px;padding:5px 10px;font-family:var(--font-ui);font-size:9px;color:#fff;letter-spacing:.5px">EDITAR CAPA</div>
+    </div>
+    <input type="file" id="profile-cover-input" accept="image/*" style="display:none" onchange="handleCoverPhoto(event)">
+
     <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg);z-index:10">
       <button onclick="closeProfile()" style="background:none;border:none;color:var(--muted2);font-size:22px;cursor:pointer;padding:0">&#8592;</button>
       <div style="font-family:var(--font-ui);font-size:12px;letter-spacing:2px;color:var(--text)">MEU PERFIL</div>
       <button onclick="submitProfile()" style="background:var(--accent);border:none;color:#000;font-family:var(--font-ui);font-size:11px;font-weight:700;letter-spacing:1px;padding:8px 14px;border-radius:3px;cursor:pointer">SALVAR</button>
     </div>
 
-    <div class="profile-hero">
+    <div class="profile-hero" style="margin-top:-50px">
       <div onclick="changeProfilePhoto()" style="display:inline-block;cursor:pointer;position:relative">
         ${photoEl}
         <div style="position:absolute;bottom:14px;right:0;background:var(--accent);border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:13px">+</div>
@@ -4464,32 +4475,50 @@ function renderProfile(){
     <div class="profile-section">
       <div class="profile-section-title">Esporte</div>
       <div class="profile-field"><label>Modalidade principal</label>
-        <select id="pf-modalidade">
-          <option value="triathlon" ${(prof.sport||prof.modalidade)==='triathlon'||(prof.sport||prof.modalidade)==='tri'?'selected':''}>Triathlon</option>
-          <option value="corrida" ${(prof.sport||prof.modalidade)==='corrida'||(prof.sport||prof.modalidade)==='run'?'selected':''}>Corrida</option>
-          <option value="ciclismo" ${(prof.sport||prof.modalidade)==='ciclismo'||(prof.sport||prof.modalidade)==='bike'?'selected':''}>Ciclismo</option>
-          <option value="natacao" ${(prof.sport||prof.modalidade)==='natacao'||(prof.sport||prof.modalidade)==='swim'?'selected':''}>Natacao</option>
-          <option value="duathlon" ${(prof.sport||prof.modalidade)==='duathlon'||(prof.sport||prof.modalidade)==='duatlon'?'selected':''}>Duathlon</option>
+        <select id="pf-modalidade" onchange="renderProfile()">
+          <option value="triathlon" ${prof.sport==='triathlon'?'selected':''}>Triathlon</option>
+          <option value="corrida" ${prof.sport==='corrida'?'selected':''}>Corrida</option>
+          <option value="ciclismo" ${prof.sport==='ciclismo'?'selected':''}>Ciclismo</option>
+          <option value="natacao" ${prof.sport==='natacao'?'selected':''}>Natacao</option>
+          <option value="duathlon" ${prof.sport==='duathlon'?'selected':''}>Duathlon</option>
         </select>
       </div>
-      <div class="profile-field"><label>Nivel</label>
-        <select id="pf-nivel">
-          <option value="iniciante" ${prof.nivel==='iniciante'?'selected':''}>Iniciante (menos de 1 ano)</option>
-          <option value="amador" ${prof.nivel==='amador'?'selected':''}>Amador (1-3 anos)</option>
-          <option value="experiente" ${prof.nivel==='experiente'?'selected':''}>Experiente (3-7 anos)</option>
-          <option value="avancado" ${prof.nivel==='avancado'?'selected':''}>Avancado (7+ anos)</option>
-          <option value="elite" ${prof.nivel==='elite'?'selected':''}>Elite / Profissional</option>
-        </select>
-      </div>
-      <div class="profile-field"><label>Distancia preferida</label>
+      ${(()=>{
+        const sport=prof.sport||'triathlon';
+        const dists=Object.keys(DIST_INFO).filter(k=>DIST_INFO[k].sport===sport);
+        return `<div class="profile-field"><label>Distancia preferida</label>
         <select id="pf-distancia">
-          <option value="sprint" ${prof.distancia==='sprint'?'selected':''}>Sprint (750m/20km/5km)</option>
-          <option value="olimpico" ${prof.distancia==='olimpico'?'selected':''}>Olimpico (1.5km/40km/10km)</option>
-          <option value="meio" ${prof.distancia==='meio'?'selected':''}>Meio Ironman (70.3)</option>
-          <option value="iron" ${prof.distancia==='iron'?'selected':''}>Ironman completo</option>
-          <option value="qualquer" ${prof.distancia==='qualquer'?'selected':''}>Qualquer distancia</option>
+          ${dists.map(d=>`<option value="${d}" ${prof.raceDist===d?'selected':''}>${DIST_INFO[d].label} (${DIST_INFO[d].sub})</option>`).join('')}
         </select>
-      </div>
+      </div>`;
+      })()}
+    </div>
+
+    <div class="profile-section">
+      <div class="profile-section-title">Nivel por modalidade</div>
+      ${(()=>{
+        const sport=prof.sport||'triathlon';
+        const levelOpts=(val,id)=>`<select id="${id}">
+          <option value="beginner" ${val==='beginner'?'selected':''}>Iniciante</option>
+          <option value="intermediate" ${val==='intermediate'?'selected':''}>Intermediario</option>
+          <option value="advanced" ${val==='advanced'?'selected':''}>Avancado</option>
+        </select>`;
+        let html='';
+        if(sport==='triathlon'||sport==='duathlon'){
+          if(sport==='triathlon'){
+            html+=`<div class="profile-field"><label>Natacao</label>${levelOpts(prof.swimLevel,'pf-swimlevel')}</div>`;
+          }
+          html+=`<div class="profile-field"><label>Bike</label>${levelOpts(prof.bikeLevel,'pf-bikelevel')}</div>`;
+          html+=`<div class="profile-field"><label>Corrida</label>${levelOpts(prof.runLevel,'pf-runlevel')}</div>`;
+        } else if(sport==='corrida'){
+          html+=`<div class="profile-field"><label>Corrida</label>${levelOpts(prof.runLevel,'pf-runlevel')}</div>`;
+        } else if(sport==='ciclismo'){
+          html+=`<div class="profile-field"><label>Ciclismo</label>${levelOpts(prof.bikeLevel,'pf-bikelevel')}</div>`;
+        } else if(sport==='natacao'){
+          html+=`<div class="profile-field"><label>Natacao</label>${levelOpts(prof.swimLevel,'pf-swimlevel')}</div>`;
+        }
+        return html;
+      })()}
     </div>
 
     <div class="profile-section">
@@ -4555,6 +4584,23 @@ function changeProfilePhoto(){
   document.getElementById('profile-photo-input').click();
 }
 
+function changeCoverPhoto(){
+  document.getElementById('profile-cover-input').click();
+}
+
+function handleCoverPhoto(e){
+  const file=e.target.files[0];
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    const prof=getMytriProfile();
+    prof.coverPhoto=ev.target.result;
+    saveMytriProfile(prof);
+    renderProfile();
+  };
+  reader.readAsDataURL(file);
+}
+
 function handleProfilePhoto(e){
   const file=e.target.files[0];
   if(!file)return;
@@ -4597,27 +4643,33 @@ function removeProfilePhoto(idx){
 
 function submitProfile(){
   const prof=getMytriProfile();
+  const getVal=(id)=>{const el=document.getElementById(id);return el?el.value:'';};
   const updated={
     ...prof,
-    name:document.getElementById('pf-nome').value.trim(),
-    age:document.getElementById('pf-idade').value.trim(),
-    weight:document.getElementById('pf-peso').value.trim(),
-    altura:document.getElementById('pf-altura').value.trim(),
-    city:document.getElementById('pf-cidade').value.trim(),
-    sexo:document.getElementById('pf-sexo').value,
-    sport:document.getElementById('pf-modalidade').value,
-    modalidade:document.getElementById('pf-modalidade').value,
-    nivel:document.getElementById('pf-nivel').value,
-    distancia:document.getElementById('pf-distancia').value,
-    pace:document.getElementById('pf-pace').value.trim(),
-    ftp:document.getElementById('pf-ftp').value.trim(),
-    swim:document.getElementById('pf-swim').value.trim(),
-    nextRace:document.getElementById('pf-race').value.trim(),
-    bio:document.getElementById('pf-bio').value.trim(),
-    interests:document.getElementById('pf-interests').value.trim(),
-    busca:document.getElementById('pf-busca').value,
+    name:getVal('pf-nome').trim(),
+    age:getVal('pf-idade').trim(),
+    weight:getVal('pf-peso').trim(),
+    altura:getVal('pf-altura').trim(),
+    city:getVal('pf-cidade').trim(),
+    sexo:getVal('pf-sexo'),
+    sport:getVal('pf-modalidade'),
+    raceDist:getVal('pf-distancia')||prof.raceDist,
+    runLevel:getVal('pf-runlevel')||prof.runLevel,
+    bikeLevel:getVal('pf-bikelevel')||prof.bikeLevel,
+    swimLevel:getVal('pf-swimlevel')||prof.swimLevel,
+    pace:getVal('pf-pace').trim(),
+    ftp:getVal('pf-ftp').trim(),
+    swim:getVal('pf-swim').trim(),
+    nextRace:getVal('pf-race').trim(),
+    bio:getVal('pf-bio').trim(),
+    interests:getVal('pf-interests').trim(),
+    busca:getVal('pf-busca'),
   };
   saveMytriProfile(updated);
+  // Bloqueia sync do Supabase por 60s para os dados não serem sobrescritos
+  localStorage.setItem('mytri_ob_just_saved','1');
+  setTimeout(()=>localStorage.removeItem('mytri_ob_just_saved'),60000);
+  sbSet('mytri_profile', updated).catch(()=>{});
   closeProfile();
   refreshHoje();
 }
@@ -5592,12 +5644,14 @@ function renderPlanSummary(el,profile,text){
   // Parse sections — suporta formatos variados do Haiku
   function extractSection(titles){
     const t=titles instanceof Array?titles:[titles];
+    const allTitles=['VISÃO GERAL','VISAO GERAL','PONTO CRÍTICO','PONTO CRITICO','FASES DO PLANO','ESTRATÉGIA DE PROVA','ESTRATEGIA DE PROVA','MENSAGEM DO COACH'];
     for(const title of t){
       const escaped=title.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
-      // Tenta com ** ao redor também
       const variants=[escaped,'\\*\\*'+escaped+'\\*\\*'];
       for(const v of variants){
-        const re=new RegExp('(?:'+v+')[:\\s]*\\n([\\s\\S]*?)(?=\\n(?:\\*\\*)?[A-ZÁÉÍÓÚÀÂÊÔÃÕ]{3}|$)','i');
+        // Só corta a seção quando encontra outro TÍTULO conhecido, não qualquer linha maiúscula
+        const otherTitles=allTitles.filter(x=>!t.includes(x)).map(x=>x.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|');
+        const re=new RegExp('(?:'+v+')[:\\s]*\\n([\\s\\S]*?)(?=\\n(?:\\*\\*)?(?:'+otherTitles+')|$)','i');
         const m=text.match(re);
         if(m&&m[1].trim())return stripMd(m[1]);
       }
