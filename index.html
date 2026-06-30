@@ -789,9 +789,11 @@ function switchTab(tab){
   document.querySelectorAll('.bnav-item').forEach(b=>b.classList.remove('active'));
   const idx=TAB_ORDER.indexOf(tab==='hoje'||tab==='semana'||tab==='calendario'?'agenda':tab);
   if(idx>=0)document.querySelectorAll('.bnav-item')[idx].classList.add('active');
-  // Sempre fecha o perfil ao navegar para qualquer outra aba
-  const vp=document.getElementById('view-profile');
-  if(vp) vp.classList.remove('active');
+  // Fecha defensivamente todas as telas fixed sobrepostas
+  ['view-profile','view-onboard','view-plan-summary'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.classList.remove('active');
+  });
   if(tab==='perfil'){
     openProfile();
     return;
@@ -5748,7 +5750,6 @@ function obNext(){
     if(data)obData.raceDate=data.value;
   }
   obStep++;
-  if(obStep>=9){obFinish();return;}
   renderOnboarding();
 }
 
@@ -5935,7 +5936,8 @@ function renderPlanSummary(el,profile,text){
 
 function closePlanSummary(){
   document.getElementById('view-plan-summary').classList.remove('active');
-  renderAgenda();
+  document.getElementById('view-onboard').classList.remove('active');
+  switchTab('agenda');
 }
 
 
