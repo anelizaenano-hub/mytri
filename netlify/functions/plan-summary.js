@@ -27,6 +27,9 @@ exports.handler = async (event) => {
 
   const diasStr = profile.diasDisponiveis?.join(', ') || 'seg, ter, qua, qui, sex';
   const horasStr = profile.weeklyHours || '3-4';
+  const lesoesStr = (profile.lesoes && profile.lesoes.length > 0 && !profile.lesoes.includes('nenhuma'))
+    ? `${profile.lesoes.join(', ')}${profile.lesaoDetalhe ? ' — ' + profile.lesaoDetalhe : ''}`
+    : 'Nenhuma restricao reportada';
 
   const prompt = `Voce e um coach de alto rendimento especialista em ${sportName}. Crie um resumo estrategico do plano de treino personalizado para este atleta:
 
@@ -39,8 +42,9 @@ PERFORMANCE ATUAL: ${levelStr}
 HORAS SEMANAIS DISPONIVEIS: ${horasStr}h
 DIAS DE TREINO: ${diasStr}
 FC MAXIMA: ${profile.fcMax || '?'}bpm
+LESOES/RESTRICOES: ${lesoesStr}
 
-Escreva o resumo EXCLUSIVAMENTE focado em ${sportName}. NAO mencione outras modalidades a menos que sejam relevantes para o esporte escolhido.
+Escreva o resumo EXCLUSIVAMENTE focado em ${sportName}. NAO mencione outras modalidades a menos que sejam relevantes para o esporte escolhido. Se houver lesoes ou restricoes, considere isso ao montar o ponto critico e a estrategia, evitando exercicios que agravem a condicao.
 
 Responda EXATAMENTE neste formato (sem markdown, sem asteriscos, sem ##):
 
