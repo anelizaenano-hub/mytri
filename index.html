@@ -4964,8 +4964,8 @@ function renderObWelcome(c){
     </style>
     <div style="position:relative;display:flex;flex-direction:column;justify-content:center;align-items:center;min-height:100vh;overflow:hidden;background:#000">
       <div id="ob-vid-wrap" style="position:absolute;inset:0;overflow:hidden;background:#000">
-        <video id="ob-vid" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover" autoplay muted playsinline loop crossorigin="anonymous" referrerpolicy="no-referrer">
-          <source src="https://videos.pexels.com/video-files/5790072/5790072-hd_1280_720_30fps.mp4" type="video/mp4">
+        <video id="ob-vid" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover" autoplay muted playsinline>
+          <source src="/videos/swim.mp4" type="video/mp4">
         </video>
       </div>
       <div style="position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,0.2) 0%,rgba(0,0,0,0.5) 50%,rgba(0,0,0,0.85) 100%)"></div>
@@ -4984,29 +4984,25 @@ function renderObWelcome(c){
     </div>`;
 
   // Um único video - troca src a cada 6s (Safari iOS só permite autoplay em 1 video)
-  // Video único com troca de src usando referrerpolicy no-referrer
-  const VSRCS=[
-    'https://videos.pexels.com/video-files/5790072/5790072-hd_1280_720_30fps.mp4',
-    'https://videos.pexels.com/video-files/12204020/12204020-hd_1920_1080_24fps.mp4',
-    'https://videos.pexels.com/video-files/12510396/12510396-hd_1920_1080_25fps.mp4',
-  ];
+  // Videos hospedados no proprio site (sem bloqueio de referrer)
+  const VSRCS=['/videos/swim.mp4','/videos/bike.mp4','/videos/run.mp4'];
   let vcur=0;
   const vid=document.getElementById('ob-vid');
+  vid.style.transition='opacity .6s ease';
   vid.play().catch(()=>{});
-  const iv=setInterval(()=>{
+  function nextVid(){
     const next=(vcur+1)%VSRCS.length;
-    // Pré-carrega o próximo via fetch com no-referrer
-    fetch(VSRCS[next],{referrerPolicy:'no-referrer'}).catch(()=>{});
     vid.style.opacity='0';
     setTimeout(()=>{
       vid.src=VSRCS[next];
-      vid.setAttribute('referrerpolicy','no-referrer');
       vid.play().catch(()=>{});
       vid.style.opacity='1';
       vcur=next;
     },600);
-  },7000);
-  c._clearVideoInterval=()=>clearInterval(iv);
+  }
+  vid.addEventListener('ended',nextVid);
+  const iv=setInterval(nextVid,9000);
+  c._clearVideoInterval=()=>{clearInterval(iv);vid.removeEventListener('ended',nextVid);};
 }
 
 function renderObEsporte(c){
@@ -5019,17 +5015,15 @@ function renderObEsporte(c){
         ${sports.map(s=>{
           const info=SPORT_INFO[s];
           const sel=obData.sport===s;
-          return `<div onclick="obSelectSport('${s}')" style="position:relative;height:90px;border-radius:10px;overflow:hidden;cursor:pointer;border:2.5px solid ${sel?info.color:'transparent'};transition:border-color .2s">
+          return `<div data-sport="${s}" onclick="obSelectSport('${s}')" style="position:relative;height:90px;border-radius:10px;overflow:hidden;cursor:pointer;border:2.5px solid ${sel?info.color:'transparent'};transition:border-color .2s">
             <img src="${info.img}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center top" loading="lazy" onerror="this.style.display='none'">
             <div style="position:absolute;inset:0;background:linear-gradient(90deg,rgba(8,10,13,.88) 0%,rgba(8,10,13,.5) 60%,rgba(8,10,13,.15) 100%)"></div>
             <div style="position:absolute;inset:0;padding:0 18px;display:flex;align-items:center;gap:14px">
               <div style="flex:1">
-                <div style="font-family:var(--font-display);font-size:22px;letter-spacing:.5px;color:${sel?info.color:'#fff'};line-height:1;margin-bottom:3px">${info.label.toUpperCase()}</div>
+                <div data-label style="font-family:var(--font-display);font-size:22px;letter-spacing:.5px;color:${sel?info.color:'#fff'};line-height:1;margin-bottom:3px">${info.label.toUpperCase()}</div>
                 <div style="font-family:var(--font-ui);font-size:10px;color:rgba(255,255,255,0.5);letter-spacing:.5px">${info.sub}</div>
               </div>
-              ${sel
-                ?`<div style="width:22px;height:22px;border-radius:50%;background:${info.color};display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="color:#000;font-size:13px;font-weight:900">&#10003;</span></div>`
-                :`<div style="width:22px;height:22px;border-radius:50%;border:1.5px solid rgba(255,255,255,0.25);flex-shrink:0"></div>`}
+              <div data-check style="width:22px;height:22px;border-radius:50%;background:${sel?info.color:'transparent'};border:1.5px solid ${sel?info.color:'rgba(255,255,255,0.25)'};display:${sel?'flex':'flex'};align-items:center;justify-content:center;flex-shrink:0;display:flex"><span style="color:#000;font-size:13px;font-weight:900;display:${sel?'block':'none'}">&#10003;</span></div>
             </div>
           </div>`;
         }).join('')}
@@ -5042,9 +5036,18 @@ function renderObEsporte(c){
 
 function obSelectSport(s){
   obData.sport=s;
-  obData.raceDist=null; // sempre limpa distância ao trocar esporte
-  renderOnboarding();
-  setTimeout(()=>obNext(),600);
+  obData.raceDist=null;
+  // Highlight sem re-render
+  document.querySelectorAll('[data-sport]').forEach(el=>{
+    const sel=el.dataset.sport===s;
+    const info=SPORT_INFO[el.dataset.sport]||{};
+    el.style.border='2.5px solid '+(sel?info.color:'transparent');
+    const dot=el.querySelector('[data-check]');
+    if(dot) dot.style.display=sel?'flex':'none';
+    const lbl=el.querySelector('[data-label]');
+    if(lbl) lbl.style.color=sel?info.color:'#fff';
+  });
+  setTimeout(()=>obNext(),500);
 }
 
 function renderObDistancia(c){
@@ -5061,7 +5064,7 @@ function renderObDistancia(c){
           const info=DIST_INFO[d];
           const sel=obData.raceDist===d;
           const img=imgs[d]||sportInfo.img;
-          return `<div onclick="obSelectDist('${d}')" style="position:relative;height:100px;border-radius:10px;overflow:hidden;cursor:pointer;border:2.5px solid ${sel?info.color:'transparent'};transition:border-color .2s">
+          return `<div data-dist="${d}" onclick="obSelectDist('${d}')" style="position:relative;height:100px;border-radius:10px;overflow:hidden;cursor:pointer;border:2.5px solid ${sel?info.color:'transparent'};transition:border-color .2s">
             <img src="${img}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center" loading="lazy" onerror="this.style.display='none'">
             <div style="position:absolute;inset:0;background:linear-gradient(90deg,rgba(8,10,13,.88) 0%,rgba(8,10,13,.5) 60%,rgba(8,10,13,.15) 100%)"></div>
             <div style="position:absolute;inset:0;padding:0 18px;display:flex;align-items:center;gap:14px">
@@ -5069,9 +5072,7 @@ function renderObDistancia(c){
                 <div style="font-family:var(--font-display);font-size:20px;letter-spacing:.5px;color:${sel?info.color:'#fff'};line-height:1;margin-bottom:4px">${info.label.toUpperCase()}</div>
                 <div style="font-family:var(--font-ui);font-size:10px;color:rgba(255,255,255,0.5);letter-spacing:.5px">${info.sub}</div>
               </div>
-              ${sel
-                ?`<div style="width:22px;height:22px;border-radius:50%;background:${info.color};display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="color:#000;font-size:13px;font-weight:900">&#10003;</span></div>`
-                :`<div style="width:22px;height:22px;border-radius:50%;border:1.5px solid rgba(255,255,255,0.25);flex-shrink:0"></div>`}
+              <div data-check style="width:22px;height:22px;border-radius:50%;background:${sel?info.color:'transparent'};border:1.5px solid ${sel?info.color:'rgba(255,255,255,0.25)'};display:${sel?'flex':'flex'};align-items:center;justify-content:center;flex-shrink:0;display:flex"><span style="color:#000;font-size:13px;font-weight:900;display:${sel?'block':'none'}">&#10003;</span></div>
             </div>
           </div>`;
         }).join('')}
