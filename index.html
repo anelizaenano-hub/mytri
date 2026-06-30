@@ -3903,10 +3903,24 @@ function renderClubOnboard(c){
             <input id="cl-idade" type="number" value="${idade}" placeholder="41" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:13px;border-radius:4px">
           </div>
           <div>
-            <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;display:block;margin-bottom:6px">CIDADE</label>
+            <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;display:block;margin-bottom:6px">CEP (opcional)</label>
+            <input id="cl-cep" type="text" inputmode="numeric" placeholder="00000-000" maxlength="9" oninput="clFormatCep(this)" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:13px;border-radius:4px">
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1.5fr;gap:10px">
+          <div>
+            <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;display:block;margin-bottom:6px">ESTADO</label>
+            <select id="cl-estado" onchange="clPopulateCidades()" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:13px;border-radius:4px;-webkit-appearance:none">
+              <option value="">UF</option>
+              ${['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'].map(uf=>`<option value="${uf}">${uf}</option>`).join('')}
+            </select>
+          </div>
+          <div>
+            <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;display:block;margin-bottom:6px">CIDADE / BAIRRO</label>
             <input id="cl-cidade" type="text" value="${cidade}" placeholder="Sao Paulo SP" autocomplete="off" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:13px;border-radius:4px;color-scheme:dark">
           </div>
         </div>
+        <div id="cl-cep-status" style="font-family:var(--font-body);font-size:11px;color:var(--muted);margin-top:-6px"></div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
           ${(()=>{
             const sport=prof.sport||'triathlon';
@@ -4006,6 +4020,90 @@ function renderClubOnboard(c){
         <button onclick="submitClubOnboard()" style="width:100%;margin-top:8px;padding:18px;background:var(--accent);color:#000;font-family:var(--font-ui);font-size:14px;font-weight:700;letter-spacing:2px;border:none;cursor:pointer;border-radius:4px">ENTRAR NA TURMA</button>
       </div>
     </div>`;
+}
+
+async function clFormatCep(el){
+  let v=el.value.replace(/\D/g,'');
+  if(v.length>8)v=v.slice(0,8);
+  if(v.length>5)v=v.slice(0,5)+'-'+v.slice(5);
+  el.value=v;
+  const status=document.getElementById('cl-cep-status');
+  if(v.replace('-','').length===8){
+    if(status)status.textContent='Buscando endereco...';
+    try{
+      const cepNum=v.replace('-','');
+      const r=await fetch(`https://viacep.com.br/ws/${cepNum}/json/`);
+      const d=await r.json();
+      if(!d.erro){
+        const cidadeInput=document.getElementById('cl-cidade');
+        const estadoSelect=document.getElementById('cl-estado');
+        if(cidadeInput)cidadeInput.value=d.bairro?`${d.bairro}, ${d.localidade}`:d.localidade;
+        if(estadoSelect)estadoSelect.value=d.uf;
+        if(status)status.textContent=`${d.bairro?d.bairro+', ':''}${d.localidade} — ${d.uf}`;
+      } else {
+        if(status)status.textContent='CEP nao encontrado';
+      }
+    }catch(e){
+      if(status)status.textContent='Erro ao buscar CEP';
+    }
+  } else {
+    if(status)status.textContent='';
+  }
+}
+
+const BR_CIDADES_POR_UF={
+  'SP':['São Paulo','Campinas','Guarulhos','Santo André','São Bernardo do Campo','Osasco','Santos','Guarujá','Ribeirão Preto','Sorocaba','São José dos Campos','Jundiaí','Piracicaba'],
+  'RJ':['Rio de Janeiro','Niterói','Duque de Caxias','Nova Iguaçu','São Gonçalo','Petrópolis','Volta Redonda'],
+  'MG':['Belo Horizonte','Uberlândia','Contagem','Juiz de Fora','Betim','Montes Claros'],
+  'RS':['Porto Alegre','Caxias do Sul','Pelotas','Canoas','Santa Maria'],
+  'PR':['Curitiba','Londrina','Maringá','Ponta Grossa','Cascavel'],
+  'SC':['Florianópolis','Joinville','Blumenau','Itajaí','Chapecó'],
+  'BA':['Salvador','Feira de Santana','Vitória da Conquista','Camaçari'],
+  'PE':['Recife','Jaboatão dos Guararapes','Olinda','Caruaru'],
+  'CE':['Fortaleza','Caucaia','Juazeiro do Norte'],
+  'DF':['Brasília'],
+  'GO':['Goiânia','Aparecida de Goiânia','Anápolis'],
+  'ES':['Vitória','Vila Velha','Serra','Cariacica'],
+  'PA':['Belém','Ananindeua'],
+  'AM':['Manaus'],
+  'MT':['Cuiabá','Várzea Grande'],
+  'MS':['Campo Grande'],
+  'MA':['São Luís'],
+  'PB':['João Pessoa','Campina Grande'],
+  'RN':['Natal','Mossoró'],
+  'AL':['Maceió'],
+  'PI':['Teresina'],
+  'SE':['Aracaju'],
+  'RO':['Porto Velho'],
+  'TO':['Palmas'],
+  'AC':['Rio Branco'],
+  'AP':['Macapá'],
+  'RR':['Boa Vista'],
+};
+
+function clPopulateCidades(){
+  const uf=document.getElementById('cl-estado')?.value;
+  const cidadeInput=document.getElementById('cl-cidade');
+  if(!uf||!cidadeInput)return;
+  const cidades=BR_CIDADES_POR_UF[uf]||[];
+  // Transforma o input de texto em select temporário com as cidades do estado
+  const parent=cidadeInput.parentElement;
+  const select=document.createElement('select');
+  select.id='cl-cidade';
+  select.style.cssText=cidadeInput.style.cssText;
+  select.innerHTML=`<option value="">Selecione a cidade</option>${cidades.map(c=>`<option value="${c}, ${uf}">${c}</option>`).join('')}<option value="__manual__">Outra (digitar manualmente)</option>`;
+  select.onchange=function(){
+    if(this.value==='__manual__'){
+      const newInput=document.createElement('input');
+      newInput.id='cl-cidade';
+      newInput.type='text';
+      newInput.placeholder='Digite sua cidade';
+      newInput.style.cssText=this.style.cssText;
+      this.replaceWith(newInput);
+      newInput.focus();
+    }
+  };
+  cidadeInput.replaceWith(select);
 }
 
 function submitClubOnboard(){
@@ -4159,12 +4257,17 @@ function renderClubSwipe(c){
   // Header
   const hdr=document.createElement('div');
   hdr.style.cssText='display:flex;justify-content:space-between;align-items:center;padding:16px 20px 8px';
+  const myProf=getMytriProfile();
+  const myPhoto=myProf.photo||clubState.myProfile?.photo||'';
+  const avatarHtml=myPhoto
+    ?`<img src="${myPhoto}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:1.5px solid var(--accent)">`
+    :`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>`;
   hdr.innerHTML=`
     <div>
       <div style="font-family:var(--font-display);font-size:22px;letter-spacing:1px">CLUBE DA <span style="color:#1a6cf0">MEIA AZUL</span></div>
       <div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1.5px;margin-top:2px">${available.length} ATLETAS DISPONÍVEIS</div>
     </div>
-    <div onclick="clubState.step='profile';saveClubState();renderClub()" style="width:36px;height:36px;border-radius:50%;background:var(--surface);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></div>`;
+    <div onclick="switchTab('perfil')" style="width:36px;height:36px;border-radius:50%;background:var(--surface);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden">${avatarHtml}</div>`;
   c.appendChild(hdr);
 
   if(!p){
@@ -5063,8 +5166,8 @@ const DIST_IMAGES_BY_SPORT={
     'corrida-5k':'https://images.unsplash.com/photo-1461896836934-ffe607ba8211?w=800&q=85&auto=format&fit=crop',
     'corrida-10k':'https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=800&q=85&auto=format&fit=crop',
     'corrida-meia':'https://images.unsplash.com/photo-1571008887538-b36bb32f4571?w=800&q=85&auto=format&fit=crop',
-    'corrida-maratona':'https://images.unsplash.com/photo-1530549387789-4c1017266635?w=800&q=85&auto=format&fit=crop',
-    'corrida-trail':'https://images.unsplash.com/photo-1551632436-cbf8dd35adfa?w=800&q=85&auto=format&fit=crop',
+    'corrida-maratona':'https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=800&q=85&auto=format&fit=crop',
+    'corrida-trail':'https://images.unsplash.com/photo-1461896836934-ffe607ba8211?w=800&q=85&auto=format&fit=crop',
   },
   ciclismo:{
     'bike-gran-fondo':'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800&q=85&auto=format&fit=crop',
