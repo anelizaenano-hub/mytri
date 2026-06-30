@@ -2636,6 +2636,34 @@ function renderConquistas(){
   badgeSection.appendChild(badgeGrid);
   container.appendChild(badgeSection);
 
+  // Personal Records — base para ranking futuro
+  let prsData;
+  try{ prsData=calcPRs(); }catch(e){ prsData={totalSessions:0,longestRun:0,longestBike:0,bestHR:999,bestPaceRun:null}; }
+  const prSection=document.createElement('div');
+  prSection.style.cssText='padding:0 16px 20px';
+  const prTags=[];
+  if(prsData.bestPaceRun){
+    const min=Math.floor(prsData.bestPaceRun);
+    const sec=Math.round((prsData.bestPaceRun-min)*60);
+    prTags.push({label:`${min}:${sec.toString().padStart(2,'0')}/km`,sub:'MELHOR PACE CORRIDA',color:'#00e676'});
+  }
+  if(prsData.longestRun>0) prTags.push({label:`${prsData.longestRun.toFixed(1)}km`,sub:'CORRIDA MAIS LONGA',color:'#00e676'});
+  if(prsData.longestBike>0) prTags.push({label:`${prsData.longestBike.toFixed(0)}km`,sub:'BIKE MAIS LONGO',color:'#e05c2a'});
+  if(prsData.bestHR<999) prTags.push({label:`${prsData.bestHR}bpm`,sub:'FC MINIMA',color:'#9b6af0'});
+
+  prSection.innerHTML=`
+    <div style="font-family:var(--font-ui);font-size:10px;color:var(--accent);letter-spacing:2px;margin-bottom:12px">PERSONAL RECORDS</div>
+    ${prTags.length>0?`<div style="display:flex;flex-wrap:wrap;gap:8px">
+      ${prTags.map(t=>`<div style="background:${t.color}15;border:1px solid ${t.color}40;border-radius:8px;padding:10px 14px;min-width:100px">
+        <div style="font-family:var(--font-display);font-size:18px;color:${t.color}">${t.label}</div>
+        <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:.5px;margin-top:2px">${t.sub}</div>
+      </div>`).join('')}
+    </div>
+    <div style="font-family:var(--font-body);font-size:11px;color:var(--muted);margin-top:10px;line-height:1.5">Seus recordes entrarao no ranking da comunidade por modalidade e distancia em breve.</div>`
+    :`<div style="font-family:var(--font-body);font-size:12px;color:var(--muted);text-align:center;padding:16px">Complete treinos com dados do Strava para registrar seus recordes.</div>`}
+  `;
+  container.appendChild(prSection);
+
   // Ciclo ativo
   let active,ct,vol,pct;
   try{
@@ -3878,18 +3906,29 @@ function renderClubOnboard(c){
           </div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
-          <div>
-            <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;display:block;margin-bottom:6px">PACE/KM</label>
-            <input id="cl-pace" type="text" value="${pace}" placeholder="5:30" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:13px;border-radius:4px">
-          </div>
-          <div>
-            <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;display:block;margin-bottom:6px">FTP</label>
-            <input id="cl-ftp" type="text" value="${ftp}" placeholder="220w" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:13px;border-radius:4px">
-          </div>
-          <div>
-            <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;display:block;margin-bottom:6px">NADO</label>
-            <input id="cl-swim" type="text" value="${swim}" placeholder="1:45" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:13px;border-radius:4px">
-          </div>
+          ${(()=>{
+            const sport=prof.sport||'triathlon';
+            let html='';
+            if(sport==='triathlon'||sport==='corrida'||sport==='duathlon'){
+              html+=`<div>
+                <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;display:block;margin-bottom:6px">PACE/KM</label>
+                <input id="cl-pace" type="text" value="${pace}" placeholder="5:30" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:13px;border-radius:4px">
+              </div>`;
+            }
+            if(sport==='triathlon'||sport==='ciclismo'||sport==='duathlon'){
+              html+=`<div>
+                <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;display:block;margin-bottom:6px">FTP</label>
+                <input id="cl-ftp" type="text" value="${ftp}" placeholder="220w" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:13px;border-radius:4px">
+              </div>`;
+            }
+            if(sport==='triathlon'||sport==='natacao'){
+              html+=`<div>
+                <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;display:block;margin-bottom:6px">NADO</label>
+                <input id="cl-swim" type="text" value="${swim}" placeholder="1:45" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:13px;border-radius:4px">
+              </div>`;
+            }
+            return html;
+          })()}
         </div>
         <div>
           <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;display:block;margin-bottom:6px">PROXIMA PROVA</label>
@@ -3957,14 +3996,15 @@ function submitClubOnboard(){
   const stravaTokens2=JSON.parse(localStorage.getItem('strava_tokens')||'{}');
   const athlete2=stravaTokens2.athlete||{};
   const shareEl=document.getElementById('cl-share-metrics');
+  const gv=(id)=>{const el=document.getElementById(id);return el?el.value.trim():'';};
   clubState.myProfile={
     name:nome,age:idade,
-    city:document.getElementById('cl-cidade').value.trim(),
-    pace:document.getElementById('cl-pace').value.trim(),
-    ftp:document.getElementById('cl-ftp').value.trim(),
-    swim:document.getElementById('cl-swim').value.trim(),
-    nextRace:document.getElementById('cl-prova').value.trim(),
-    bio:document.getElementById('cl-bio').value.trim(),
+    city:gv('cl-cidade'),
+    pace:gv('cl-pace'),
+    ftp:gv('cl-ftp'),
+    swim:gv('cl-swim'),
+    nextRace:gv('cl-prova'),
+    bio:gv('cl-bio'),
     busca:document.getElementById('cl-busca').value,
     photo:athlete2.profile||athlete2.profile_medium||prof.photo||'',
     weight:prof.weight||String(athlete2.weight||'')||'',
@@ -5034,6 +5074,7 @@ function renderOnboarding(){
     renderObFitness,
     renderObHoras,
     renderObDias,
+    renderObLesoes,
     renderObStrava,
     renderObFim,
   ];
@@ -5545,15 +5586,70 @@ function obToggleDia(v){
   renderOnboarding();
 }
 
+function renderObLesoes(c){
+  const lesoes=[
+    {v:'nenhuma',l:'Nenhuma',d:'Sem restricoes no momento'},
+    {v:'joelho',l:'Joelho',d:'Dor ou lesao no joelho'},
+    {v:'iliotibial',l:'Trato Iliotibial',d:'Sindrome do trato iliotibial'},
+    {v:'piriforme',l:'Piriforme',d:'Sindrome do piriforme'},
+    {v:'lombar',l:'Lombar',d:'Dor ou lesao lombar'},
+    {v:'tornozelo',l:'Tornozelo',d:'Entorse ou instabilidade'},
+    {v:'ombro',l:'Ombro',d:'Lesao ou dor no ombro (nado)'},
+    {v:'outra',l:'Outra',d:'Especificar abaixo'},
+  ];
+  if(!obData.lesoes) obData.lesoes=[];
+  c.innerHTML=`
+    <div style="padding:32px 24px 0">
+      <div class="ob-title">Alguma lesao<br>ou restricao?</div>
+      <div class="ob-sub">Seu plano vai considerar isso para evitar agravar lesoes.</div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
+        ${lesoes.map(les=>{
+          const sel=obData.lesoes.includes(les.v);
+          return `<div onclick="obToggleLesao('${les.v}')" style="padding:14px 16px;background:${sel?'rgba(0,230,118,.08)':'var(--surface)'};border:1.5px solid ${sel?'var(--accent)':'var(--border)'};border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:space-between">
+            <div>
+              <div style="font-family:var(--font-ui);font-size:13px;font-weight:700;color:${sel?'var(--accent)':'var(--text)'}">${les.l}</div>
+              <div style="font-family:var(--font-body);font-size:11px;color:var(--muted2);margin-top:2px">${les.d}</div>
+            </div>
+            ${sel?'<span style="color:var(--accent);font-size:16px">&#10003;</span>':'<div style="width:16px;height:16px;border-radius:50%;border:1.5px solid var(--border)"></div>'}
+          </div>`;
+        }).join('')}
+      </div>
+      ${obData.lesoes.length>0&&!obData.lesoes.includes('nenhuma')?`
+      <div class="ob-field">
+        <label>Detalhes (opcional)</label>
+        <textarea id="ob-lesao-detalhe" placeholder="Ex: infiltracao em maio/2026, dor ao pedalar..." oninput="obData.lesaoDetalhe=this.value" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:12px;border-radius:4px;resize:none;height:70px">${obData.lesaoDetalhe||''}</textarea>
+      </div>`:''}
+    </div>
+    <div style="padding:0 24px 24px;margin-top:auto">
+      <button class="ob-btn" onclick="obNext()">CONTINUAR</button>
+    </div>`;
+}
+
+function obToggleLesao(v){
+  if(!obData.lesoes) obData.lesoes=[];
+  if(v==='nenhuma'){
+    obData.lesoes=obData.lesoes.includes('nenhuma')?[]:['nenhuma'];
+  } else {
+    const idx=obData.lesoes.indexOf('nenhuma');
+    if(idx>=0) obData.lesoes.splice(idx,1);
+    const idx2=obData.lesoes.indexOf(v);
+    if(idx2>=0) obData.lesoes.splice(idx2,1);
+    else obData.lesoes.push(v);
+  }
+  renderOnboarding();
+}
+
 function renderObStrava(c){
   const tokens=JSON.parse(localStorage.getItem('strava_tokens')||'{}');
   const connected=!!tokens.access_token;
   const athlete=tokens.athlete||{};
+  const igConnected=!!localStorage.getItem('mytri_ig_handle');
+  const igHandle=localStorage.getItem('mytri_ig_handle')||'';
   c.innerHTML=`
     <div style="padding:32px 24px 0">
-      <div class="ob-title">Conecte<br>seu Strava</div>
-      <div class="ob-sub">Importamos treinos automaticamente. Sua foto e dados vem de la.</div>
-      <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:12px;margin-top:24px">
+      <div class="ob-title">Conecte<br>suas redes</div>
+      <div class="ob-sub">Importamos treinos e fotos automaticamente.</div>
+      <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:14px;margin-top:24px">
         ${connected?`
           <div style="display:flex;align-items:center;gap:16px;padding:20px;background:rgba(252,76,2,.1);border:2px solid #FC4C02;border-radius:8px">
             ${athlete.profile_medium?`<img src="${athlete.profile_medium}" style="width:52px;height:52px;border-radius:50%;object-fit:cover">`:''}
@@ -5562,16 +5658,41 @@ function renderObStrava(c){
               <div style="font-family:var(--font-body);font-size:15px;font-weight:600">${athlete.firstname||''} ${athlete.lastname||''}</div>
             </div>
           </div>
-          <button class="ob-btn" onclick="obNext()">CONTINUAR</button>
         `:`
           <button class="ob-strava-btn" onclick="obConnectStrava()">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg>
             CONECTAR STRAVA
           </button>
-          <button class="ob-btn-skip" onclick="obNext()">Pular por agora</button>
         `}
+
+        ${igConnected?`
+          <div style="display:flex;align-items:center;gap:16px;padding:20px;background:rgba(225,48,108,.1);border:2px solid #E1306C;border-radius:8px">
+            <div style="width:52px;height:52px;border-radius:50%;background:linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888);display:flex;align-items:center;justify-content:center">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="white"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.332.014 7.052.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.058-1.28.072-1.689.072-4.948 0-3.259-.014-3.667-.072-4.948-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0z"/></svg>
+            </div>
+            <div>
+              <div style="font-family:var(--font-ui);font-size:12px;color:#E1306C;letter-spacing:1px;margin-bottom:4px">INSTAGRAM CONECTADO</div>
+              <div style="font-family:var(--font-body);font-size:15px;font-weight:600">@${igHandle}</div>
+            </div>
+          </div>
+        `:`
+          <button onclick="obConnectInstagram()" style="display:flex;align-items:center;justify-content:center;gap:10px;background:linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888);color:#fff;border:none;padding:16px;border-radius:8px;font-family:var(--font-ui);font-size:13px;font-weight:700;letter-spacing:1px;cursor:pointer">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.332.014 7.052.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.058-1.28.072-1.689.072-4.948 0-3.259-.014-3.667-.072-4.948-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0z"/></svg>
+            CONECTAR INSTAGRAM
+          </button>
+        `}
+
+        <button class="ob-btn" onclick="obNext()" style="margin-top:8px">CONTINUAR</button>
       </div>
     </div>`;
+}
+
+function obConnectInstagram(){
+  const handle=prompt('Digite seu @ do Instagram (sem o @):');
+  if(handle&&handle.trim()){
+    localStorage.setItem('mytri_ig_handle',handle.trim());
+    renderOnboarding();
+  }
 }
 
 function obConnectStrava(){
@@ -5645,6 +5766,8 @@ function obFinish(){
     bikeLevel:obData.bikeLevel||'beginner',
     runLevel:obData.runLevel||'beginner',
     diasDisponiveis:obData.diasDisponiveis||['seg','ter','qua','qui','sex'],
+    lesoes:obData.lesoes||[],
+    lesaoDetalhe:obData.lesaoDetalhe||'',
     sport:obData.sport||'triathlon',
     fcMax:obData.fcMax||'',
   };
@@ -5792,7 +5915,7 @@ function renderPlanSummary(el,profile,text){
       </div>
     </div>`:''}
     `:fallbackText?`<div class="plan-section"><div class="plan-section-body">${fallbackText.split('\n').filter(l=>l.trim()).join('</div><div class="plan-section-body" style="margin-top:10px">')}</div></div>`
-    :`<div class="plan-section"><div class="plan-section-body">Plano criado com base no seu perfil. Boa sorte na prova!</div></div>`}
+    :`<div class="plan-section"><div class="plan-section-body">Nao foi possivel gerar o resumo detalhado do plano agora. Isso pode acontecer por instabilidade temporaria. Seu plano de treino ja esta ativo na Agenda.${text?`<br><br><span style="color:var(--muted);font-size:11px">[debug: ${text.slice(0,150).replace(/</g,'')}]</span>`:''}</div></div>`}
 
     <div style="padding:20px 20px 40px">
       <button onclick="closePlanSummary()" style="width:100%;padding:18px;background:var(--accent);color:#000;font-family:var(--font-ui);font-size:14px;font-weight:700;letter-spacing:2px;border:none;border-radius:4px;cursor:pointer">ENTRAR NO MYTRI</button>
