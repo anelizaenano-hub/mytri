@@ -798,9 +798,14 @@ function switchTab(tab){
     openProfile();
     return;
   }
-  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.view').forEach(v=>{
+    v.classList.remove('active');
+    v.style.display='none';
+  });
   const viewId=tab==='hoje'||tab==='semana'||tab==='calendario'?'agenda':tab;
-  document.getElementById('view-'+viewId).classList.add('active');
+  const activeEl=document.getElementById('view-'+viewId);
+  activeEl.classList.add('active');
+  activeEl.style.display='block';
   currentTab=tab;
   if(tab==='agenda'||tab==='hoje'||tab==='semana'||tab==='calendario'){
     currentTab='agenda';
@@ -3777,14 +3782,14 @@ IMPORTANTE: Responda em texto limpo, sem markdown, sem asteriscos, sem hashtags,
 // ── CLUB — TURMA DA MEIA AZUL ──
 
 const CLUB_PROFILES=[
-  {id:1,name:'Camila Rocha',age:34,city:'São Paulo SP',gender:'F',weight:58,height:164,photo:'https://randomuser.me/api/portraits/women/44.jpg',pace:'5:45/km',ftp:'180w',swim:'1:45/100m',nextRace:'Sprint Guarujá — Set/26',bio:'Triatleta há 3 anos, amo treinar cedo. Procuro alguém pra treinar junto e quem sabe ir pra próxima prova.',tags:['Sprint','Z2 lover','Madrugadora']},
-  {id:2,name:'Rafael Lima',age:38,city:'Campinas SP',gender:'M',weight:74,height:178,photo:'https://randomuser.me/api/portraits/men/32.jpg',pace:'5:10/km',ftp:'240w',swim:'1:30/100m',nextRace:'Olímpico Floripa — Nov/26',bio:'Ex-corredor migrando pro tri. Forte no bike, fraco na natação. Busco companhia pra treinos longos.',tags:['Olímpico','Ciclista','Fim de semana']},
-  {id:3,name:'Juliana Matos',age:29,city:'Rio de Janeiro RJ',gender:'F',weight:54,height:162,photo:'https://randomuser.me/api/portraits/women/68.jpg',pace:'6:00/km',ftp:'155w',swim:'2:00/100m',nextRace:'Sprint Rio — Out/26',bio:'Iniciante no tri, ex-nadadora. Treino 5x/semana e levando muito a sério. Procuro parceiro de treino e de vida.',tags:['Natação forte','Iniciante','Determinada']},
-  {id:4,name:'Thiago Mendes',age:41,city:'Belo Horizonte MG',gender:'M',weight:78,height:181,photo:'https://randomuser.me/api/portraits/men/55.jpg',pace:'5:30/km',ftp:'260w',swim:'1:40/100m',nextRace:'70.3 Brasília — Mar/27',bio:'Médico, treino nas horas vagas. Já fiz 3 sprints e um olímpico. Sonho é fazer um 70.3.',tags:['70.3 goal','Consistente','BH']},
-  {id:5,name:'Fernanda Costa',age:36,city:'Curitiba PR',gender:'F',weight:61,height:167,photo:'https://randomuser.me/api/portraits/women/22.jpg',pace:'5:50/km',ftp:'190w',swim:'1:50/100m',nextRace:'Sprint Curitiba — Ago/26',bio:'Professora de educação física. O tri mudou minha vida. Quero encontrar alguém que entenda esse estilo de vida.',tags:['Coach','Sprint','Sul']},
-  {id:6,name:'Bruno Alves',age:33,city:'Porto Alegre RS',gender:'M',weight:71,height:175,photo:'https://randomuser.me/api/portraits/men/77.jpg',pace:'4:55/km',ftp:'290w',swim:'1:25/100m',nextRace:'Olímpico POA — Set/26',bio:'Engenheiro e triatleta competitivo. Já fui ao pódio no meu AG. Busco alguém com a mesma intensidade.',tags:['Competitivo','AG Pódio','RS']},
-  {id:7,name:'Mariana Souza',age:31,city:'São Paulo SP',gender:'F',weight:56,height:163,photo:'https://randomuser.me/api/portraits/women/55.jpg',pace:'6:10/km',ftp:'160w',swim:'1:55/100m',nextRace:'Sprint Guarujá — Set/26',bio:'Publicitária, triatleta nas horas vagas. Mesma prova que você talvez? Se sim, já temos um date marcado.',tags:['SP','Sprint Guarujá','Criativa']},
-  {id:8,name:'Eduardo Nunes',age:44,city:'Salvador BA',gender:'M',weight:80,height:179,photo:'https://randomuser.me/api/portraits/men/43.jpg',pace:'5:40/km',ftp:'220w',swim:'1:45/100m',nextRace:'Sprint Salvador — Jul/26',bio:'Divorciado, pai de dois, triatleta apaixonado. O esporte me salvou. Quero dividir isso com alguém especial.',tags:['Pai coruja','Resistente','BA']},
+  {id:1,name:'Camila Rocha',age:34,city:'São Paulo SP',gender:'F',weight:58,height:164,photo:'https://randomuser.me/api/portraits/women/44.jpg',pace:'5:45/km',ftp:'180w',swim:'1:45/100m',nextRace:'Sprint Guarujá — Set/26',bio:'Triatleta há 3 anos, amo treinar cedo. Procuro alguém pra treinar junto e quem sabe ir pra próxima prova.',tags:['Sprint','Z2 lover','Madrugadora'],igHandle:'camila.tri'},
+  {id:2,name:'Rafael Lima',age:38,city:'Campinas SP',gender:'M',weight:74,height:178,photo:'https://randomuser.me/api/portraits/men/32.jpg',pace:'5:10/km',ftp:'240w',swim:'1:30/100m',nextRace:'Olímpico Floripa — Nov/26',bio:'Ex-corredor migrando pro tri. Forte no bike, fraco na natação. Busco companhia pra treinos longos.',tags:['Olímpico','Ciclista','Fim de semana'],igHandle:'rafalima.bike'},
+  {id:3,name:'Juliana Matos',age:29,city:'Rio de Janeiro RJ',gender:'F',weight:54,height:162,photo:'https://randomuser.me/api/portraits/women/68.jpg',pace:'6:00/km',ftp:'155w',swim:'2:00/100m',nextRace:'Sprint Rio — Out/26',bio:'Iniciante no tri, ex-nadadora. Treino 5x/semana e levando muito a sério. Procuro parceiro de treino e de vida.',tags:['Natação forte','Iniciante','Determinada'],igHandle:'ju.matos.swim'},
+  {id:4,name:'Thiago Mendes',age:41,city:'Belo Horizonte MG',gender:'M',weight:78,height:181,photo:'https://randomuser.me/api/portraits/men/55.jpg',pace:'5:30/km',ftp:'260w',swim:'1:40/100m',nextRace:'70.3 Brasília — Mar/27',bio:'Médico, treino nas horas vagas. Já fiz 3 sprints e um olímpico. Sonho é fazer um 70.3.',tags:['70.3 goal','Consistente','BH'],igHandle:'thiago.703'},
+  {id:5,name:'Fernanda Costa',age:36,city:'Curitiba PR',gender:'F',weight:61,height:167,photo:'https://randomuser.me/api/portraits/women/22.jpg',pace:'5:50/km',ftp:'190w',swim:'1:50/100m',nextRace:'Sprint Curitiba — Ago/26',bio:'Professora de educação física. O tri mudou minha vida. Quero encontrar alguém que entenda esse estilo de vida.',tags:['Coach','Sprint','Sul'],igHandle:'fecosta.coach'},
+  {id:6,name:'Bruno Alves',age:33,city:'Porto Alegre RS',gender:'M',weight:71,height:175,photo:'https://randomuser.me/api/portraits/men/77.jpg',pace:'4:55/km',ftp:'290w',swim:'1:25/100m',nextRace:'Olímpico POA — Set/26',bio:'Engenheiro e triatleta competitivo. Já fui ao pódio no meu AG. Busco alguém com a mesma intensidade.',tags:['Competitivo','AG Pódio','RS'],igHandle:'brunoalves.tri'},
+  {id:7,name:'Mariana Souza',age:31,city:'São Paulo SP',gender:'F',weight:56,height:163,photo:'https://randomuser.me/api/portraits/women/55.jpg',pace:'6:10/km',ftp:'160w',swim:'1:55/100m',nextRace:'Sprint Guarujá — Set/26',bio:'Publicitária, triatleta nas horas vagas. Mesma prova que você talvez? Se sim, já temos um date marcado.',tags:['SP','Sprint Guarujá','Criativa'],igHandle:'mari.souza.run'},
+  {id:8,name:'Eduardo Nunes',age:44,city:'Salvador BA',gender:'M',weight:80,height:179,photo:'https://randomuser.me/api/portraits/men/43.jpg',pace:'5:40/km',ftp:'220w',swim:'1:45/100m',nextRace:'Sprint Salvador — Jul/26',bio:'Divorciado, pai de dois, triatleta apaixonado. O esporte me salvou. Quero dividir isso com alguém especial.',tags:['Pai coruja','Resistente','BA'],igHandle:'edu.nunes.tri'},
 ];
 
 let clubState={
@@ -3978,6 +3983,26 @@ function renderClubOnboard(c){
             </div>
           </div>
         </div>
+
+        ${localStorage.getItem('mytri_ig_handle')?`
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;margin-top:10px">
+          <div>
+            <div style="font-family:var(--font-ui);font-size:12px;color:var(--text);letter-spacing:.5px">Compartilhar Instagram</div>
+            <div style="font-family:var(--font-body);font-size:11px;color:var(--muted);margin-top:2px">@${localStorage.getItem('mytri_ig_handle')} sera visivel para matches</div>
+          </div>
+          <div onclick="
+          const inp=this.querySelector('input');
+          inp.click();
+          const on=inp.checked;
+          this.querySelector('.tog-bg').style.background=on?'var(--accent)':'var(--border)';
+          this.querySelector('.tog-dot').style.transform=on?'translateX(20px)':'translateX(0)';
+        " style="position:relative;width:44px;height:24px;cursor:pointer;flex-shrink:0">
+            <input type="checkbox" id="cl-share-ig" style="display:none">
+            <div class="tog-bg" style="position:absolute;inset:0;background:var(--border);border-radius:12px;transition:.3s"></div>
+            <div class="tog-dot" style="position:absolute;top:2px;left:2px;width:20px;height:20px;background:#fff;border-radius:50%;transition:.3s"></div>
+          </div>
+        </div>`:''}
+
         <button onclick="submitClubOnboard()" style="width:100%;margin-top:8px;padding:18px;background:var(--accent);color:#000;font-family:var(--font-ui);font-size:14px;font-weight:700;letter-spacing:2px;border:none;cursor:pointer;border-radius:4px">ENTRAR NA TURMA</button>
       </div>
     </div>`;
@@ -3993,6 +4018,8 @@ function submitClubOnboard(){
   const stravaTokens2=JSON.parse(localStorage.getItem('strava_tokens')||'{}');
   const athlete2=stravaTokens2.athlete||{};
   const shareEl=document.getElementById('cl-share-metrics');
+  const shareIgEl=document.getElementById('cl-share-ig');
+  const igHandle=localStorage.getItem('mytri_ig_handle')||'';
   const gv=(id)=>{const el=document.getElementById(id);return el?el.value.trim():'';};
   clubState.myProfile={
     name:nome,age:idade,
@@ -4007,6 +4034,8 @@ function submitClubOnboard(){
     weight:prof.weight||String(athlete2.weight||'')||'',
     height:prof.altura||'',
     shareMetrics:shareEl?shareEl.checked:false,
+    igHandle:igHandle,
+    shareIG:shareIgEl?shareIgEl.checked:false,
     // Exibe imediatamente no card se compartilhou
     _myWeight:prof.weight||String(athlete2.weight||'')||'',
     _myHeight:prof.altura||'',
@@ -4057,6 +4086,7 @@ function showClubProfile(id){
   const p=CLUB_PROFILES.find(x=>x.id===id);
   if(!p)return;
   const myShare=clubState.myProfile?.shareMetrics;
+  const myShareIG=clubState.myProfile?.shareIG;
   const modal=document.createElement('div');
   modal.style.cssText='position:fixed;inset:0;z-index:400;background:var(--bg);overflow-y:auto';
   modal.innerHTML=`
@@ -4095,6 +4125,17 @@ function showClubProfile(id){
           <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:2px">ALTURA</div>
         </div>
       </div>`:''}
+
+      ${myShareIG&&p.igHandle?`
+      <a href="https://instagram.com/${p.igHandle}" target="_blank" style="display:flex;align-items:center;gap:10px;background:linear-gradient(45deg,rgba(240,148,51,0.1),rgba(188,24,136,0.1));border:1px solid rgba(225,48,108,0.3);border-radius:8px;padding:12px 16px;margin-bottom:12px;text-decoration:none">
+        <div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.332.014 7.052.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.058-1.28.072-1.689.072-4.948 0-3.259-.014-3.667-.072-4.948-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0z"/></svg>
+        </div>
+        <div>
+          <div style="font-family:var(--font-ui);font-size:8px;color:#E1306C;letter-spacing:1px">INSTAGRAM</div>
+          <div style="font-family:var(--font-body);font-size:13px;color:var(--text)">@${p.igHandle}</div>
+        </div>
+      </a>`:''}
 
       <div style="background:rgba(26,108,240,0.1);border:1px solid rgba(26,108,240,0.25);border-radius:8px;padding:12px 16px;margin-bottom:16px">
         <div style="font-family:var(--font-ui);font-size:9px;color:#1a6cf0;letter-spacing:1.5px;margin-bottom:4px">PROXIMA PROVA</div>
@@ -4263,21 +4304,17 @@ function clubAction(action){
   setTimeout(()=>{
     if(action==='like'){
       clubState.liked.push(p.id);
-      // 40% chance de match
       const isMatch=Math.random()<0.4;
       if(isMatch){
         clubState.matches.push(p.id);
         clubState.matchedWith=p;
         clubState.step='match';
-        saveClubState();
-        renderClub();
-        return;
       }
     }else{
       clubState.passed.push(p.id);
     }
     saveClubState();
-    renderClub();
+    if(currentTab==='club')renderClub(); // só re-renderiza se ainda estiver na aba
   },350);
 }
 
@@ -5115,11 +5152,14 @@ function renderObWelcome(c){
     </style>
     <div style="position:relative;display:flex;flex-direction:column;justify-content:center;align-items:center;min-height:100vh;overflow:hidden;background:#000">
       <div id="ob-vid-wrap" style="position:absolute;inset:0;overflow:hidden;background:#000">
-        <video id="ob-vid-a" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:1;transition:opacity .8s ease" autoplay muted playsinline preload="auto">
+        <video id="ob-vid-0" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:1;transition:opacity 1s ease" autoplay muted playsinline loop preload="auto">
           <source src="/videos/swim.mp4" type="video/mp4">
         </video>
-        <video id="ob-vid-b" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .8s ease" muted playsinline preload="auto">
+        <video id="ob-vid-1" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 1s ease" muted playsinline loop preload="auto">
           <source src="/videos/bike.mp4" type="video/mp4">
+        </video>
+        <video id="ob-vid-2" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 1s ease" muted playsinline loop preload="auto">
+          <source src="/videos/run.mp4" type="video/mp4">
         </video>
       </div>
       <div style="position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,0.2) 0%,rgba(0,0,0,0.5) 50%,rgba(0,0,0,0.85) 100%)"></div>
@@ -5137,31 +5177,19 @@ function renderObWelcome(c){
       </div>
     </div>`;
 
-  // Crossfade entre 2 videos pré-carregados - sem travamento na transição
-  const VSRCS=['/videos/swim.mp4','/videos/bike.mp4','/videos/run.mp4'];
-  let vidx=1; // próximo índice a carregar (0 já está no vid-a)
-  let active='a';
-  const vidA=document.getElementById('ob-vid-a');
-  const vidB=document.getElementById('ob-vid-b');
-  vidA.play().catch(()=>{});
-  function swapVid(){
-    const showing=active==='a'?vidA:vidB;
-    const hidden=active==='a'?vidB:vidA;
-    // Toca o vídeo escondido (já pré-carregado) e faz crossfade
-    hidden.currentTime=0;
-    hidden.play().catch(()=>{});
-    hidden.style.opacity='1';
-    showing.style.opacity='0';
-    active=active==='a'?'b':'a';
-    // Pré-carrega o próximo no elemento que acabou de ficar escondido
-    vidx=(vidx+1)%VSRCS.length;
-    setTimeout(()=>{
-      showing.pause();
-      showing.src=VSRCS[vidx];
-      showing.load();
-    },900);
-  }
-  const iv=setInterval(swapVid,7000);
+  // 3 videos pré-carregados, todos tocando em loop desde o início - só alterna opacidade, sem trocar src
+  const vids=[
+    document.getElementById('ob-vid-0'),
+    document.getElementById('ob-vid-1'),
+    document.getElementById('ob-vid-2'),
+  ];
+  vids.forEach(v=>v.play().catch(()=>{}));
+  let vcur=0;
+  const iv=setInterval(()=>{
+    vids[vcur].style.opacity='0';
+    vcur=(vcur+1)%vids.length;
+    vids[vcur].style.opacity='1';
+  },6000);
   c._clearVideoInterval=()=>clearInterval(iv);
 }
 
@@ -5845,15 +5873,26 @@ async function showPlanSummary(profile){
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({profile})
     });
-    const data=await resp.json();
+    let data;
+    try{
+      data=await resp.json();
+    }catch(parseErr){
+      const raw=await resp.text().catch(()=>'');
+      renderPlanSummary(el,profile,'',`HTTP ${resp.status} — resposta nao-JSON: ${raw.slice(0,200)}`);
+      return;
+    }
     const text=data.text||'';
+    if(!text&&data.error){
+      renderPlanSummary(el,profile,'',`Erro da function: ${JSON.stringify(data).slice(0,200)}`);
+      return;
+    }
     renderPlanSummary(el,profile,text);
   }catch(e){
-    renderPlanSummary(el,profile,'');
+    renderPlanSummary(el,profile,'',`Erro de rede/fetch: ${e.message}`);
   }
 }
 
-function renderPlanSummary(el,profile,text){
+function renderPlanSummary(el,profile,text,debugMsg){
   const dist={
     'super-sprint':'Super Sprint',
     'sprint':'Sprint',
@@ -5958,7 +5997,7 @@ function renderPlanSummary(el,profile,text){
       </div>
     </div>`:''}
     `:fallbackText?`<div class="plan-section"><div class="plan-section-body">${fallbackText.split('\n').filter(l=>l.trim()).join('</div><div class="plan-section-body" style="margin-top:10px">')}</div></div>`
-    :`<div class="plan-section"><div class="plan-section-body">Nao foi possivel gerar o resumo detalhado do plano agora. Isso pode acontecer por instabilidade temporaria. Seu plano de treino ja esta ativo na Agenda.${text?`<br><br><span style="color:var(--muted);font-size:11px">[debug: ${text.slice(0,150).replace(/</g,'')}]</span>`:''}</div></div>`}
+    :`<div class="plan-section"><div class="plan-section-body">Nao foi possivel gerar o resumo detalhado do plano agora. Isso pode acontecer por instabilidade temporaria. Seu plano de treino ja esta ativo na Agenda.${debugMsg?`<br><br><span style="color:#e05c2a;font-size:11px">[debug: ${String(debugMsg).slice(0,250).replace(/</g,'')}]</span>`:''}</div></div>`}
 
     <div style="padding:20px 20px 40px">
       <button onclick="closePlanSummary()" style="width:100%;padding:18px;background:var(--accent);color:#000;font-family:var(--font-ui);font-size:14px;font-weight:700;letter-spacing:2px;border:none;border-radius:4px;cursor:pointer">ENTRAR NO MYTRI</button>
