@@ -457,6 +457,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   <div class="bnav-item" onclick="switchTab('conquistas')">Hist</div>
   <div class="bnav-item" onclick="switchTab('bikefit')">Fit</div>
   <div class="bnav-item" onclick="switchTab('club')">Club</div>
+  <div class="bnav-item" onclick="openProfile()">Perfil</div>
 </div>
 
 <script>
@@ -4105,68 +4106,38 @@ function renderClubSwipe(c){
 
   card.innerHTML=`
     <div style="position:relative">
-      <img src="${p.photo}" style="width:100%;height:320px;object-fit:cover;object-position:top;display:block">
-      <div style="position:absolute;inset:0;background:linear-gradient(to bottom,transparent 40%,rgba(0,0,0,0.85) 100%)"></div>
-      <div style="position:absolute;bottom:0;left:0;right:0;padding:20px">
-        <div style="font-family:var(--font-display);font-size:28px;letter-spacing:.5px">${p.name}, ${p.age}</div>
-        <div style="font-family:var(--font-ui);font-size:11px;color:rgba(255,255,255,0.7);letter-spacing:1px;margin-top:2px">${p.city}</div>
+      <img src="${p.photo}" style="width:100%;height:200px;object-fit:cover;object-position:top;display:block">
+      <div style="position:absolute;inset:0;background:linear-gradient(to bottom,transparent 50%,rgba(0,0,0,0.85) 100%)"></div>
+      <div style="position:absolute;bottom:0;left:0;right:0;padding:14px 16px">
+        <div style="font-family:var(--font-display);font-size:22px;letter-spacing:.5px">${p.name}, ${p.age}</div>
+        <div style="font-family:var(--font-ui);font-size:10px;color:rgba(255,255,255,0.7);letter-spacing:1px;margin-top:1px">${p.city}</div>
       </div>
     </div>
 
-    <div style="padding:16px 18px">
-      <!-- Stats -->
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px">
-        <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center">
-          <div style="font-family:var(--font-display);font-size:15px;color:#00e676">${p.pace}</div>
-          <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:2px">PACE</div>
+    <div style="padding:12px 14px">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:8px">
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:7px;text-align:center">
+          <div style="font-family:var(--font-display);font-size:13px;color:#00e676">${p.pace}</div>
+          <div style="font-family:var(--font-ui);font-size:7px;color:var(--muted);letter-spacing:.5px">PACE</div>
         </div>
-        <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center">
-          <div style="font-family:var(--font-display);font-size:15px;color:#e05c2a">${p.ftp}</div>
-          <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:2px">FTP</div>
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:7px;text-align:center">
+          <div style="font-family:var(--font-display);font-size:13px;color:#e05c2a">${p.ftp}</div>
+          <div style="font-family:var(--font-ui);font-size:7px;color:var(--muted);letter-spacing:.5px">FTP</div>
         </div>
-        <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center">
-          <div style="font-family:var(--font-display);font-size:15px;color:#1a6cf0">${p.swim}</div>
-          <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:2px">NADO</div>
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:7px;text-align:center">
+          <div style="font-family:var(--font-display);font-size:13px;color:#1a6cf0">${p.swim}</div>
+          <div style="font-family:var(--font-ui);font-size:7px;color:var(--muted);letter-spacing:.5px">NADO</div>
         </div>
       </div>
 
-      <!-- Peso/Altura — share condicional -->
-      ${(()=>{
-        const myShare=clubState.myProfile?.shareMetrics;
-        if(myShare){
-          return `<div data-share-block style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
-            <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center">
-              <div style="font-family:var(--font-display);font-size:15px;color:var(--text)">${p.weight}kg</div>
-              <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:2px">PESO</div>
-            </div>
-            <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center">
-              <div style="font-family:var(--font-display);font-size:15px;color:var(--text)">${p.height}cm</div>
-              <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:2px">ALTURA</div>
-            </div>
-          </div>`;
-        }
-        return `<div data-share-block style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between">
-          <span style="font-family:var(--font-body);font-size:12px;color:var(--muted)">Peso e altura ocultos</span>
-          <span onclick="clubShareMetrics()" style="font-family:var(--font-ui);font-size:9px;color:var(--accent);letter-spacing:1px;cursor:pointer">COMPARTILHAR PARA VER</span>
-        </div>`;
-      })()}
-
-      <!-- Próxima prova -->
-      <div style="background:rgba(26,108,240,0.1);border:1px solid rgba(26,108,240,0.25);border-radius:8px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;gap:8px">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1a6cf0" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-        <span style="font-family:var(--font-ui);font-size:11px;color:#1a6cf0;letter-spacing:.5px">${p.nextRace}</span>
+      <div style="background:rgba(26,108,240,0.1);border:1px solid rgba(26,108,240,0.25);border-radius:6px;padding:7px 10px;margin-bottom:8px;display:flex;align-items:center;gap:6px">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#1a6cf0" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        <span style="font-family:var(--font-ui);font-size:9px;color:#1a6cf0;letter-spacing:.3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.nextRace}</span>
       </div>
 
-      <!-- Bio -->
-      <div style="font-family:var(--font-body);font-size:13px;color:var(--muted2);line-height:1.6;margin-bottom:12px">${p.bio}</div>
+      <div style="font-family:var(--font-body);font-size:12px;color:var(--muted2);line-height:1.5;margin-bottom:8px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${p.bio}</div>
 
-      <!-- Tags -->
-      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">
-        ${p.tags.map(t=>`<span style="background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:4px 10px;font-family:var(--font-ui);font-size:9px;color:var(--muted2);letter-spacing:.5px">${t}</span>`).join('')}
-      </div>
-
-      <!-- Ver perfil completo -->
-      <button onclick="showClubProfile(${p.id})" style="width:100%;padding:12px;background:transparent;border:1px solid var(--border);color:var(--muted);font-family:var(--font-ui);font-size:11px;letter-spacing:1.5px;border-radius:6px;cursor:pointer">VER PERFIL COMPLETO</button>
+      <button onclick="showClubProfile(${p.id})" style="width:100%;padding:8px;background:transparent;border:1px solid var(--border);color:var(--muted);font-family:var(--font-ui);font-size:9px;letter-spacing:1px;border-radius:5px;cursor:pointer">VER PERFIL COMPLETO</button>
     </div>
 
     <!-- Like/Pass overlay -->
@@ -4964,8 +4935,11 @@ function renderObWelcome(c){
     </style>
     <div style="position:relative;display:flex;flex-direction:column;justify-content:center;align-items:center;min-height:100vh;overflow:hidden;background:#000">
       <div id="ob-vid-wrap" style="position:absolute;inset:0;overflow:hidden;background:#000">
-        <video id="ob-vid" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover" autoplay muted playsinline>
+        <video id="ob-vid-a" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:1;transition:opacity .8s ease" autoplay muted playsinline preload="auto">
           <source src="/videos/swim.mp4" type="video/mp4">
+        </video>
+        <video id="ob-vid-b" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .8s ease" muted playsinline preload="auto">
+          <source src="/videos/bike.mp4" type="video/mp4">
         </video>
       </div>
       <div style="position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,0.2) 0%,rgba(0,0,0,0.5) 50%,rgba(0,0,0,0.85) 100%)"></div>
@@ -4983,26 +4957,32 @@ function renderObWelcome(c){
       </div>
     </div>`;
 
-  // Um único video - troca src a cada 6s (Safari iOS só permite autoplay em 1 video)
-  // Videos hospedados no proprio site (sem bloqueio de referrer)
+  // Crossfade entre 2 videos pré-carregados - sem travamento na transição
   const VSRCS=['/videos/swim.mp4','/videos/bike.mp4','/videos/run.mp4'];
-  let vcur=0;
-  const vid=document.getElementById('ob-vid');
-  vid.style.transition='opacity .6s ease';
-  vid.play().catch(()=>{});
-  function nextVid(){
-    const next=(vcur+1)%VSRCS.length;
-    vid.style.opacity='0';
+  let vidx=1; // próximo índice a carregar (0 já está no vid-a)
+  let active='a';
+  const vidA=document.getElementById('ob-vid-a');
+  const vidB=document.getElementById('ob-vid-b');
+  vidA.play().catch(()=>{});
+  function swapVid(){
+    const showing=active==='a'?vidA:vidB;
+    const hidden=active==='a'?vidB:vidA;
+    // Toca o vídeo escondido (já pré-carregado) e faz crossfade
+    hidden.currentTime=0;
+    hidden.play().catch(()=>{});
+    hidden.style.opacity='1';
+    showing.style.opacity='0';
+    active=active==='a'?'b':'a';
+    // Pré-carrega o próximo no elemento que acabou de ficar escondido
+    vidx=(vidx+1)%VSRCS.length;
     setTimeout(()=>{
-      vid.src=VSRCS[next];
-      vid.play().catch(()=>{});
-      vid.style.opacity='1';
-      vcur=next;
-    },600);
+      showing.pause();
+      showing.src=VSRCS[vidx];
+      showing.load();
+    },900);
   }
-  vid.addEventListener('ended',nextVid);
-  const iv=setInterval(nextVid,9000);
-  c._clearVideoInterval=()=>{clearInterval(iv);vid.removeEventListener('ended',nextVid);};
+  const iv=setInterval(swapVid,7000);
+  c._clearVideoInterval=()=>clearInterval(iv);
 }
 
 function renderObEsporte(c){
@@ -5037,13 +5017,17 @@ function renderObEsporte(c){
 function obSelectSport(s){
   obData.sport=s;
   obData.raceDist=null;
-  // Highlight sem re-render
   document.querySelectorAll('[data-sport]').forEach(el=>{
     const sel=el.dataset.sport===s;
     const info=SPORT_INFO[el.dataset.sport]||{};
     el.style.border='2.5px solid '+(sel?info.color:'transparent');
     const dot=el.querySelector('[data-check]');
-    if(dot) dot.style.display=sel?'flex':'none';
+    if(dot){
+      dot.style.background=sel?info.color:'transparent';
+      dot.style.borderColor=sel?info.color:'rgba(255,255,255,0.25)';
+      const tick=dot.querySelector('span');
+      if(tick) tick.style.display=sel?'block':'none';
+    }
     const lbl=el.querySelector('[data-label]');
     if(lbl) lbl.style.color=sel?info.color:'#fff';
   });
@@ -5085,8 +5069,21 @@ function renderObDistancia(c){
 
 function obSelectDist(d){
   obData.raceDist=d;
-  renderOnboarding();
-  setTimeout(()=>obNext(),600);
+  document.querySelectorAll('[data-dist]').forEach(el=>{
+    const sel=el.dataset.dist===d;
+    const info=DIST_INFO[el.dataset.dist]||{};
+    el.style.border='2.5px solid '+(sel?info.color:'transparent');
+    const dot=el.querySelector('[data-check]');
+    if(dot){
+      dot.style.background=sel?info.color:'transparent';
+      dot.style.borderColor=sel?info.color:'rgba(255,255,255,0.25)';
+      const tick=dot.querySelector('span');
+      if(tick) tick.style.display=sel?'block':'none';
+    }
+    const lbl=el.querySelector('[data-label]');
+    if(lbl) lbl.style.color=sel?info.color:'#fff';
+  });
+  setTimeout(()=>obNext(),500);
 }
 
 function renderObProva(c){
