@@ -3607,16 +3607,19 @@ function renderBikeFitReal(){
   const form=document.createElement('div');
   form.style.cssText='display:flex;flex-direction:column;gap:14px';
 
+  const profBF=getMytriProfile();
+  const expMap={'beginner':'Iniciante (< 1 ano)','intermediate':'Intermediário (1-3 anos)','advanced':'Avançado (3+ anos)'};
+
   const fields=[
-    {id:'bf-altura',label:'Altura (cm)',placeholder:'175',type:'number'},
-    {id:'bf-peso',label:'Peso (kg)',placeholder:'72',type:'number'},
+    {id:'bf-altura',label:'Altura (cm)',placeholder:'175',type:'number',value:profBF.altura||''},
+    {id:'bf-peso',label:'Peso (kg)',placeholder:'72',type:'number',value:profBF.weight||''},
     {id:'bf-femur',label:'Comprimento do fêmur (cm)',placeholder:'42',type:'number'},
     {id:'bf-quadro',label:'Tamanho do quadro (cm)',placeholder:'54',type:'text'},
     {id:'bf-selim-atual',label:'Altura atual do selim (cm)',placeholder:'68',type:'number'},
     {id:'bf-guidao-atual',label:'Altura atual do guidão (cm)',placeholder:'65',type:'number'},
     {id:'bf-flex',label:'Flexibilidade',placeholder:'',type:'select',options:['Rígida — não toco os pés no chão','Moderada — toco com esforço','Boa — palmas no chão']},
-    {id:'bf-dor',label:'Dores atuais',placeholder:'',type:'select',options:['Nenhuma','Joelho anterior','Joelho posterior','Lombar','Pescoço/ombro','Períneo']},
-    {id:'bf-exp',label:'Experiência no ciclismo',placeholder:'',type:'select',options:['Iniciante (< 1 ano)','Intermediário (1-3 anos)','Avançado (3+ anos)']},
+    {id:'bf-dor',label:'Dores atuais',placeholder:'',type:'select',options:['Nenhuma','Joelho anterior','Joelho posterior','Lombar','Pescoço/ombro','Períneo'],value:(profBF.lesoes&&profBF.lesoes.includes('lombar'))?'Lombar':(profBF.lesoes&&profBF.lesoes.includes('joelho'))?'Joelho anterior':''},
+    {id:'bf-exp',label:'Experiência no ciclismo',placeholder:'',type:'select',options:['Iniciante (< 1 ano)','Intermediário (1-3 anos)','Avançado (3+ anos)'],value:expMap[profBF.bikeLevel]||''},
   ];
 
   fields.forEach(f=>{
@@ -3629,11 +3632,12 @@ function renderBikeFitReal(){
       const sel=document.createElement('select');
       sel.id=f.id;
       sel.style.cssText='width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-ui);font-size:13px;padding:12px;border-radius:4px;-webkit-appearance:none';
-      f.options.forEach(opt=>{const o=document.createElement('option');o.value=opt;o.textContent=opt;sel.appendChild(o);});
+      f.options.forEach(opt=>{const o=document.createElement('option');o.value=opt;o.textContent=opt;if(f.value===opt)o.selected=true;sel.appendChild(o);});
       wrap.appendChild(sel);
     }else{
       const inp=document.createElement('input');
       inp.id=f.id;inp.type=f.type;inp.placeholder=f.placeholder;
+      if(f.value)inp.value=f.value;
       inp.style.cssText='width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-ui);font-size:14px;padding:12px;border-radius:4px;-webkit-appearance:none';
       wrap.appendChild(inp);
     }
@@ -4909,9 +4913,9 @@ function loadAllStravaData(){
 }
 
 function calcPRs(){
-  const ovs=loadOverrides();
-  Object.values(ovs).forEach(o=>{
-    if(!o.stravaData)return;
+  const prs={totalSessions:0,longestRun:0,longestBike:0,bestHR:999,bestPaceRun:null,bestPaceRunDist:0};
+  const allData=loadAllStravaData();
+  allData.forEach(o=>{
     prs.totalSessions++;
     if(o.stravaDist){
       const dist=parseFloat(o.stravaDist)||0;
@@ -4922,8 +4926,7 @@ function calcPRs(){
       const hr=parseInt(o.stravaHR)||0;
       if(hr>0&&hr<prs.bestHR)prs.bestHR=hr;
     }
-    if(o.stravaData&&o.type==='run'&&o.stravaDist&&o.stravaTime){
-      // pace = time/dist
+    if(o.type==='run'&&o.stravaDist&&o.stravaTime){
       const dist=parseFloat(o.stravaDist)||0;
       const timeStr=o.stravaTime||'';
       const parts=timeStr.match(/(\d+)h\s*(\d+)min|(\d+)min/);
@@ -5701,9 +5704,37 @@ function renderObStrava(c){
 }
 
 function obConnectInstagram(){
-  const handle=prompt('Digite seu @ do Instagram (sem o @):');
-  if(handle&&handle.trim()){
-    localStorage.setItem('mytri_ig_handle',handle.trim());
+  const overlay=document.createElement('div');
+  overlay.id='ig-modal-overlay';
+  overlay.style.cssText='position:fixed;inset:0;z-index:600;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;padding:24px';
+  overlay.innerHTML=`
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;width:100%;max-width:340px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+        <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888);display:flex;align-items:center;justify-content:center">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.332.014 7.052.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.058-1.28.072-1.689.072-4.948 0-3.259-.014-3.667-.072-4.948-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0z"/></svg>
+        </div>
+        <div style="font-family:var(--font-display);font-size:18px;letter-spacing:.5px">CONECTAR INSTAGRAM</div>
+      </div>
+      <div style="font-family:var(--font-body);font-size:13px;color:var(--muted2);line-height:1.6;margin-bottom:16px">Digite seu @ para puxarmos suas fotos no Clube da Meia Azul.</div>
+      <div style="display:flex;align-items:center;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:0 12px;margin-bottom:20px">
+        <span style="font-family:var(--font-body);font-size:15px;color:var(--muted)">@</span>
+        <input id="ig-handle-input" type="text" placeholder="seuusuario" autocapitalize="none" autocorrect="off" style="flex:1;background:transparent;border:none;color:var(--text);font-family:var(--font-body);font-size:15px;padding:13px 8px;outline:none">
+      </div>
+      <div style="display:flex;gap:10px">
+        <button onclick="document.getElementById('ig-modal-overlay').remove()" style="flex:1;padding:13px;background:transparent;border:1px solid var(--border);color:var(--muted2);font-family:var(--font-ui);font-size:12px;letter-spacing:1px;border-radius:6px;cursor:pointer">CANCELAR</button>
+        <button onclick="obSaveInstagram()" style="flex:1;padding:13px;background:var(--accent);border:none;color:#000;font-family:var(--font-ui);font-size:12px;font-weight:700;letter-spacing:1px;border-radius:6px;cursor:pointer">CONECTAR</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  setTimeout(()=>document.getElementById('ig-handle-input')?.focus(),100);
+}
+
+function obSaveInstagram(){
+  const input=document.getElementById('ig-handle-input');
+  const handle=(input?.value||'').trim().replace('@','');
+  if(handle){
+    localStorage.setItem('mytri_ig_handle',handle);
+    document.getElementById('ig-modal-overlay')?.remove();
     renderOnboarding();
   }
 }
