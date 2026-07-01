@@ -483,159 +483,542 @@ function gymQua(w){return w%2===1?'Musc. C':'Musc. A'}
 function gymQui(w){if(w>=11)return'Musc. B (vol. red.)';return w%4<=2?'Musc. B':'Musc. D'}
 function gymDom(w){return w%2===1?'Musc. A':'Musc. C'}
 
-const plan=[
-  {block:1,blockName:'BASE & ADAPTACAO',blockDesc:'Semanas 1-4',weeks:[
-    {w:1,days:[
-      [s(REST,'Recuperacao infiltracao')],
-      [s(REST,'Recuperacao infiltracao')],
-      [s(BIKE,'Bike','15km'),s(GYM,gymQua(1))],
-      [s(RUN,'Corrida','5km'),s(GYM,'Musc. B')],
-      [s(BIKE,'Bike Marginal','25km'),s(TENNIS,'Tenis','60min')],
-      [s(BRICK,'Bike','18km'),s(RUN,'+ Corrida','5km'),s(SWIM,'Natacao T1','1300m','Aquec: 300m crawl | 4x200m (ida crawl/costas) + 200m crawl resp. frontal')],
-      [s(SWIM,'Natacao','1000m','10x100m c/ pausa 30s'),s(GYM,gymDom(1))],
-    ]},
-    {w:2,days:[
-      [s(RUN,'Corrida','5km'),s(GYM,'Musc. C'),s(SWIM,'Natacao T1','1000m','Aquec: 300m crawl | 4x200m (ida crawl/costas) + 200m crawl resp. frontal')],
-      [s(RUN,'Corrida','5km'),s(GYM,'Musc. A')],
-      [s(RUN,'Corrida','4km'),s(BIKE,'Bike','10km')],
-      [s(RUN,'Caminhada leve','5km'),s(GYM,'Musc. C')],
-      [s(BIKE,'Bike','20km')],
-      [s(BIKE,'Bike','15km'),s(RUN,'Corrida','5km'),s(GYM,'Musc. A'),s(RUN,'Caminhada leve','5km')],
-      [s(GYM,'Musc. C')],
-    ]},
-    {w:3,days:[
-      [s(RUN,'Corrida','5km'),s(BIKE,'Bike','15km'),s(GYM,gymSeg(3)),s(SWIM,'Natacao T5','900m','Aquec: 200m livre | 7x100m estilos variados')],
-      [s(RUN,'Corrida','5km'),s(BIKE,'Bike','15km')],
-      [s(BIKE,'Bike','18km'),s(GYM,gymQua(3))],
-      [s(RUN,'Corrida','5km'),s(GYM,gymQui(3))],
-      [s(BIKE,'Bike Marginal','30km'),s(TENNIS,'Tenis','60min'),s(GYM,'Musc. C (opcional)')],
-      [s(BRICK,'Bike','22km'),s(RUN,'+ Corrida','5km'),s(SWIM,'Natacao T3','850m','Aquec: 350m medley | 400m crawl (25 forte/fraco) + 2x100m medley c/ pausa 45s')],
-      [s(SWIM,'Natacao T4','950m','Aquec: 100m crawl+50m perna+100m costas | 8x50m crawl resp. frontal c/ pausa 20s + 300m perna/crawl'),s(GYM,gymDom(3))],
-    ]},
-    {w:4,recovery:true,days:[
-      [s(RUN,'Corrida','5km'),s(GYM,gymSeg(4))],
-      [s(REST,'Livre / Recuperacao')],
-      [s(RUN,'Corrida','5km'),s(GYM,gymQua(4))],
-      [s(RUN,'Corrida','5km'),s(GYM,gymQui(4))],
-      [s(BIKE,'Bike Marginal','22km'),s(TENNIS,'Tenis','60min'),s(GYM,'Musc. A (opcional)')],
-      [s(BRICK,'Bike','18km'),s(RUN,'+ Corrida','5km'),s(SWIM,'Natacao T5','900m','Aquec: 200m livre | 7x100m estilos variados (crawl, medley, costas, peito, borboleta, perna, crawl)')],
-      [s(SWIM,'Natacao T6','1000m','Aquec: 300m livre | 7x100m crawl c/ pausa 1min20s - velocidade'),s(GYM,gymDom(4))],
-    ]},
-  ]},
-  {block:2,blockName:'CONSTRUCAO I',blockDesc:'Semanas 5-8',weeks:[
-    {w:5,days:[
-      [s(RUN,'Corrida','5km'),s(GYM,gymSeg(5))],
-      [s(REST,'Livre / Recuperacao')],
-      [s(BIKE,'Bike','18km'),s(GYM,gymQua(5))],
-      [s(RUN,'Corrida','5km'),s(GYM,gymQui(5))],
-      [s(BIKE,'Bike Marginal','26km'),s(TENNIS,'Tenis','60min'),s(GYM,'Musc. C (opcional)')],
-      [s(BRICK,'Bike','24km'),s(RUN,'+ Corrida','5km'),s(SWIM,'Natacao T7','800m','Aquec: 100m crawl+100m peito+100m perna | 10x50m crawl resp. frontal c/ pausa 45s')],
-      [s(SWIM,'Natacao T8','1400m','Aquec: 400m perna/crawl | 250m bracada + 250m costas + 250m forte/fraco + 250m pernada submersa/crawl'),s(GYM,gymDom(5))],
-    ]},
-    {w:6,days:[
-      [s(RUN,'Corrida','5km'),s(GYM,gymSeg(6))],
-      [s(REST,'Livre / Recuperacao')],
-      [s(RUN,'Corrida','5km'),s(GYM,gymQua(6))],
-      [s(RUN,'Corrida','5km'),s(GYM,gymQui(6))],
-      [s(BIKE,'Bike Marginal','28km'),s(TENNIS,'Tenis','60min'),s(GYM,'Musc. A (opcional)')],
-      [s(BRICK,'Bike','26km'),s(RUN,'+ Corrida','5km'),s(SWIM,'Natacao T1','1300m','Aquec: 300m crawl | 4x200m (ida crawl/costas) + 200m crawl resp. frontal')],
-      [s(SWIM,'Natacao T2','1000m','Aquec: 200m crawl + 200m medley | 6x100m crawl resp. frontal c/ pausa 1min20s'),s(GYM,gymDom(6))],
-    ]},
-    {w:7,days:[
-      [s(RUN,'Corrida','5km'),s(GYM,gymSeg(7))],
-      [s(REST,'Livre / Recuperacao')],
-      [s(BIKE,'Bike','22km'),s(GYM,gymQua(7))],
-      [s(RUN,'Corrida','5km'),s(GYM,gymQui(7))],
-      [s(BIKE,'Bike Marginal','30km'),s(TENNIS,'Tenis','60min'),s(GYM,'Musc. C (opcional)')],
-      [s(BRICK,'Bike','28km'),s(RUN,'+ Corrida','5km'),s(SWIM,'Natacao T3','850m','Aquec: 350m medley | 400m crawl (25 forte/fraco) + 2x100m medley c/ pausa 45s')],
-      [s(SWIM,'Natacao T4','950m','Aquec: 100m crawl+50m perna+100m costas | 8x50m crawl resp. frontal c/ pausa 20s + 300m perna/crawl'),s(GYM,gymDom(7))],
-    ]},
-    {w:8,recovery:true,days:[
-      [s(RUN,'Corrida','5km'),s(GYM,gymSeg(8))],
-      [s(REST,'Livre / Recuperacao')],
-      [s(RUN,'Corrida','5km'),s(GYM,gymQua(8))],
-      [s(RUN,'Corrida','5km'),s(GYM,gymQui(8))],
-      [s(BIKE,'Bike Marginal','25km'),s(TENNIS,'Tenis','60min'),s(GYM,'Musc. A (opcional)')],
-      [s(BRICK,'Bike','22km'),s(RUN,'+ Corrida','5km'),s(SWIM,'Natacao T5','900m','Aquec: 200m livre | 7x100m estilos variados (crawl, medley, costas, peito, borboleta, perna, crawl)')],
-      [s(REST,'Descanso ativo'),s(GYM,gymDom(8))],
-    ]},
-  ]},
-  {block:3,blockName:'CONSTRUCAO II',blockDesc:'Semanas 9-12',weeks:[
-    {w:9,days:[
-      [s(RUN,'Corrida','5km'),s(GYM,gymSeg(9))],
-      [s(REST,'Livre / Recuperacao')],
-      [s(BIKE,'Bike','22km'),s(GYM,gymQua(9))],
-      [s(RUN,'Corrida','5km'),s(GYM,gymQui(9))],
-      [s(BIKE,'Bike Marginal','28km'),s(TENNIS,'Tenis','60min'),s(GYM,'Musc. C (opcional)')],
-      [s(BRICK,'Bike','30km'),s(RUN,'+ Corrida','5km'),s(SWIM,'Natacao T6','1000m','Aquec: 300m livre | 7x100m crawl c/ pausa 1min20s - velocidade')],
-      [s(SWIM,'Natacao T7','800m','Aquec: 100m crawl+100m peito+100m perna | 10x50m crawl resp. frontal c/ pausa 45s'),s(GYM,gymDom(9))],
-    ]},
-    {w:10,days:[
-      [s(RUN,'Corrida','5km'),s(GYM,gymSeg(10))],
-      [s(REST,'Livre / Recuperacao')],
-      [s(RUN,'Corrida','5km'),s(GYM,gymQua(10))],
-      [s(RUN,'Corrida','5km'),s(GYM,gymQui(10))],
-      [s(BIKE,'Bike Marginal','30km'),s(TENNIS,'Tenis','60min'),s(GYM,'Musc. A (opcional)')],
-      [s(SWIM,'Natacao T8','1400m','Aquec: 400m perna/crawl | 250m bracada + 250m costas + 250m forte/fraco + 250m pernada submersa/crawl'),s(GYM,gymDom(10))],
-    ]},
-    {w:11,days:[
-      [s(RUN,'Corrida','5km'),s(GYM,gymSeg(11))],
-      [s(REST,'Livre / Recuperacao')],
-      [s(BIKE,'Bike','26km'),s(GYM,gymQua(11))],
-      [s(RUN,'Corrida','5km'),s(GYM,gymQui(11))],
-      [s(BIKE,'Bike Marginal','30km'),s(TENNIS,'Tenis','60min'),s(GYM,'Musc. C (opcional)')],
-      [s(BRICK,'Simulado 2','750m + 20km + 5km','Ritmo prova: natacao continua + bike + corrida'),s(RUN,'+ Corrida','5km')],
-      [s(SWIM,'Natacao T1','1300m','Aquec: 300m crawl | 4x200m (ida crawl/costas) + 200m crawl resp. frontal'),s(GYM,gymDom(11))],
-    ]},
-    {w:12,recovery:true,days:[
-      [s(RUN,'Corrida','5km'),s(GYM,gymSeg(12))],
-      [s(REST,'Livre / Recuperacao')],
-      [s(RUN,'Corrida','5km'),s(GYM,gymQua(12))],
-      [s(RUN,'Corrida','5km'),s(GYM,gymQui(12))],
-      [s(BIKE,'Bike Marginal','28km'),s(TENNIS,'Tenis','60min'),s(GYM,'Musc. A (opcional)')],
-      [s(BRICK,'Bike','25km'),s(RUN,'+ Corrida','5km'),s(SWIM,'Natacao T2','1000m','Aquec: 200m crawl + 200m medley | 6x100m crawl resp. frontal c/ pausa 1min20s')],
-      [s(REST,'Descanso ativo'),s(GYM,gymDom(12))],
-    ]},
-  ]},
-  {block:4,blockName:'TAPER & PROVA',blockDesc:'Semanas 13-16',weeks:[
-    {w:13,taper:true,days:[
-      [s(RUN,'Corrida','5km'),s(GYM,gymSeg(13))],
-      [s(REST,'Livre / Recuperacao')],
-      [s(BIKE,'Bike','20km'),s(GYM,gymQua(13))],
-      [s(RUN,'Corrida','5km'),s(GYM,gymQui(13))],
-      [s(BIKE,'Bike Marginal','28km'),s(TENNIS,'Tenis','60min'),s(GYM,'Musc. C (opcional)')],
-      [s(BRICK,'Simulado 3','500m + 15km + 5km','Ritmo prova: natacao continua + bike + corrida'),s(RUN,'+ Corrida','5km')],
-      [s(SWIM,'Natacao T3','850m','Aquec: 350m medley | 400m crawl (25 forte/fraco) + 2x100m medley c/ pausa 45s'),s(GYM,gymDom(13))],
-    ]},
-    {w:14,taper:true,days:[
-      [s(RUN,'Corrida','5km'),s(GYM,gymSeg(14))],
-      [s(REST,'Livre / Recuperacao')],
-      [s(RUN,'Corrida','5km'),s(GYM,gymQua(14))],
-      [s(RUN,'Corrida','5km'),s(GYM,gymQui(14))],
-      [s(BIKE,'Bike Marginal','25km'),s(TENNIS,'Tenis','60min'),s(GYM,'Musc. A (opcional)')],
-      [s(BRICK,'Bike','20km'),s(RUN,'+ Corrida','5km'),s(SWIM,'Natacao T4','950m','Aquec: 100m crawl+50m perna+100m costas | 8x50m crawl resp. frontal c/ pausa 20s + 300m perna/crawl')],
-      [s(SWIM,'Natacao T5','900m','Aquec: 200m livre | 7x100m estilos variados (crawl, medley, costas, peito, borboleta, perna, crawl)'),s(GYM,gymDom(14))],
-    ]},
-    {w:15,taper:true,days:[
-      [s(RUN,'Corrida','5km'),s(GYM,gymSeg(15))],
-      [s(REST,'Livre / Recuperacao')],
-      [s(BIKE,'Bike','12km')],
-      [s(REST,'Descanso')],
-      [s(BIKE,'Bike Marginal','18km'),s(TENNIS,'Tenis','60min'),s(GYM,'Musc. C (opcional)')],
-      [s(BRICK,'Bike','15km'),s(RUN,'+ Corrida','5km'),s(SWIM,'Natacao T6','1000m','Aquec: 300m livre | 7x100m crawl c/ pausa 1min20s - velocidade')],
-      [s(SWIM,'Natacao T7','800m','Aquec: 100m crawl+100m peito+100m perna | 10x50m crawl resp. frontal c/ pausa 45s')],
-    ]},
-    {w:16,race:true,days:[
-      [s(RUN,'Corrida leve','2km')],
-      [s(REST,'Descanso total')],
-      [s(SWIM,'Nado leve','400m','4x100m leve')],
-      [s(REST,'Descanso total')],
-      [s(TENNIS,'Tenis','60min')],
-      [s(REST,'Descanso total')],
-      [s(BRICK,'PROVA','750m + 20km + 5km','Santa Cecilia TV - Guaruja SP')],
-    ]},
-  ]},
-];
+// ── PLAN ENGINE — gerador dinâmico de plano ──────────────────────────────────
+/**
+ * MyTri Plan Engine — gerador de plano dinâmico
+ * Substitui o array plan[] fixo de triathlon
+ * Exporta: generatePlan(profile) → array no mesmo formato do plan[] anterior
+ */
+
+// ─── CONSTANTES DE PERIODIZAÇÃO ───────────────────────────────────────────────
+
+const FASE_NAMES = {
+  base:   'Base Aeróbica',
+  build:  'Construção',
+  peak:   'Pico de Performance',
+  taper:  'Afunilamento',
+  race:   'Semana da Prova',
+};
+
+// Distribuição de fases por número de semanas disponíveis
+function getFaseDistribution(totalWeeks) {
+  if (totalWeeks <= 4)  return [{fase:'base',pct:.3},{fase:'peak',pct:.4},{fase:'taper',pct:.3}];
+  if (totalWeeks <= 8)  return [{fase:'base',pct:.4},{fase:'build',pct:.3},{fase:'peak',pct:.2},{fase:'taper',pct:.1}];
+  if (totalWeeks <= 12) return [{fase:'base',pct:.35},{fase:'build',pct:.35},{fase:'peak',pct:.2},{fase:'taper',pct:.1}];
+  return [{fase:'base',pct:.3},{fase:'build',pct:.35},{fase:'peak',pct:.2},{fase:'taper',pct:.1},{fase:'race',pct:.05}];
+}
+
+// ─── CÁLCULO DE ZONAS DE FC ───────────────────────────────────────────────────
+
+function calcZonesFC(fcMax) {
+  const fc = parseInt(fcMax) || 175;
+  return {
+    Z1: { min: 0,              max: Math.round(fc * 0.60), name: 'Recuperação Ativa' },
+    Z2: { min: Math.round(fc * 0.60), max: Math.round(fc * 0.70), name: 'Resistência Base' },
+    Z3: { min: Math.round(fc * 0.70), max: Math.round(fc * 0.80), name: 'Tempo' },
+    Z4: { min: Math.round(fc * 0.80), max: Math.round(fc * 0.90), name: 'Limiar Anaeróbico' },
+    Z5: { min: Math.round(fc * 0.90), max: fc,                    name: 'VO2 Max' },
+  };
+}
+
+function calcZonesFTP(ftp) {
+  const f = parseInt(ftp) || 150;
+  return {
+    Z1: { min: 0,              max: Math.round(f * 0.55), name: 'Recuperação' },
+    Z2: { min: Math.round(f * 0.55), max: Math.round(f * 0.75), name: 'Resistência' },
+    Z3: { min: Math.round(f * 0.75), max: Math.round(f * 0.90), name: 'Tempo' },
+    Z4: { min: Math.round(f * 0.90), max: Math.round(f * 1.05), name: 'Limiar' },
+    Z5: { min: Math.round(f * 1.05), max: Math.round(f * 1.20), name: 'VO2 Max' },
+    Z6: { min: Math.round(f * 1.20), max: Math.round(f * 1.50), name: 'Anaeróbico' },
+    Z7: { min: Math.round(f * 1.50), max: 9999,                 name: 'Sprint' },
+  };
+}
+
+// ─── PACE ALVO POR NÍVEL E PROVA ──────────────────────────────────────────────
+
+const PACE_BASE = {
+  // [min/km] pace de corrida base por nível
+  'nao-nado':    null,
+  'beginner':    7.0,
+  'intermediate':5.5,
+  'advanced':    4.5,
+};
+
+function calcPaceAlvo(runLevel, runPaceStr) {
+  // Se tem pace declarado, usa ele; senão usa tabela
+  if (runPaceStr) {
+    const parts = runPaceStr.split(':');
+    if (parts.length === 2) {
+      return parseFloat(parts[0]) + parseFloat(parts[1]) / 60;
+    }
+  }
+  return PACE_BASE[runLevel] || 6.0;
+}
+
+function paceStr(minKm) {
+  const min = Math.floor(minKm);
+  const sec = Math.round((minKm - min) * 60);
+  return `${min}:${sec.toString().padStart(2,'0')}/km`;
+}
+
+function paceZones(baseMin) {
+  return {
+    Z2: paceStr(baseMin * 1.20),  // fácil
+    Z3: paceStr(baseMin * 1.08),  // moderado
+    Z4: paceStr(baseMin * 1.00),  // limiar
+    Z5: paceStr(baseMin * 0.92),  // rápido
+    race: paceStr(baseMin * 0.95), // pace de prova
+  };
+}
+
+// ─── VOLUME BASE POR HORAS SEMANAIS ───────────────────────────────────────────
+
+const VOLUME_BASE = {
+  'menos-3': { swimKm: 0.5, bikeKm: 20,  runKm: 8  },
+  '3-4':     { swimKm: 1.0, bikeKm: 30,  runKm: 12 },
+  '4-6':     { swimKm: 1.5, bikeKm: 45,  runKm: 18 },
+  '6-8':     { swimKm: 2.0, bikeKm: 60,  runKm: 25 },
+  '8+':      { swimKm: 3.0, bikeKm: 80,  runKm: 35 },
+};
+
+// ─── TEMPLATES DE SESSÃO POR MODALIDADE ───────────────────────────────────────
+
+function buildSession(type, fase, week, zones, paces, lesoes, level) {
+  const lesaoSet = new Set(lesoes || []);
+  const hasLesaoJoelho = lesaoSet.has('joelho') || lesaoSet.has('iliotibial');
+  const hasLesaoLombar = lesaoSet.has('lombar') || lesaoSet.has('piriforme');
+  const hasLesaoOmbro  = lesaoSet.has('ombro');
+
+  const sessions = {
+    // ── CORRIDA ────────────────────────────────────────────────────────────────
+    run_z2: {
+      type: 'RUN',
+      label: 'Corrida Base Z2',
+      zone: 'Z2',
+      fcAlvo: `${zones.Z2.min}-${zones.Z2.max} bpm`,
+      paceAlvo: paces.Z2,
+      structure: [
+        { part: 'Aquecimento', dur: 10, zone: 'Z1', fc: `${zones.Z1.min}-${zones.Z1.max} bpm`, desc: 'Trote leve, ative os músculos' },
+        { part: 'Bloco Principal', dur: hasLesaoJoelho ? 20 : 30, zone: 'Z2', fc: `${zones.Z2.min}-${zones.Z2.max} bpm`, desc: hasLesaoJoelho ? 'Volume reduzido por lesão no joelho — foque na postura' : 'Ritmo confortável, nariz respirando' },
+        { part: 'Desaquecimento', dur: 5, zone: 'Z1', fc: `${zones.Z1.min}-${zones.Z1.max} bpm`, desc: 'Trote muito leve, respire fundo' },
+      ],
+      coach: hasLesaoJoelho
+        ? 'Atenção ao joelho: evite descidas e superfícies duras. Pare se sentir dor.'
+        : 'Mantenha conversa possível durante todo o bloco. Z2 é a zona que constrói o motor aeróbico.',
+    },
+
+    run_tempo: {
+      type: 'RUN',
+      label: 'Corrida Tempo',
+      zone: 'Z3-Z4',
+      fcAlvo: `${zones.Z3.min}-${zones.Z4.max} bpm`,
+      paceAlvo: paces.Z3,
+      structure: [
+        { part: 'Aquecimento', dur: 15, zone: 'Z1-Z2', fc: `${zones.Z1.min}-${zones.Z2.max} bpm`, desc: 'Trote progressivo, últimos 3min em Z2' },
+        { part: 'Tempo Block', dur: hasLesaoJoelho ? 15 : 20, zone: 'Z3', fc: `${zones.Z3.min}-${zones.Z3.max} bpm`, desc: 'Ritmo sustentado, respiração controlada' },
+        { part: 'Desaquecimento', dur: 10, zone: 'Z1', fc: `${zones.Z1.min}-${zones.Z1.max} bpm`, desc: 'Trote solto + alongamento dinâmico' },
+      ],
+      coach: 'Ritmo de corrida "desconfortavelmente confortável". Você consegue falar frases curtas, mas não conversar normalmente.',
+    },
+
+    run_intervals: {
+      type: 'RUN',
+      label: 'Intervalados',
+      zone: 'Z4-Z5',
+      fcAlvo: `${zones.Z4.min}-${zones.Z5.max} bpm`,
+      paceAlvo: paces.Z5,
+      structure: [
+        { part: 'Aquecimento', dur: 15, zone: 'Z1-Z2', fc: `até ${zones.Z2.max} bpm`, desc: 'Trote leve + acelerações progressivas (4x30s)' },
+        { part: '4x3min Z4/Z5', dur: 20, zone: 'Z4', fc: `${zones.Z4.min}-${zones.Z5.max} bpm`, desc: '3min forte / 2min Z1 recuperação — 4 repetições' },
+        { part: 'Desaquecimento', dur: 10, zone: 'Z1', fc: `até ${zones.Z1.max} bpm`, desc: 'Trote lento, normalize a FC' },
+      ],
+      coach: lesaoSet.has('nenhuma') ? 'Nos blocos de esforço, vá ao máximo sustentável. A recuperação é tão importante quanto o esforço.' : 'Atenção: com histórico de lesão, reduza intensidade em 10% se sentir qualquer desconforto.',
+    },
+
+    run_long: {
+      type: 'RUN',
+      label: 'Corrida Longa',
+      zone: 'Z2',
+      fcAlvo: `${zones.Z1.min}-${zones.Z2.max} bpm`,
+      paceAlvo: paces.Z2,
+      structure: [
+        { part: 'Aquecimento', dur: 10, zone: 'Z1', fc: `até ${zones.Z1.max} bpm`, desc: 'Comece devagar, não force nos primeiros 10min' },
+        { part: 'Longa Z2', dur: hasLesaoLombar ? 40 : 60, zone: 'Z2', fc: `${zones.Z2.min}-${zones.Z2.max} bpm`, desc: hasLesaoLombar ? 'Volume reduzido — atenção à postura lombar' : 'Constância. Se FC subir acima de Z2, caminhe' },
+        { part: 'Desaquecimento', dur: 10, zone: 'Z1', fc: `até ${zones.Z1.max} bpm`, desc: 'Caminhada + mobilidade' },
+      ],
+      coach: 'A longa é sagrada. Não olhe o pace — olhe a FC. Se passar de Z2, caminha até estabilizar.',
+    },
+
+    run_race_pace: {
+      type: 'RUN',
+      label: 'Pace de Prova',
+      zone: 'Z3-Z4',
+      fcAlvo: `${zones.Z3.min}-${zones.Z4.max} bpm`,
+      paceAlvo: paces.race,
+      structure: [
+        { part: 'Aquecimento', dur: 15, zone: 'Z1-Z2', fc: `até ${zones.Z2.max} bpm`, desc: 'Prepare o sistema para o esforço de prova' },
+        { part: 'Race Pace', dur: 20, zone: 'Z3-Z4', fc: `${zones.Z3.min}-${zones.Z4.max} bpm`, desc: `Mantenha ${paces.race} por km — simule a prova` },
+        { part: 'Desaquecimento', dur: 10, zone: 'Z1', fc: `até ${zones.Z1.max} bpm`, desc: 'Finalize relaxado' },
+      ],
+      coach: `Treino específico de prova. Objetivo: ${paces.race}. Se estiver fácil demais, você está indo rápido rápido demais. Se estiver sofrendo, reduz 5-10 seg/km.`,
+    },
+
+    // ── BIKE ───────────────────────────────────────────────────────────────────
+    bike_z2: {
+      type: 'BIKE',
+      label: 'Pedal Base Z2',
+      zone: 'Z2',
+      fcAlvo: `${zones.Z2.min}-${zones.Z2.max} bpm`,
+      structure: [
+        { part: 'Aquecimento', dur: 10, zone: 'Z1', fc: `até ${zones.Z1.max} bpm`, desc: 'Cadência 80-90rpm, marcha leve' },
+        { part: 'Z2 Sustentado', dur: 40, zone: 'Z2', fc: `${zones.Z2.min}-${zones.Z2.max} bpm`, desc: 'Cadência 85-95rpm, respire pelo nariz se possível' },
+        { part: 'Desaquecimento', dur: 10, zone: 'Z1', fc: `até ${zones.Z1.max} bpm`, desc: 'Reduza a carga gradualmente' },
+      ],
+      coach: 'Pedal de construção aeróbica. Cadência acima de 85rpm é prioridade — não fique na marcha pesada.',
+    },
+
+    bike_tempo: {
+      type: 'BIKE',
+      label: 'Pedal Tempo',
+      zone: 'Z3-Z4',
+      fcAlvo: `${zones.Z3.min}-${zones.Z4.max} bpm`,
+      structure: [
+        { part: 'Aquecimento', dur: 15, zone: 'Z1-Z2', fc: `até ${zones.Z2.max} bpm`, desc: 'Progressivo, últimos 5min em Z2' },
+        { part: 'Sweetspot 2x15min', dur: 30, zone: 'Z3-Z4', fc: `${zones.Z3.min}-${zones.Z4.max} bpm`, desc: '15min esforço / 5min Z1 recuperação — 2x' },
+        { part: 'Desaquecimento', dur: 10, zone: 'Z1', fc: `até ${zones.Z1.max} bpm`, desc: 'Gire as pernas solto' },
+      ],
+      coach: 'Sweetspot é o treino mais eficiente para aumentar FTP. Sensação: intenso mas sustentável por 20-30min.',
+    },
+
+    bike_intervals: {
+      type: 'BIKE',
+      label: 'Intervalados no Bike',
+      zone: 'Z4-Z5',
+      fcAlvo: `${zones.Z4.min}-${zones.Z5.max} bpm`,
+      structure: [
+        { part: 'Aquecimento', dur: 15, zone: 'Z1-Z2', fc: `até ${zones.Z2.max} bpm`, desc: 'Inclua 3x10s de sprint suave' },
+        { part: '5x3min Z4', dur: 25, zone: 'Z4', fc: `${zones.Z4.min}-${zones.Z5.max} bpm`, desc: '3min Z4 forte / 3min Z1 girar solto — 5 repetições' },
+        { part: 'Desaquecimento', dur: 10, zone: 'Z1', fc: `até ${zones.Z1.max} bpm`, desc: 'Gire sem carga até normalizar FC' },
+      ],
+      coach: 'Nos blocos de 3min, vá a 95-100% do FTP. Monitore o watt se tiver sensor de potência.',
+    },
+
+    bike_long: {
+      type: 'BIKE',
+      label: 'Pedal Longo Z2',
+      zone: 'Z1-Z2',
+      fcAlvo: `${zones.Z1.min}-${zones.Z2.max} bpm`,
+      structure: [
+        { part: 'Aquecimento', dur: 15, zone: 'Z1', fc: `até ${zones.Z1.max} bpm`, desc: 'Comece devagar, corpo frio' },
+        { part: 'Longo Z2', dur: 90, zone: 'Z2', fc: `${zones.Z2.min}-${zones.Z2.max} bpm`, desc: 'Constante. Hidrate a cada 20min. Coma se passar de 60min' },
+        { part: 'Desaquecimento', dur: 15, zone: 'Z1', fc: `até ${zones.Z1.max} bpm`, desc: 'Cadência alta, carga baixíssima' },
+      ],
+      coach: 'Pedal de fundo. Prioridade: não subir acima de Z2. Nutrição: 30-60g carboidrato/hora de esforço.',
+    },
+
+    bike_brick: {
+      type: 'BRICK',
+      label: 'Brick Bike+Run',
+      zone: 'Z2-Z3',
+      fcAlvo: `${zones.Z2.min}-${zones.Z3.max} bpm`,
+      structure: [
+        { part: 'Bike Z2', dur: 30, zone: 'Z2', fc: `${zones.Z2.min}-${zones.Z2.max} bpm`, desc: 'Pedal moderado, não esgote' },
+        { part: 'T2 Transição', dur: 3, zone: '', fc: '', desc: 'Rápido! Tênis, número, cap — cronometre' },
+        { part: 'Run Z3', dur: 15, zone: 'Z3', fc: `${zones.Z3.min}-${zones.Z3.max} bpm`, desc: 'Pernas de borracha nos primeiros 2-3min — normal. Aguente.' },
+      ],
+      coach: 'O brick simula a transição da prova. Os primeiros minutos de corrida após o bike são os mais difíceis — não desacelere, seu corpo vai adaptar.',
+    },
+
+    // ── NATAÇÃO ────────────────────────────────────────────────────────────────
+    swim_tech: {
+      type: 'SWIM',
+      label: 'Técnica de Nado',
+      zone: 'Z1-Z2',
+      fcAlvo: 'Ritmo confortável',
+      structure: [
+        { part: 'Aquecimento', dur: 10, zone: 'Z1', fc: '', desc: '200m nado livre tranquilo' },
+        { part: 'Drills Técnicos', dur: 20, zone: 'Z1', fc: '', desc: '4x50m: catch-up / 4x50m: one-arm / 4x50m: cabeça baixa' },
+        { part: 'Nado Integrado', dur: 10, zone: 'Z2', fc: '', desc: '4x100m aplicando a técnica dos drills — 20s descanso' },
+        { part: 'Desaquecimento', dur: 5, zone: 'Z1', fc: '', desc: '100m costas leve' },
+      ],
+      coach: 'Sessão de técnica — não de volume. Foque no apoio da mão na água (catch) e na rotação do quadril.',
+    },
+
+    swim_z2: {
+      type: 'SWIM',
+      label: 'Nado Base',
+      zone: 'Z2',
+      fcAlvo: 'Ritmo sustentável',
+      structure: [
+        { part: 'Aquecimento', dur: 10, zone: 'Z1', fc: '', desc: '200m livre + 100m pernas' },
+        { part: 'Main Set', dur: 25, zone: 'Z2', fc: '', desc: hasLesaoOmbro ? '6x100m (descanso 30s) — evite força excessiva no ombro' : '8x100m com 20s descanso — ritmo 10-15s acima do máximo' },
+        { part: 'Desaquecimento', dur: 5, zone: 'Z1', fc: '', desc: '100m livre muito leve' },
+      ],
+      coach: hasLesaoOmbro
+        ? 'Atenção ao ombro: reduza a pegada e foque na rotação. Pare se sentir dor aguda.'
+        : 'O descanso curto entre séries ensina o corpo a nadar cansado — essencial para prova.',
+    },
+
+    swim_intervals: {
+      type: 'SWIM',
+      label: 'Intervalados Piscina',
+      zone: 'Z3-Z4',
+      fcAlvo: 'Alta intensidade',
+      structure: [
+        { part: 'Aquecimento', dur: 10, zone: 'Z1', fc: '', desc: '300m progressivo (100 leve / 100 mod / 100 forte)' },
+        { part: 'Main Set', dur: 20, zone: 'Z3-Z4', fc: '', desc: '10x50m máximo com 30s descanso — registre o tempo de cada' },
+        { part: 'Desaquecimento', dur: 10, zone: 'Z1', fc: '', desc: '200m muito leve, costas ou livre' },
+      ],
+      coach: 'Cada 50m deve ser no máximo. O tempo que você faz no 1o deve ser igual ao do 10o — se degradar muito, descanse mais.',
+    },
+
+    swim_open_water: {
+      type: 'SWIM',
+      label: 'Treino Aguas Abertas',
+      zone: 'Z2-Z3',
+      fcAlvo: 'Moderado-forte',
+      structure: [
+        { part: 'Aquecimento', dur: 10, zone: 'Z1', fc: '', desc: 'Adapte ao ambiente: temperatura, ondas, salinidade' },
+        { part: 'Nado Contínuo', dur: 20, zone: 'Z2', fc: '', desc: 'Pratique a navegação (sighting) a cada 6-8 braçadas' },
+        { part: 'Sprints de Largada', dur: 10, zone: 'Z4', fc: '', desc: '3x50m explosivo simulando largada — crucial em prova' },
+        { part: 'Desaquecimento', dur: 5, zone: 'Z1', fc: '', desc: 'Nado tranquilo de volta' },
+      ],
+      coach: 'O treino em aguas abertas é obrigatório antes de qualquer prova. Adaptar à ausência de linha no fundo, salinidade e ondas faz diferença enorme no dia da prova.',
+    },
+
+    // ── RECUPERAÇÃO ────────────────────────────────────────────────────────────
+    rest: {
+      type: 'REST',
+      label: 'Descanso Ativo',
+      zone: 'Z1',
+      fcAlvo: 'abaixo de ' + zones.Z1.max + ' bpm',
+      structure: [
+        { part: 'Mobilidade', dur: 20, zone: '', fc: '', desc: 'Foam roller + alongamentos focados nas áreas de trabalho da semana' },
+      ],
+      coach: lesaoSet.has('piriforme') || lesaoSet.has('iliotibial')
+        ? 'Dia de recovery. Foco em: figura 4 para piriforme, foam roller no IT band, psoas. Esses são os gargalos da sua prova.'
+        : 'Descanso é treino. O músculo cresce durante o repouso, não durante o esforço.',
+    },
+
+    strength: {
+      type: 'FORCE',
+      label: 'Força Funcional',
+      zone: '',
+      fcAlvo: '',
+      structure: [
+        { part: 'Ativação', dur: 10, zone: '', fc: '', desc: 'Glúteo bridge 3x15 / clamshell 3x15 / dead bug 3x10' },
+        { part: 'Força Principal', dur: 25, zone: '', fc: '', desc: hasLesaoJoelho ? 'Evite agachamento profundo: leg press parcial, split squat suave' : 'Agachamento 3x12 / Lunges 3x10 / Step up 3x10 / Core plank 3x45s' },
+        { part: 'Mobilidade Final', dur: 10, zone: '', fc: '', desc: 'Piriforme, quadril, tornozelo — áreas críticas para triathlon/corrida' },
+      ],
+      coach: 'Força é a base que protege de lesões. Prioridade no core e glúteos — os motores do atletismo.',
+    },
+  };
+
+  return sessions[type] || sessions.rest;
+}
+
+// ─── LÓGICA DE DISTRIBUIÇÃO SEMANAL ───────────────────────────────────────────
+
+function getWeekSessions(sport, fase, weekNum, totalWeeks, diasDisponiveis, lesoes, level) {
+  const dias = diasDisponiveis || ['seg','ter','qua','qui','sex'];
+  const nDias = dias.length;
+
+  // Templates por sport + fase
+  const templates = {
+    triathlon: {
+      base:  ['swim_tech','bike_z2','run_z2','rest','swim_z2','bike_long','run_z2'],
+      build: ['swim_z2','bike_tempo','run_tempo','rest','swim_intervals','bike_z2','run_long'],
+      peak:  ['swim_intervals','bike_intervals','run_race_pace','rest','swim_z2','bike_brick','run_z2'],
+      taper: ['swim_tech','bike_z2','run_z2','rest','swim_z2','bike_z2','rest'],
+    },
+    corrida: {
+      base:  ['run_z2','rest','run_z2','strength','run_long','rest','rest'],
+      build: ['run_z2','run_tempo','rest','run_intervals','run_long','rest','rest'],
+      peak:  ['run_z2','run_intervals','rest','run_race_pace','run_long','rest','rest'],
+      taper: ['run_z2','run_tempo','rest','run_z2','rest','rest','rest'],
+    },
+    ciclismo: {
+      base:  ['bike_z2','rest','bike_z2','strength','bike_long','rest','rest'],
+      build: ['bike_z2','bike_tempo','rest','bike_intervals','bike_long','rest','rest'],
+      peak:  ['bike_tempo','bike_intervals','rest','bike_z2','bike_long','rest','rest'],
+      taper: ['bike_z2','bike_tempo','rest','bike_z2','rest','rest','rest'],
+    },
+    natacao: {
+      base:  ['swim_tech','rest','swim_z2','rest','swim_z2','rest','rest'],
+      build: ['swim_z2','rest','swim_tech','swim_intervals','swim_z2','rest','rest'],
+      peak:  ['swim_intervals','rest','swim_z2','swim_open_water','swim_intervals','rest','rest'],
+      taper: ['swim_tech','rest','swim_z2','rest','swim_z2','rest','rest'],
+    },
+    duathlon: {
+      base:  ['run_z2','bike_z2','rest','run_z2','bike_long','rest','rest'],
+      build: ['run_tempo','bike_tempo','rest','run_z2','bike_z2','run_long','rest'],
+      peak:  ['run_intervals','bike_intervals','rest','run_race_pace','bike_brick','rest','rest'],
+      taper: ['run_z2','bike_z2','rest','run_z2','rest','rest','rest'],
+    },
+  };
+
+  const sportTemplates = templates[sport] || templates.triathlon;
+  const faseTemplate   = sportTemplates[fase] || sportTemplates.base;
+
+  // Mapear dias disponíveis para índices fixos (seg=0,ter=1,...,dom=6)
+  const diaOrder = ['seg','ter','qua','qui','sex','sab','dom'];
+  const sessionsByDia = {};
+  diaOrder.forEach((dia, i) => {
+    const sessType = faseTemplate[i] || 'rest';
+    sessionsByDia[dia] = dias.includes(dia) ? sessType : null;
+  });
+
+  return sessionsByDia;
+}
+
+// ─── GERADOR PRINCIPAL ────────────────────────────────────────────────────────
+
+function generatePlan(profile) {
+  const sport     = profile.sport || 'triathlon';
+  const raceDate  = profile.raceDate;
+  const fcMax     = profile.fcMax || 175;
+  const ftp       = profile.ftp || 150;
+  const runLevel  = profile.runLevel || 'beginner';
+  const bikeLevel = profile.bikeLevel || 'beginner';
+  const swimLevel = profile.swimLevel || 'beginner';
+  const weeklyHrs = profile.weeklyHours || '3-4';
+  const diasDisp  = profile.diasDisponiveis || ['seg','ter','qua','qui','sex'];
+  const lesoes    = profile.lesoes || [];
+  const runPace   = profile.runPace || profile.pace || '';
+
+  // Calcular semanas disponíveis
+  const today = new Date();
+  const race  = raceDate ? new Date(raceDate + 'T12:00:00') : new Date(today.getTime() + 12 * 7 * 24 * 3600000);
+  const daysToRace = Math.max(1, Math.round((race - today) / (1000*60*60*24)));
+  const totalWeeks = Math.min(24, Math.max(2, Math.ceil(daysToRace / 7)));
+
+  // Zonas
+  const zonesFC  = calcZonesFC(fcMax);
+  const zonesFTP = calcZonesFTP(ftp);
+  const paceBase = calcPaceAlvo(runLevel, runPace);
+  const paces    = paceZones(paceBase);
+
+  // Distribuição de fases
+  const faseDist = getFaseDistribution(totalWeeks);
+  const planWeeks = [];
+  let weekCount = 0;
+
+  faseDist.forEach(({ fase, pct }) => {
+    const nWeeks = Math.max(1, Math.round(totalWeeks * pct));
+    for (let i = 0; i < nWeeks && weekCount < totalWeeks; i++, weekCount++) {
+      const w = weekCount + 1;
+      // Multiplicador de volume (progressão +10%/semana, -20% semana 4 de cada bloco)
+      const isRecovery = (i > 0 && i % 3 === 2);
+      const volMult = isRecovery ? 0.8 : 1.0 + (i * 0.08);
+
+      const sessionsByDia = getWeekSessions(sport, fase, w, totalWeeks, diasDisp, lesoes, runLevel);
+      const diaOrder = ['seg','ter','qua','qui','sex','sab','dom'];
+
+      const days = diaOrder.map((dia, di) => {
+        const sessType = sessionsByDia[dia];
+        if (!sessType) {
+          return { d: di, sessions: [] };
+        }
+        const sessData = buildSession(sessType, fase, w, zonesFC, paces, lesoes, runLevel);
+        // Calcular duração total
+        const durTotal = sessData.structure ? sessData.structure.reduce((a,b) => a + (b.dur||0), 0) : 45;
+        return {
+          d: di,
+          sessions: [{
+            ...sessData,
+            _type: sessData.type,
+            _sessType: sessType,
+            _fase: fase,
+            _week: w,
+            _durMin: Math.round(durTotal * volMult),
+            _isRecovery: isRecovery,
+            _zonesFC: zonesFC,
+            _zonesFTP: zonesFTP,
+            _paces: paces,
+          }]
+        };
+      });
+
+      planWeeks.push({
+        w,
+        fase,
+        faseLabel: FASE_NAMES[fase],
+        isRecovery,
+        totalWeeks,
+        sport,
+        days,
+        _zonesFC: zonesFC,
+        _zonesFTP: zonesFTP,
+        _paces: paces,
+      });
+    }
+  });
+
+  return [{
+    label: sport.charAt(0).toUpperCase() + sport.slice(1),
+    sport,
+    raceDist: profile.raceDist,
+    raceDate,
+    totalWeeks,
+    daysToRace,
+    zonesFC,
+    zonesFTP,
+    paces,
+    weeks: planWeeks,
+  }];
+}
+
+// Exportar para uso no browser (sem module system)
+if (typeof window !== 'undefined') {
+  window.generatePlan = generatePlan;
+  window.calcZonesFC  = calcZonesFC;
+  window.calcZonesFTP = calcZonesFTP;
+  window.paceZones    = paceZones;
+  window.paceStr      = paceStr;
+}
+
+
+// plan[] é gerado dinamicamente a partir do perfil do usuário
+// Inicializado com plano padrão; substituído em loadPlanFromProfile()
+let plan = [{
+  label: 'MyTri',
+  sport: 'triathlon',
+  weeks: [],
+}];
+
+function loadPlanFromProfile() {
+  const prof = getMytriProfile();
+  if (!prof || !prof.sport) return;
+  try {
+    plan = generatePlan(prof);
+    // Salvar no localStorage para uso offline
+    localStorage.setItem('mytri_plan_cache', JSON.stringify({
+      plan,
+      generatedAt: Date.now(),
+      profileHash: prof.sport + prof.raceDist + prof.raceDate + prof.weeklyHours
+    }));
+  } catch(e) {
+    console.error('plan generation error', e);
+  }
+}
+
+function initPlan() {
+  // Tenta usar cache se perfil não mudou
+  const prof = getMytriProfile();
+  if (!prof || !prof.sport) return;
+  const cacheRaw = localStorage.getItem('mytri_plan_cache');
+  if (cacheRaw) {
+    try {
+      const cache = JSON.parse(cacheRaw);
+      const hash = prof.sport + prof.raceDist + prof.raceDate + prof.weeklyHours;
+      if (cache.profileHash === hash && cache.plan) {
+        plan = cache.plan;
+        return;
+      }
+    } catch(e) {}
+  }
+  loadPlanFromProfile();
+}
 
 // ── SUPABASE SYNC ──
 const SB_URL='https://dlahyvsrqouxlalqexrp.supabase.co';
@@ -753,7 +1136,36 @@ function getCurrentWeekAndDay(){
   const d=(jsDay+6)%7;
   return{w,d};
 }
-function getAllWeeks(){return plan.flatMap(b=>b.weeks);}
+function getAllWeeks(){
+  if(!plan||!plan.length)return[];
+  return plan.flatMap(b=>b.weeks||[]);
+}
+function getWeek(w){
+  const all=getAllWeeks();
+  const found=all.find(wk=>wk.w===w);
+  if(!found)return null;
+  // Adaptar novo formato de days para o formato legado esperado pelo getEffectiveSessions
+  // Novo: week.days = [{d:0,sessions:[{type,label,structure,...}]}, ...]
+  // Legado: week.days[d] = [{type,text,dist,...}]
+  if(found.days && Array.isArray(found.days) && found.days.length && found.days[0] && 'sessions' in found.days[0]){
+    const adapted = {};
+    found.days.forEach(dayObj=>{
+      const d = dayObj.d;
+      adapted[d] = (dayObj.sessions||[]).map(sess=>{
+        const dur = sess._durMin || 45;
+        const distMap = {RUN: `${(dur/60*10).toFixed(1)}km`, BIKE:`${(dur/60*30).toFixed(0)}km`, SWIM:`${(dur/60*1.5).toFixed(2)}km`, BRICK:`${(dur/2/60*30).toFixed(0)}km+${(dur/2/60*10).toFixed(1)}km`, REST:'', FORCE:''};
+        return {
+          type: sess.type || sess._type || REST,
+          text: sess.label || sess._type || '',
+          dist: distMap[sess.type || sess._type] || '',
+          _plan_sess: sess, // referência à sessão completa para o modal de detalhe
+        };
+      }).filter(s=>s.type && s.type!=='REST' && s.type!=='');
+    });
+    return {...found, days: adapted};
+  }
+  return found;
+}
 function getWeek(w){return getAllWeeks().find(wk=>wk.w===w);}
 function countdownDays(){const now=new Date();const diff=Math.ceil((RACE_DATE-now)/(1000*60*60*24));return Math.max(0,diff);}
 function getVolume(){
@@ -3867,9 +4279,96 @@ function renderClubReal(){
     renderClubOnboard(c);
   }else if(clubState.step==='match'){
     renderClubMatch(c);
+  }else if(clubState.step==='profile'){
+    renderClubMyProfile(c);
   }else{
     renderClubSwipe(c);
   }
+}
+
+function renderClubMyProfile(c){
+  const p=clubState.myProfile||{};
+  const coverBg=p.coverBg||'linear-gradient(135deg,#1a3a6f,#0d1f40)';
+  const coverStyle=p.coverPhoto?`url('${p.coverPhoto}') center/cover`:coverBg;
+  c.innerHTML=`
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border)">
+      <button onclick="clubState.step='swipe';saveClubState();renderClub()" style="background:none;border:none;color:var(--muted2);font-size:22px;cursor:pointer">&#8592;</button>
+      <div style="font-family:var(--font-ui);font-size:12px;letter-spacing:2px">MEU PERFIL NO CLUBE</div>
+      <button onclick="clubState.step='onboard';saveClubState();renderClub()" style="background:none;border:none;color:var(--accent);font-family:var(--font-ui);font-size:10px;letter-spacing:1px;cursor:pointer">EDITAR</button>
+    </div>
+
+    <div style="position:relative;height:160px;background:${coverStyle};cursor:pointer" onclick="clubChangeCover()" id="club-cover-box">
+      <div style="position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,0.1),rgba(8,10,13,0.6))"></div>
+      <div style="position:absolute;bottom:8px;right:12px;background:rgba(0,0,0,0.5);border-radius:4px;padding:5px 10px;font-family:var(--font-ui);font-size:9px;color:#fff;letter-spacing:.5px">EDITAR CAPA</div>
+      <div style="position:absolute;bottom:-40px;left:20px">
+        <div style="position:relative;width:80px;height:80px" onclick="event.stopPropagation()">
+          ${p.photo?`<img src="${p.photo}" id="club-avatar-img" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:3px solid var(--bg)">`:
+          `<div style="width:80px;height:80px;border-radius:50%;background:var(--surface);border:3px solid var(--bg);display:flex;align-items:center;justify-content:center"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></div>`}
+        </div>
+      </div>
+    </div>
+    <input type="file" id="club-cover-input" accept="image/*" style="display:none" onchange="clubHandleCover(event)">
+
+    <div style="padding:48px 20px 24px">
+      <div style="font-family:var(--font-display);font-size:24px;letter-spacing:.5px;margin-bottom:2px">${p.name||'—'}, ${p.age||'—'}</div>
+      <div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1px;margin-bottom:16px">${p.city||'—'}</div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
+        ${p.pace?`<div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:10px;text-align:center"><div style="font-family:var(--font-display);font-size:15px;color:#00e676">${p.pace}</div><div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:.5px">PACE</div></div>`:''}
+        ${p.ftp?`<div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:10px;text-align:center"><div style="font-family:var(--font-display);font-size:15px;color:#e05c2a">${p.ftp}</div><div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:.5px">FTP</div></div>`:''}
+        ${p.swim?`<div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:10px;text-align:center"><div style="font-family:var(--font-display);font-size:15px;color:#1a6cf0">${p.swim}</div><div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:.5px">NADO</div></div>`:''}
+      </div>
+
+      ${p.bio?`<div style="font-family:var(--font-body);font-size:13px;color:var(--muted2);line-height:1.6;margin-bottom:12px">${p.bio}</div>`:''}
+      ${p.nextRace?`<div style="background:rgba(26,108,240,0.1);border:1px solid rgba(26,108,240,0.25);border-radius:8px;padding:10px 14px;margin-bottom:12px"><div style="font-family:var(--font-ui);font-size:8px;color:#1a6cf0;letter-spacing:1px">PROXIMA PROVA</div><div style="font-family:var(--font-body);font-size:13px;color:var(--text);margin-top:2px">${p.nextRace}</div></div>`:''}
+      ${p.igHandle?`<a href="https://instagram.com/${p.igHandle}" target="_blank" style="display:flex;align-items:center;gap:8px;text-decoration:none;margin-bottom:16px"><div style="width:28px;height:28px;border-radius:7px;background:linear-gradient(45deg,#f09433,#dc2743,#bc1888);display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.332.014 7.052.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.058-1.28.072-1.689.072-4.948 0-3.259-.014-3.667-.072-4.948-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0z"/></svg></div><span style="font-family:var(--font-body);font-size:13px;color:#E1306C">@${p.igHandle}</span></a>`:''}
+
+      <button onclick="clubState.step='swipe';saveClubState();renderClub()" style="width:100%;padding:14px;background:var(--accent);color:#000;font-family:var(--font-ui);font-size:13px;font-weight:700;letter-spacing:2px;border:none;cursor:pointer;border-radius:6px">VOLTAR AOS CARDS</button>
+    </div>`;
+}
+
+function clubChangeCover(){
+  document.getElementById('club-cover-input')?.click();
+}
+
+function clubHandleCover(e){
+  const file=e.target.files[0];
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    if(!clubState.myProfile)clubState.myProfile={};
+    clubState.myProfile.coverPhoto=ev.target.result;
+    // Editor de posição/zoom simples
+    const box=document.getElementById('club-cover-box');
+    if(box){
+      box.style.background=`url('${ev.target.result}') center/cover`;
+      // Adicionar controles de edição
+      const ctrl=document.createElement('div');
+      ctrl.style.cssText='position:absolute;top:8px;left:50%;transform:translateX(-50%);display:flex;gap:8px;z-index:10';
+      ctrl.innerHTML=`
+        <button onclick="clubCoverZoom(1.1)" style="background:rgba(0,0,0,0.6);border:none;color:#fff;border-radius:4px;padding:6px 10px;font-size:14px;cursor:pointer">+</button>
+        <button onclick="clubCoverZoom(0.9)" style="background:rgba(0,0,0,0.6);border:none;color:#fff;border-radius:4px;padding:6px 10px;font-size:14px;cursor:pointer">-</button>
+        <button onclick="clubSaveCover()" style="background:var(--accent);border:none;color:#000;border-radius:4px;padding:6px 10px;font-family:var(--font-ui);font-size:9px;font-weight:700;letter-spacing:.5px;cursor:pointer">SALVAR</button>`;
+      box.appendChild(ctrl);
+    }
+    saveClubState();
+  };
+  reader.readAsDataURL(file);
+}
+
+let _clubCoverScale=1,_clubCoverX=50,_clubCoverY=50;
+function clubCoverZoom(factor){
+  _clubCoverScale=Math.max(1,Math.min(3,(_clubCoverScale||1)*factor));
+  const box=document.getElementById('club-cover-box');
+  if(box&&clubState.myProfile?.coverPhoto){
+    box.style.background=`url('${clubState.myProfile.coverPhoto}') ${_clubCoverX}% ${_clubCoverY}%/auto`;
+    box.style.backgroundSize=`${100*_clubCoverScale}%`;
+  }
+}
+
+function clubSaveCover(){
+  saveClubState();
+  renderClub();
 }
 
 function renderClubOnboard(c){
@@ -4267,7 +4766,7 @@ function renderClubSwipe(c){
       <div style="font-family:var(--font-display);font-size:22px;letter-spacing:1px">CLUBE DA <span style="color:#1a6cf0">MEIA AZUL</span></div>
       <div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1.5px;margin-top:2px">${available.length} ATLETAS DISPONÍVEIS</div>
     </div>
-    <div onclick="switchTab('perfil')" style="width:36px;height:36px;border-radius:50%;background:var(--surface);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden">${avatarHtml}</div>`;
+    <div onclick="clubState.step='profile';saveClubState();renderClub()" style="width:36px;height:36px;border-radius:50%;background:var(--surface);border:1.5px solid var(--accent);display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden">${avatarHtml}</div>`;
   c.appendChild(hdr);
 
   if(!p){
@@ -5083,47 +5582,86 @@ function calcPRs(){
 
 // ── ONBOARDING ──
 const PROVAS_BR_2026 = [
-  // Triathlon
+  // ═══ TRIATHLON — BRASIL ═══
   {name:'Sprint Triathlon Santa Cecilia TV',date:'2026-09-13',dist:'sprint',local:'Guaruja, SP',sport:'triathlon',url:'https://www.ticket.com.br/comprar/santa-cecilia'},
-  {name:'Troféu Brasil — Santos (Abr)',date:'2026-04-05',dist:'sprint',local:'Santos, SP',sport:'triathlon',url:'https://www.cbtri.org.br'},
-  {name:'Troféu Brasil — Santos (Jun)',date:'2026-06-07',dist:'sprint',local:'Santos, SP',sport:'triathlon',url:'https://www.cbtri.org.br'},
-  {name:'Troféu Brasil — Santos (Set)',date:'2026-09-06',dist:'sprint',local:'Santos, SP',sport:'triathlon',url:'https://www.cbtri.org.br'},
-  {name:'Troféu Brasil — Santos (Dez)',date:'2026-12-06',dist:'sprint',local:'Santos, SP',sport:'triathlon',url:'https://www.cbtri.org.br'},
+  {name:'Troféu Brasil de Triathlon — Santos',date:'2026-09-06',dist:'sprint',local:'Santos, SP',sport:'triathlon',url:'https://www.cbtri.org.br'},
   {name:'CBTri — Caiobá PR',date:'2026-02-22',dist:'sprint',local:'Caiobá, PR',sport:'triathlon',url:'https://www.cbtri.org.br'},
   {name:'CBTri — Indaiatuba SP',date:'2026-06-13',dist:'olimpico',local:'Indaiatuba, SP',sport:'triathlon',url:'https://www.cbtri.org.br'},
-  {name:'CBTri — Vila Velha ES',date:'2026-07-05',dist:'olimpico',local:'Vila Velha, ES',sport:'triathlon',url:'https://www.cbtri.org.br'},
+  {name:'Brotas Triathlon',date:'2026-09-19',dist:'sprint',local:'Brotas, SP',sport:'triathlon',url:'https://www.brotastriathlon.com.br'},
+  {name:'Campeonato Paulista Sprint',date:'2026-03-15',dist:'sprint',local:'São Paulo, SP',sport:'triathlon',url:'https://www.cbtri.org.br'},
+  // ═══ TRIATHLON — IRONMAN BRASIL ═══
   {name:'Ironman Brasil — Florianópolis',date:'2026-05-24',dist:'full',local:'Florianópolis, SC',sport:'triathlon',url:'https://www.ironman.com/im-brazil'},
   {name:'Ironman 70.3 — Fortaleza',date:'2026-08-30',dist:'half',local:'Fortaleza, CE',sport:'triathlon',url:'https://www.ironman.com/im703-fortaleza'},
   {name:'Ironman 70.3 — São Paulo',date:'2026-09-20',dist:'half',local:'São Paulo, SP',sport:'triathlon',url:'https://www.ironman.com/im703-saopaulo'},
   {name:'Ironman 70.3 — Florianópolis',date:'2026-10-18',dist:'half',local:'Florianópolis, SC',sport:'triathlon',url:'https://www.ironman.com/im703-florianopolis'},
-  {name:'Brotas Triathlon',date:'2026-09-19',dist:'sprint',local:'Brotas, SP',sport:'triathlon',url:'https://www.brotastriathlon.com.br'},
   {name:'Challenge Florianópolis',date:'2026-11-29',dist:'half',local:'Florianópolis, SC',sport:'triathlon',url:'https://www.challenge-florianopolis.com'},
-  {name:'Campeonato Paulista Sprint',date:'2026-03-15',dist:'sprint',local:'São Paulo, SP',sport:'triathlon',url:'https://www.cbtri.org.br'},
-  // Corrida
+  // ═══ TRIATHLON — WTCS 2026 ═══
+  {name:'WTCS Abu Dhabi',date:'2026-03-27',dist:'olimpico',local:'Abu Dhabi, UAE',sport:'triathlon',url:'https://triathlon.org'},
+  {name:'WTCS Samarkand',date:'2026-04-25',dist:'sprint',local:'Samarkand, UZB',sport:'triathlon',url:'https://triathlon.org'},
+  {name:'WTCS Yokohama',date:'2026-05-16',dist:'olimpico',local:'Yokohama, JPN',sport:'triathlon',url:'https://yokohamatriathlon.jp'},
+  {name:'WTCS Alghero',date:'2026-06-05',dist:'sprint',local:'Alghero, ITA',sport:'triathlon',url:'https://triathlon.org'},
+  {name:'WTCS Quiberon',date:'2026-06-20',dist:'olimpico',local:'Quiberon, FRA',sport:'triathlon',url:'https://triathlon.org'},
+  {name:'WTCS Hamburg',date:'2026-07-11',dist:'olimpico',local:'Hamburg, GER',sport:'triathlon',url:'https://events.triathlon.org/2026-wtcs-hamburg'},
+  {name:'WTCS London',date:'2026-07-25',dist:'sprint',local:'London, GBR',sport:'triathlon',url:'https://triathlon.org'},
+  {name:'WTCS Grand Final — Pontevedra',date:'2026-09-24',dist:'olimpico',local:'Pontevedra, ESP',sport:'triathlon',url:'https://triathlon.org'},
+  // ═══ TRIATHLON — IRONMAN GLOBAL ═══
+  {name:'Ironman Lanzarote',date:'2026-05-23',dist:'full',local:'Lanzarote, ESP',sport:'triathlon',url:'https://www.ironman.com/im-lanzarote'},
+  {name:'Ironman Frankfurt',date:'2026-06-28',dist:'full',local:'Frankfurt, GER',sport:'triathlon',url:'https://www.ironman.com/im-frankfurt'},
+  {name:'Ironman Kalmar',date:'2026-08-15',dist:'full',local:'Kalmar, SWE',sport:'triathlon',url:'https://www.ironman.com/im-kalmar'},
+  {name:'Ironman New Zealand',date:'2026-03-07',dist:'full',local:'Taupo, NZL',sport:'triathlon',url:'https://www.ironman.com/im-new-zealand'},
+  {name:'Ironman World Championship — Kona',date:'2026-10-10',dist:'full',local:'Kailua-Kona, USA',sport:'triathlon',url:'https://www.ironman.com/im-world-championship'},
+  {name:'Ironman 70.3 Nice',date:'2026-06-07',dist:'half',local:'Nice, FRA',sport:'triathlon',url:'https://www.ironman.com/im703-nice'},
+  {name:'Ironman 70.3 Gdynia',date:'2026-08-02',dist:'half',local:'Gdynia, POL',sport:'triathlon',url:'https://www.ironman.com/im703-gdynia'},
+  {name:'Ironman 70.3 Elsinore',date:'2026-06-07',dist:'half',local:'Elsinore, DEN',sport:'triathlon',url:'https://www.ironman.com'},
+  {name:'Ironman 70.3 Boise',date:'2026-06-06',dist:'half',local:'Boise, ID, USA',sport:'triathlon',url:'https://www.ironman.com/im703-boise'},
+  {name:'Ironman 70.3 Buenos Aires',date:'2026-02-01',dist:'half',local:'Buenos Aires, ARG',sport:'triathlon',url:'https://www.ironman.com/im703-buenos-aires'},
+  {name:'Ironman 70.3 Cartagena',date:'2026-04-05',dist:'half',local:'Cartagena, COL',sport:'triathlon',url:'https://www.ironman.com'},
+  {name:'T100 Gold Coast',date:'2026-03-21',dist:'half',local:'Gold Coast, AUS',sport:'triathlon',url:'https://t100triathlon.com'},
+  {name:'T100 Singapore',date:'2026-04-25',dist:'half',local:'Singapore, SGP',sport:'triathlon',url:'https://t100triathlon.com'},
+  {name:'T100 Vancouver',date:'2026-08-15',dist:'half',local:'Vancouver, CAN',sport:'triathlon',url:'https://t100triathlon.com'},
+  // ═══ CORRIDA — BRASIL ═══
   {name:'Maratona de São Paulo',date:'2026-04-26',dist:'corrida-maratona',local:'São Paulo, SP',sport:'corrida',url:'https://www.maratonadesaopaulo.com.br'},
   {name:'Meia Maratona Internacional de SP',date:'2026-08-02',dist:'corrida-meia',local:'São Paulo, SP',sport:'corrida',url:'https://www.meiamaratonasp.com.br'},
   {name:'Maratona do Rio',date:'2026-06-21',dist:'corrida-maratona',local:'Rio de Janeiro, RJ',sport:'corrida',url:'https://www.maratonadorio.com.br'},
-  {name:'Asics Golden Run',date:'2026-09-06',dist:'corrida-10k',local:'São Paulo, SP',sport:'corrida',url:'https://www.asicsgoldenrun.com.br'},
-  {name:'Track&Field Run Series — SP',date:'2026-05-10',dist:'corrida-10k',local:'São Paulo, SP',sport:'corrida',url:'https://www.trackandfield.com.br/runseries'},
+  {name:'Asics Golden Run SP',date:'2026-09-06',dist:'corrida-10k',local:'São Paulo, SP',sport:'corrida',url:'https://www.asicsgoldenrun.com.br'},
+  {name:'Track&Field Run Series SP',date:'2026-05-10',dist:'corrida-10k',local:'São Paulo, SP',sport:'corrida',url:'https://www.trackandfield.com.br'},
   {name:'Corrida de São Silvestre',date:'2026-12-31',dist:'corrida-15k',local:'São Paulo, SP',sport:'corrida',url:'https://www.saosilvestre.com.br'},
-  // Ciclismo
-  {name:'Gran Fondo Specialized — SP',date:'2026-07-12',dist:'bike-gran-fondo',local:'São Paulo, SP',sport:'ciclismo',url:'https://www.specialized.com/granfondo'},
-  {name:'Volta Ciclística de São Paulo',date:'2026-08-23',dist:'bike-gran-fondo',local:'São Paulo, SP',sport:'ciclismo',url:'https://www.voltaciclistica.com.br'},
+  {name:'Meia Maratona de Porto Alegre',date:'2026-06-14',dist:'corrida-meia',local:'Porto Alegre, RS',sport:'corrida',url:'https://www.meiamaratonapoa.com.br'},
+  {name:'Maratona de Florianópolis',date:'2026-10-25',dist:'corrida-maratona',local:'Florianópolis, SC',sport:'corrida',url:'https://www.maratonafloripa.com.br'},
+  {name:'Ultra Trail Mantiqueira',date:'2026-07-05',dist:'corrida-trail',local:'Visconde de Mauá, RJ',sport:'corrida',url:'https://www.ultramantiqueira.com.br'},
+  // ═══ CORRIDA — MUNDIAL ═══
+  {name:'TCS London Marathon',date:'2026-04-26',dist:'corrida-maratona',local:'London, GBR',sport:'corrida',url:'https://www.tcslondonmarathon.com'},
+  {name:'Berlin Marathon',date:'2026-09-27',dist:'corrida-maratona',local:'Berlin, GER',sport:'corrida',url:'https://www.bmw-berlin-marathon.com'},
+  {name:'Chicago Marathon',date:'2026-10-11',dist:'corrida-maratona',local:'Chicago, USA',sport:'corrida',url:'https://www.chicagomarathon.com'},
+  {name:'NYC Marathon',date:'2026-11-01',dist:'corrida-maratona',local:'New York, USA',sport:'corrida',url:'https://www.nyrr.org/tcsnycmarathon'},
+  {name:'Boston Marathon',date:'2026-04-20',dist:'corrida-maratona',local:'Boston, USA',sport:'corrida',url:'https://www.baa.org'},
+  {name:'Tokyo Marathon',date:'2026-03-01',dist:'corrida-maratona',local:'Tokyo, JPN',sport:'corrida',url:'https://www.marathon.tokyo'},
+  {name:'Paris Marathon',date:'2026-04-05',dist:'corrida-maratona',local:'Paris, FRA',sport:'corrida',url:'https://www.schneiderelectricparismarathon.com'},
+  {name:'UTMB — Ultra Trail Mont Blanc',date:'2026-08-28',dist:'corrida-trail',local:'Chamonix, FRA',sport:'corrida',url:'https://www.utmb.world'},
+  // ═══ CICLISMO ═══
+  {name:'Gran Fondo Specialized SP',date:'2026-07-12',dist:'bike-gran-fondo',local:'São Paulo, SP',sport:'ciclismo',url:'https://www.specialized.com/granfondo'},
+  {name:'Volta Ciclística de SP',date:'2026-08-23',dist:'bike-gran-fondo',local:'São Paulo, SP',sport:'ciclismo',url:'https://www.voltaciclistica.com.br'},
   {name:'Desafio Serra Gaúcha',date:'2026-10-04',dist:'bike-gran-fondo',local:'Bento Gonçalves, RS',sport:'ciclismo',url:'https://www.desafioserragaucha.com.br'},
-  // Natação
+  {name:"L'Étape Brasil by Tour de France",date:'2026-09-06',dist:'bike-gran-fondo',local:'Rio de Janeiro, RJ',sport:'ciclismo',url:'https://www.letapebrasil.com.br'},
+  {name:'Granfondo New York',date:'2026-05-17',dist:'bike-gran-fondo',local:'New York, USA',sport:'ciclismo',url:'https://www.granfondonewyork.com'},
+  {name:"L'Étape du Tour — França",date:'2026-07-12',dist:'bike-gran-fondo',local:'França',sport:'ciclismo',url:'https://www.letapedutour.com'},
+  // ═══ NATAÇÃO ═══
   {name:'Travessia Mar Grande — Salvador',date:'2026-02-01',dist:'swim-open',local:'Salvador, BA',sport:'natacao',url:'https://www.travessiamargrande.com.br'},
   {name:'Maratona Aquática de BH',date:'2026-06-28',dist:'swim-open',local:'Belo Horizonte, MG',sport:'natacao',url:'https://www.maratonaaquaticabh.com.br'},
-  // Duathlon
+  {name:'Travessia Coroa do Avião',date:'2026-07-19',dist:'swim-open',local:'Itamaracá, PE',sport:'natacao',url:'https://www.travessiacoroadoaviao.com.br'},
+  {name:'FINA World Open Water Championship',date:'2026-08-16',dist:'swim-3800',local:'Budapest, HUN',sport:'natacao',url:'https://www.worldaquatics.com'},
+  // ═══ DUATHLON ═══
   {name:'Duathlon Brasil — Brasília',date:'2026-05-03',dist:'du-standard',local:'Brasília, DF',sport:'duathlon',url:'https://www.duathlonbrasil.com.br'},
   {name:'Duathlon Sprint — São Paulo',date:'2026-08-16',dist:'du-sprint',local:'São Paulo, SP',sport:'duathlon',url:'https://www.duathlonsaopaulo.com.br'},
+  {name:'World Duathlon Championship',date:'2026-09-06',dist:'du-standard',local:'Tartu, EST',sport:'duathlon',url:'https://triathlon.org'},
 ];
 
 const SPORT_INFO={
-  'triathlon':{label:'Triathlon',sub:'Nado + Bike + Corrida',color:'#1a6cf0',img:'https://images.unsplash.com/photo-1658748721978-68fc04f3739b?w=800&q=85&auto=format&fit=crop'},
-  'corrida':{label:'Corrida',sub:'Road Running & Trail',color:'#00e676',img:'https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=800&q=85&auto=format&fit=crop'},
+  'triathlon':{label:'Triathlon',sub:'Nado + Bike + Corrida',color:'#1a6cf0',img:'https://images.unsplash.com/photo-1590874103328-eac38a683ce7?w=800&q=85&auto=format&fit=crop'},
+  'corrida':{label:'Corrida',sub:'Road Running & Trail',color:'#00e676',img:'https://images.unsplash.com/photo-1544923246-77307dd654cb?w=800&q=85&auto=format&fit=crop'},
   'ciclismo':{label:'Ciclismo',sub:'Road & MTB',color:'#e05c2a',img:'https://images.unsplash.com/photo-1541625602330-2277a4c46182?w=800&q=85&auto=format&fit=crop'},
   'natacao':{label:'Natacao',sub:'Piscina & Aguas Abertas',color:'#00bcd4',img:'https://images.unsplash.com/photo-1519315901367-f34ff9154487?w=800&q=85&auto=format&fit=crop'},
-  'duathlon':{label:'Duathlon',sub:'Corrida + Bike + Corrida',color:'#f0a500',img:'https://images.unsplash.com/photo-1571008887538-b36bb32f4571?w=800&q=85&auto=format&fit=crop'},
+  'duathlon':{label:'Duathlon',sub:'Corrida + Bike + Corrida',color:'#f0a500',img:'https://images.unsplash.com/photo-1541625602330-2277a4c46182?w=800&q=85&auto=format&fit=crop'},
 };
 
 const DIST_INFO={
@@ -5157,17 +5695,17 @@ const DIST_INFO={
 const DIST_IMAGES_BY_SPORT={
   triathlon:{
     'super-sprint':'https://images.unsplash.com/photo-1560073743-1d4b5a64e51c?w=800&q=85&auto=format&fit=crop',
-    'sprint':'https://images.unsplash.com/photo-1658748721978-68fc04f3739b?w=800&q=85&auto=format&fit=crop',
+    'sprint':'https://images.unsplash.com/photo-1590874103328-eac38a683ce7?w=800&q=85&auto=format&fit=crop',
     'olimpico':'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800&q=85&auto=format&fit=crop',
     'half':'https://images.unsplash.com/photo-1571008887538-b36bb32f4571?w=800&q=85&auto=format&fit=crop',
-    'full':'https://images.unsplash.com/photo-1530549387789-4c1017266635?w=800&q=85&auto=format&fit=crop',
+    'full':'https://images.unsplash.com/photo-1571008887538-b36bb32f4571?w=800&q=85&auto=format&fit=crop',
   },
   corrida:{
     'corrida-5k':'https://images.unsplash.com/photo-1461896836934-ffe607ba8211?w=800&q=85&auto=format&fit=crop',
     'corrida-10k':'https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=800&q=85&auto=format&fit=crop',
-    'corrida-meia':'https://images.unsplash.com/photo-1571008887538-b36bb32f4571?w=800&q=85&auto=format&fit=crop',
-    'corrida-maratona':'https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=800&q=85&auto=format&fit=crop',
-    'corrida-trail':'https://images.unsplash.com/photo-1461896836934-ffe607ba8211?w=800&q=85&auto=format&fit=crop',
+    'corrida-meia':'https://images.unsplash.com/photo-1476480862126-209bfaa8edc8?w=800&q=85&auto=format&fit=crop',
+    'corrida-maratona':'https://images.unsplash.com/photo-1530549387789-4c1017266635?w=800&q=85&auto=format&fit=crop',
+    'corrida-trail':'https://images.unsplash.com/photo-1502904550040-7534597429ae?w=800&q=85&auto=format&fit=crop',
   },
   ciclismo:{
     'bike-gran-fondo':'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800&q=85&auto=format&fit=crop',
@@ -5176,12 +5714,12 @@ const DIST_IMAGES_BY_SPORT={
     'bike-century':'https://images.unsplash.com/photo-1502744688674-c619d1586c9e?w=800&q=85&auto=format&fit=crop',
   },
   natacao:{
-    'swim-1500':'https://images.unsplash.com/photo-1560073743-1d4b5a64e51c?w=800&q=85&auto=format&fit=crop',
-    'swim-3800':'https://images.unsplash.com/photo-1600965962361-9035dbfd1c50?w=800&q=85&auto=format&fit=crop',
+    'swim-1500':'https://images.unsplash.com/photo-1519315901367-f34ff9154487?w=800&q=85&auto=format&fit=crop',
+    'swim-3800':'https://images.unsplash.com/photo-1560073743-1d4b5a64e51c?w=800&q=85&auto=format&fit=crop',
     'swim-open':'https://images.unsplash.com/photo-1519315901367-f34ff9154487?w=800&q=85&auto=format&fit=crop',
   },
   duathlon:{
-    'du-sprint':'https://images.unsplash.com/photo-1571008887538-b36bb32f4571?w=800&q=85&auto=format&fit=crop',
+    'du-sprint':'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800&q=85&auto=format&fit=crop',
     'du-standard':'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800&q=85&auto=format&fit=crop',
     'du-long':'https://images.unsplash.com/photo-1530549387789-4c1017266635?w=800&q=85&auto=format&fit=crop',
   },
@@ -5952,6 +6490,8 @@ function obFinish(){
   localStorage.setItem('mytri_profile',JSON.stringify(finalProfile));
   // Força Supabase com dados novos - apaga o antigo e salva o novo
   sbSet('mytri_profile', finalProfile).catch(()=>{});
+  // Regenerar plano com novos dados do onboarding
+  setTimeout(()=>{ plan=generatePlan(finalProfile); },200);
   sbSet('mytri_onboard_done','1').catch(()=>{});
   localStorage.setItem('mytri_onboard_done','1');
   document.getElementById('view-onboard').classList.remove('active');
@@ -6143,6 +6683,8 @@ function renderBikeFitText(el, text){
 // Sync primeiro, depois GPS sobrescreve cidade inválida
 syncProfileFromSupabase().finally(()=>detectGPSLocation());
 checkOnboarding();
+// Inicializa plano dinâmico
+initPlan();
 // Inicializa aba AGENDA
 renderAgenda();
 
