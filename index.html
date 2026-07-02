@@ -465,8 +465,30 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 const SWIM='swim',BIKE='bike',RUN='run',BRICK='brick',GYM='gym',REST='rest',TENNIS='tennis';
 const DAY_NAMES=['SEG','TER','QUA','QUI','SEX','SAB','DOM'];
 const DAY_FULL=['Segunda','Terca','Quarta','Quinta','Sexta','Sabado','Domingo'];
-const RACE_DATE = new Date(2026,8,13);
-const PLAN_START = new Date(2026, 4, 25);
+// Datas do plano derivadas do plano ativo (não mais fixas).
+// getPlanStart(): início real da semana 1 (gravado em generatePlan como planStartISO).
+// getRaceDate(): data da prova do perfil. Fallbacks mantêm compatibilidade com dados antigos.
+const _FALLBACK_RACE = new Date(2026,8,13);
+const _FALLBACK_START = new Date(2026,4,25);
+function getPlanStart(){
+  try{
+    const b=(plan&&plan[0])||null;
+    if(b&&b.planStartISO)return new Date(b.planStartISO);
+  }catch(e){}
+  return _FALLBACK_START;
+}
+function getRaceDate(){
+  try{
+    const b=(plan&&plan[0])||null;
+    const rd=(b&&b.raceDate)||(getMytriProfile&&getMytriProfile().raceDate);
+    if(rd)return new Date(rd+'T12:00:00');
+  }catch(e){}
+  return _FALLBACK_RACE;
+}
+// Aliases para o restante do código que referencia PLAN_START / RACE_DATE como valores.
+// Object.defineProperty permite que continuem sendo "lidos" como datas atuais do plano.
+Object.defineProperty(window,'PLAN_START',{get:getPlanStart,configurable:true});
+Object.defineProperty(window,'RACE_DATE',{get:getRaceDate,configurable:true});
 
 const colorMap={swim:'#1a6cf0',bike:'#e05c2a',run:'#00e676',brick:'#f0a500',gym:'#9b6af0',rest:'#3a3f4a',tennis:'#c8cad0'};
 const zones={Z1:{label:'Z1',bpm:'<107',color:'#9b6af0'},Z2:{label:'Z2',bpm:'107-124',color:'#00e676'},Z3:{label:'Z3',bpm:'125-142',color:'#f0a500'},Z4:{label:'Z4',bpm:'143+',color:'#e05c2a'}};
@@ -954,6 +976,14 @@ function generatePlan(profile) {
     }
   });
 
+  // Âncora estável: início da semana 1 = segunda-feira da semana em que o plano foi gerado.
+  // Assim getCurrentWeekAndDay() conta a partir de um ponto fixo e coerente com a numeração das semanas.
+  const planStart = new Date(today);
+  const jsDay = planStart.getDay();          // 0=dom..6=sab
+  const backToMon = (jsDay + 6) % 7;          // dias desde a última segunda
+  planStart.setDate(planStart.getDate() - backToMon);
+  planStart.setHours(0,0,0,0);
+
   return [{
     label: sport.charAt(0).toUpperCase() + sport.slice(1),
     sport,
@@ -961,6 +991,7 @@ function generatePlan(profile) {
     raceDate,
     totalWeeks,
     daysToRace,
+    planStartISO: planStart.toISOString(),
     zonesFC,
     zonesFTP,
     paces,
@@ -1129,17 +1160,19 @@ function getWeekDates(w){
 }
 function getCurrentWeekAndDay(){
   const now=new Date();
-  const diff=Math.floor((now-PLAN_START)/(1000*60*60*24));
-  if(diff<0)return{w:1,d:2};
-  const w=Math.min(Math.floor(diff/7)+1,16);
+  const diff=Math.floor((now-getPlanStart())/(1000*60*60*24));
   const jsDay=now.getDay();
   const d=(jsDay+6)%7;
+  if(diff<0)return{w:1,d};
+  const tw=(plan&&plan[0]&&plan[0].totalWeeks)||16;
+  const w=Math.min(Math.floor(diff/7)+1,tw);
   return{w,d};
 }
 function getAllWeeks(){
   if(!plan||!plan.length)return[];
   return plan.flatMap(b=>b.weeks||[]);
 }
+function planWeekCount(){return (plan&&plan[0]&&plan[0].totalWeeks)||getAllWeeks().length||16;}
 function getWeek(w){
   const all=getAllWeeks();
   const found=all.find(wk=>wk.w===w);
@@ -1148,30 +1181,35 @@ function getWeek(w){
   // Novo: week.days = [{d:0,sessions:[{type,label,structure,...}]}, ...]
   // Legado: week.days[d] = [{type,text,dist,...}]
   if(found.days && Array.isArray(found.days) && found.days.length && found.days[0] && 'sessions' in found.days[0]){
+    // plan-engine emite tipos em MAIÚSCULO (RUN/BIKE/SWIM/BRICK/FORCE/REST);
+    // o resto do app usa as constantes minúsculas SWIM/BIKE/RUN/BRICK/GYM/REST (linha 465).
+    // Sem esse mapa, ícones, cores, filtros e cálculo de volume (42 comparações no app) ficam quebrados.
+    const TYPE_MAP = {RUN:RUN, BIKE:BIKE, SWIM:SWIM, BRICK:BRICK, FORCE:GYM, REST:REST};
     const adapted = {};
     found.days.forEach(dayObj=>{
       const d = dayObj.d;
       adapted[d] = (dayObj.sessions||[]).map(sess=>{
+        const origType = sess.type || sess._type || 'REST';
         const dur = sess._durMin || 45;
-        const distMap = {RUN: `${(dur/60*10).toFixed(1)}km`, BIKE:`${(dur/60*30).toFixed(0)}km`, SWIM:`${(dur/60*1.5).toFixed(2)}km`, BRICK:`${(dur/2/60*30).toFixed(0)}km+${(dur/2/60*10).toFixed(1)}km`, REST:'', FORCE:''};
+        const distMap = {RUN: `${(dur/60*10).toFixed(1)}km`, BIKE:`${(dur/60*30).toFixed(0)}km`, SWIM:`${Math.round(dur/60*1.5*1000)}m`, BRICK:`${(dur/2/60*30).toFixed(0)}km+${(dur/2/60*10).toFixed(1)}km`, REST:'', FORCE:''};
         return {
-          type: sess.type || sess._type || REST,
-          text: sess.label || sess._type || '',
-          dist: distMap[sess.type || sess._type] || '',
+          type: TYPE_MAP[origType] || REST,
+          text: sess.label || origType || '',
+          dist: distMap[origType] || '',
           _plan_sess: sess, // referência à sessão completa para o modal de detalhe
         };
-      }).filter(s=>s.type && s.type!=='REST' && s.type!=='');
+      }).filter(s=>s.type && s.type!==REST);
     });
     return {...found, days: adapted};
   }
   return found;
 }
-function getWeek(w){return getAllWeeks().find(wk=>wk.w===w);}
 function countdownDays(){const now=new Date();const diff=Math.ceil((RACE_DATE-now)/(1000*60*60*24));return Math.max(0,diff);}
 function getVolume(){
   const checks=loadChecks();
   let swim=0,bike=0,run=0,done=0,total=0,gym=0;
-  for(let w=1;w<=16;w++){
+  const _tw=planWeekCount();
+  for(let w=1;w<=_tw;w++){
     for(let d=0;d<7;d++){
       getEffectiveSessions(w,d).forEach(sess=>{
         if(sess.type===REST)return;
@@ -2731,7 +2769,8 @@ function renderStats(){
   // Calcular volume real por semana
   const weekVolumes=[];
   let maxVol=0;
-  for(let w=1;w<=16;w++){
+  const _tw=planWeekCount();
+  for(let w=1;w<=_tw;w++){
     let s=0,b=0,r=0;
     for(let d=0;d<7;d++){
       getEffectiveSessions(w,d).forEach(sess=>{
@@ -3661,7 +3700,7 @@ function showCalDayModal(date,wd,checks){
 
 // ── STRAVA INTEGRATION ──
 const STRAVA_CLIENT_ID='257886';
-const STRAVA_CLIENT_SECRET='299352867654a92754c184cf0d915b11c8afe310';
+// client_secret NUNCA fica no client — token exchange vai pela Netlify Function /strava-token
 const STRAVA_REDIRECT=window.location.origin;
 const PLAN_START_ISO='2026-05-26T00:00:00Z';
 
@@ -3674,12 +3713,10 @@ async function stravaHandleOAuthCallback(){
   window.history.replaceState({},'',window.location.pathname);
   // Trocar código por tokens
   try{
-    const r=await fetch('https://www.strava.com/oauth/token',{
+    const r=await fetch('/.netlify/functions/strava-token',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
-        client_id:STRAVA_CLIENT_ID,
-        client_secret:STRAVA_CLIENT_SECRET,
         code,
         grant_type:'authorization_code'
       })
@@ -3708,17 +3745,16 @@ async function stravaGetValidToken(){
   // Refresh se expirado
   if(Date.now()/1000>tokens.expires_at-60){
     try{
-      const r=await fetch('https://www.strava.com/oauth/token',{
+      const r=await fetch('/.netlify/functions/strava-token',{
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify({
-          client_id:STRAVA_CLIENT_ID,
-          client_secret:STRAVA_CLIENT_SECRET,
           refresh_token:tokens.refresh_token,
           grant_type:'refresh_token'
         })
       });
       const data=await r.json();
+      if(!data.access_token)throw new Error('refresh sem token');
       tokens.access_token=data.access_token;
       tokens.expires_at=data.expires_at;
       localStorage.setItem('strava_tokens',JSON.stringify(tokens));
@@ -4947,6 +4983,7 @@ function renderClubMatch(c){
 }
 
 function init(){
+  try{initPlan();}catch(e){console.error('initPlan',e);} // popula plan[] ANTES de qualquer render
   try{updateCycleBadge();}catch(e){console.error('badge',e);}
   try{updateCountdown();}catch(e){console.error('countdown',e);}
   try{renderHoje();}catch(e){
@@ -5470,7 +5507,8 @@ const BADGES=[
    label:'Semana Perfeita',desc:'5 ou mais treinos numa semana',color:'#f0a500',
    check:()=>{
     const ovs=loadOverrides();
-    for(let w=1;w<=16;w++){
+    const _tw=planWeekCount();
+    for(let w=1;w<=_tw;w++){
       let count=0;
       for(let d=0;d<7;d++){
         const sessions=getEffectiveSessions(w,d);
@@ -5524,7 +5562,8 @@ const BADGES=[
    label:'IronHeart',desc:'Completou 80% do plano de 16 semanas',color:'#e05c2a',
    check:()=>{
     const ovs=loadOverrides();let done=0,total=0;
-    for(let w=1;w<=16;w++)for(let d=0;d<7;d++){
+    const _tw=planWeekCount();
+    for(let w=1;w<=_tw;w++)for(let d=0;d<7;d++){
       const s=getEffectiveSessions(w,d);
       s.forEach(sess=>{if(sess.type!==REST){total++;if(sess._origin==='plan'){const ov=getOverride(w,d,sess._si);if(ov&&ov.stravaData)done++;}}});
     }
@@ -5730,6 +5769,7 @@ let obStep=0;
 let obData={sport:null,raceDist:null,goalTime:null,swimLevel:'beginner',bikeLevel:'beginner',runLevel:'beginner',weeklyHours:null,fcMax:'',ftp:'',diasDisponiveis:[]};
 
 async function checkOnboarding(){
+  showOnboarding(); return; // TEMP: força onboarding sempre — remover esta linha pra voltar ao normal
   let done=localStorage.getItem('mytri_onboard_done');
   if(!done){
     try{
@@ -6680,11 +6720,11 @@ function renderBikeFitText(el, text){
 }
 
 // Init GPS on load
+// Inicializa plano dinâmico ANTES de qualquer render (idempotente: usa cache por hash de perfil)
+initPlan();
 // Sync primeiro, depois GPS sobrescreve cidade inválida
 syncProfileFromSupabase().finally(()=>detectGPSLocation());
 checkOnboarding();
-// Inicializa plano dinâmico
-initPlan();
 // Inicializa aba AGENDA
 renderAgenda();
 
