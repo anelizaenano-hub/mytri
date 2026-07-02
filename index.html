@@ -840,55 +840,103 @@ function buildSession(type, fase, week, zones, paces, lesoes, level) {
 }
 
 // ─── LÓGICA DE DISTRIBUIÇÃO SEMANAL ───────────────────────────────────────────
+// Ordena as sessões de uma fase por PRIORIDADE (chave→secundária→força→easy) e
+// encaixa nos dias REALMENTE disponíveis do atleta, priorizando dias longos
+// (sáb/dom) para sessões longas. Nada "some" por cair num dia de descanso.
 
-function getWeekSessions(sport, fase, weekNum, totalWeeks, diasDisponiveis, lesoes, level) {
-  const dias = diasDisponiveis || ['seg','ter','qua','qui','sex'];
-  const nDias = dias.length;
+// Mix de sessões por esporte + distância + fase.
+// A distância muda o caráter do plano: provas curtas = mais intensidade/velocidade;
+// provas longas = mais volume/endurance.
+function getSessionMix(sport, raceDist, fase){
+  const d = raceDist || '';
+  const isShort = /5k|super-sprint|sprint|criterium|swim-1500/.test(d);
+  const isLong  = /maratona|full|half|century|mtb|trail|swim-3800|swim-open/.test(d);
 
-  // Templates por sport + fase
-  const templates = {
-    triathlon: {
-      base:  ['swim_tech','bike_z2','run_z2','rest','swim_z2','bike_long','run_z2'],
-      build: ['swim_z2','bike_tempo','run_tempo','rest','swim_intervals','bike_z2','run_long'],
-      peak:  ['swim_intervals','bike_intervals','run_race_pace','rest','swim_z2','bike_brick','run_z2'],
-      taper: ['swim_tech','bike_z2','run_z2','rest','swim_z2','bike_z2','rest'],
-    },
+  // helper: monta lista priorizada [chave, secundária(s), força, longa, easy...]
+  const MIX = {
     corrida: {
-      base:  ['run_z2','rest','run_z2','strength','run_long','rest','rest'],
-      build: ['run_z2','run_tempo','rest','run_intervals','run_long','rest','rest'],
-      peak:  ['run_z2','run_intervals','rest','run_race_pace','run_long','rest','rest'],
-      taper: ['run_z2','run_tempo','rest','run_z2','rest','rest','rest'],
+      base:  isLong ? ['run_long','run_z2','strength','run_z2'] : ['run_z2','run_tempo','strength','run_z2'],
+      build: isShort ? ['run_intervals','run_tempo','run_z2','strength'] : ['run_tempo','run_long','run_z2','run_intervals'],
+      peak:  isShort ? ['run_intervals','run_race_pace','run_z2'] : ['run_race_pace','run_long','run_z2','run_intervals'],
+      taper: ['run_race_pace','run_z2','run_z2'],
     },
     ciclismo: {
-      base:  ['bike_z2','rest','bike_z2','strength','bike_long','rest','rest'],
-      build: ['bike_z2','bike_tempo','rest','bike_intervals','bike_long','rest','rest'],
-      peak:  ['bike_tempo','bike_intervals','rest','bike_z2','bike_long','rest','rest'],
-      taper: ['bike_z2','bike_tempo','rest','bike_z2','rest','rest','rest'],
+      base:  isLong ? ['bike_long','bike_z2','strength','bike_z2'] : ['bike_z2','bike_tempo','strength','bike_z2'],
+      build: isShort ? ['bike_intervals','bike_tempo','bike_z2','strength'] : ['bike_tempo','bike_long','bike_z2','bike_intervals'],
+      peak:  isShort ? ['bike_intervals','bike_tempo','bike_z2'] : ['bike_tempo','bike_long','bike_z2','bike_intervals'],
+      taper: ['bike_tempo','bike_z2','bike_z2'],
     },
     natacao: {
-      base:  ['swim_tech','rest','swim_z2','rest','swim_z2','rest','rest'],
-      build: ['swim_z2','rest','swim_tech','swim_intervals','swim_z2','rest','rest'],
-      peak:  ['swim_intervals','rest','swim_z2','swim_open_water','swim_intervals','rest','rest'],
-      taper: ['swim_tech','rest','swim_z2','rest','swim_z2','rest','rest'],
+      base:  ['swim_tech','swim_z2','swim_z2'],
+      build: isLong ? ['swim_z2','swim_open_water','swim_tech','swim_intervals'] : ['swim_intervals','swim_tech','swim_z2'],
+      peak:  isLong ? ['swim_open_water','swim_z2','swim_intervals'] : ['swim_intervals','swim_z2','swim_tech'],
+      taper: ['swim_tech','swim_z2'],
+    },
+    triathlon: {
+      base:  ['swim_tech','bike_z2','run_z2','swim_z2','bike_long'],
+      build: ['swim_intervals','bike_tempo','run_tempo','bike_brick','run_long'],
+      peak:  ['bike_brick','swim_intervals','run_race_pace','bike_intervals','swim_z2'],
+      taper: ['swim_tech','bike_z2','run_z2','swim_z2'],
     },
     duathlon: {
-      base:  ['run_z2','bike_z2','rest','run_z2','bike_long','rest','rest'],
-      build: ['run_tempo','bike_tempo','rest','run_z2','bike_z2','run_long','rest'],
-      peak:  ['run_intervals','bike_intervals','rest','run_race_pace','bike_brick','rest','rest'],
-      taper: ['run_z2','bike_z2','rest','run_z2','rest','rest','rest'],
+      base:  ['run_z2','bike_z2','run_z2','bike_long','strength'],
+      build: ['run_tempo','bike_tempo','bike_brick','run_long','bike_z2'],
+      peak:  ['bike_brick','run_intervals','bike_intervals','run_race_pace'],
+      taper: ['run_z2','bike_z2','run_z2'],
     },
   };
+  const bySport = MIX[sport] || MIX.triathlon;
+  return (bySport[fase] || bySport.base).slice();
+}
 
-  const sportTemplates = templates[sport] || templates.triathlon;
-  const faseTemplate   = sportTemplates[fase] || sportTemplates.base;
+// classifica se uma sessão é "longa" (merece dia de fim de semana)
+function _isLongSession(t){ return /_long|_open_water|brick/.test(t); }
 
-  // Mapear dias disponíveis para índices fixos (seg=0,ter=1,...,dom=6)
+function getWeekSessions(sport, fase, weekNum, totalWeeks, diasDisponiveis, lesoes, level, raceDist){
   const diaOrder = ['seg','ter','qua','qui','sex','sab','dom'];
+  const dias = (diasDisponiveis && diasDisponiveis.length ? diasDisponiveis : ['seg','ter','qua','qui','sex'])
+                 .filter(d=>diaOrder.includes(d));
+  const availIdx = diaOrder.map((d,i)=>dias.includes(d)?i:-1).filter(i=>i>=0);
+
+  const mix = getSessionMix(sport, raceDist, fase);
+
+  // Recuperação: semana leve corta a sessão mais intensa
+  const isRecovery = ((weekNum-1) % 3) === 2;
+  if(isRecovery && mix.length>1) mix.shift(); // remove a chave (mais intensa) na semana leve
+
+  // Separar sessões longas das demais para alocar no fim de semana
+  const longs  = mix.filter(_isLongSession);
+  const others = mix.filter(t=>!_isLongSession(t));
+
   const sessionsByDia = {};
-  diaOrder.forEach((dia, i) => {
-    const sessType = faseTemplate[i] || 'rest';
-    sessionsByDia[dia] = dias.includes(dia) ? sessType : null;
+  diaOrder.forEach((d,i)=>{ sessionsByDia[d] = dias.includes(d) ? 'rest' : null; });
+
+  // dias de fim de semana disponíveis (sáb=5, dom=6) recebem as longas primeiro
+  const weekendIdx = availIdx.filter(i=>i>=5);
+  const weekdayIdx = availIdx.filter(i=>i<5);
+  const queue = [...longs, ...others];
+
+  // 1) alocar longas nos dias de fim de semana disponíveis
+  let wi=0;
+  longs.forEach(t=>{
+    if(wi<weekendIdx.length){ sessionsByDia[diaOrder[weekendIdx[wi]]]=t; wi++; }
   });
+  // 2) alocar o restante nos dias úteis, espaçando (evita 2 intensos seguidos)
+  const rest = queue.filter(t=>!(longs.includes(t) && wi>longs.indexOf(t)));
+  const toPlace = others.slice();
+  // preencher dias úteis disponíveis
+  let placed=0;
+  weekdayIdx.forEach(idx=>{
+    if(placed<toPlace.length){ sessionsByDia[diaOrder[idx]]=toPlace[placed]; placed++; }
+  });
+  // 3) sobra de sessões (mais sessões que dias) → dobra em dias de fim de semana livres
+  const remaining = toPlace.slice(placed).concat(longs.slice(wi));
+  if(remaining.length){
+    availIdx.forEach(idx=>{
+      if(!remaining.length) return;
+      if(sessionsByDia[diaOrder[idx]]==='rest'){ sessionsByDia[diaOrder[idx]]=remaining.shift(); }
+    });
+  }
 
   return sessionsByDia;
 }
@@ -933,7 +981,7 @@ function generatePlan(profile) {
       const isRecovery = (i > 0 && i % 3 === 2);
       const volMult = isRecovery ? 0.8 : 1.0 + (i * 0.08);
 
-      const sessionsByDia = getWeekSessions(sport, fase, w, totalWeeks, diasDisp, lesoes, runLevel);
+      const sessionsByDia = getWeekSessions(sport, fase, w, totalWeeks, diasDisp, lesoes, runLevel, profile.raceDist);
       const diaOrder = ['seg','ter','qua','qui','sex','sab','dom'];
 
       const days = diaOrder.map((dia, di) => {
@@ -5155,11 +5203,14 @@ function renderProfile(){
   const athlete=stravaTokens.athlete||{};
   const photoEl=prof.photo?`<img src="${prof.photo}" class="profile-avatar">`:
     `<div class="profile-avatar-placeholder">?</div>`;
+  // Foto secundária (estilo Facebook): usa coverPhoto, ou a 1a foto extra, como capa atrás do avatar
+  const secondary = prof.coverPhoto || (prof.photos && prof.photos[0]) || '';
+  const coverBg = secondary ? `url('${secondary}') center/cover` : 'linear-gradient(135deg,#1a6cf0,#0d3a8a)';
 
   vp.innerHTML=`
-    <div onclick="changeCoverPhoto()" style="position:relative;height:140px;background:${prof.coverPhoto?`url('${prof.coverPhoto}') center/cover`:'linear-gradient(135deg,#1a6cf0,#0d3a8a)'};cursor:pointer">
-      <div style="position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,0.1),rgba(8,10,13,0.6))"></div>
-      <div style="position:absolute;bottom:10px;right:10px;background:rgba(0,0,0,0.5);border-radius:4px;padding:5px 10px;font-family:var(--font-ui);font-size:9px;color:#fff;letter-spacing:.5px">EDITAR CAPA</div>
+    <div onclick="changeCoverPhoto()" style="position:relative;height:170px;background:${coverBg};cursor:pointer">
+      <div style="position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,0.05),rgba(8,10,13,0.75))"></div>
+      <div style="position:absolute;bottom:10px;right:10px;background:rgba(0,0,0,0.5);border-radius:4px;padding:5px 10px;font-family:var(--font-ui);font-size:9px;color:#fff;letter-spacing:.5px">EDITAR FOTO DE CAPA</div>
     </div>
     <input type="file" id="profile-cover-input" accept="image/*" style="display:none" onchange="handleCoverPhoto(event)">
 
@@ -5169,16 +5220,12 @@ function renderProfile(){
       <button onclick="submitProfile()" style="background:var(--accent);border:none;color:#000;font-family:var(--font-ui);font-size:11px;font-weight:700;letter-spacing:1px;padding:8px 14px;border-radius:3px;cursor:pointer">SALVAR</button>
     </div>
 
-    <div class="profile-hero" style="margin-top:-44px">
+    <div class="profile-hero" style="margin-top:-58px">
       <div onclick="changeProfilePhoto()" style="display:inline-block;cursor:pointer;position:relative">
         ${photoEl}
         <div style="position:absolute;bottom:14px;right:0;background:var(--accent);border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:13px">+</div>
       </div>
       <input type="file" id="profile-photo-input" accept="image/*" style="display:none" onchange="handleProfilePhoto(event)">
-      ${(prof.photos&&prof.photos.length>0)?`<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:12px;padding:0 20px">
-        ${prof.photos.map((p,i)=>`<div style="position:relative"><img src="${p}" style="width:72px;height:72px;border-radius:6px;object-fit:cover;border:1px solid var(--border)"><button onclick="removeProfilePhoto(${i})" style="position:absolute;top:-6px;right:-6px;background:#e05c2a;border:none;border-radius:50%;width:18px;height:18px;color:#fff;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">x</button></div>`).join('')}
-        <div onclick="addExtraPhoto()" style="width:72px;height:72px;border-radius:6px;border:2px dashed var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);font-size:24px">+</div>
-      </div>`:`<div onclick="addExtraPhoto()" style="margin-top:8px;font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1px;cursor:pointer">+ ADICIONAR FOTOS</div>`}
       <input type="file" id="profile-extra-photo-input" accept="image/*" style="display:none" onchange="handleExtraPhoto(event)">
       <div class="profile-name">${prof.name||'Sem nome'}</div>
       <div class="profile-city" id="profile-city-display">${prof.city||'Detectando localizacao...'}</div>
@@ -5363,6 +5410,7 @@ function renderProfile(){
 function resetOnboarding(){
   if(!confirm('Resetar onboarding?'))return;
   localStorage.removeItem('mytri_onboard_done');
+  localStorage.removeItem('mytri_plan_cache');
   obStep=0;
   obData={};
   closeProfile();
@@ -5621,79 +5669,19 @@ function calcPRs(){
 
 // ── ONBOARDING ──
 const PROVAS_BR_2026 = [
-  // ═══ TRIATHLON — BRASIL ═══
-  {name:'Sprint Triathlon Santa Cecilia TV',date:'2026-09-13',dist:'sprint',local:'Guaruja, SP',sport:'triathlon',url:'https://www.ticket.com.br/comprar/santa-cecilia'},
-  {name:'Troféu Brasil de Triathlon — Santos',date:'2026-09-06',dist:'sprint',local:'Santos, SP',sport:'triathlon',url:'https://www.cbtri.org.br'},
-  {name:'CBTri — Caiobá PR',date:'2026-02-22',dist:'sprint',local:'Caiobá, PR',sport:'triathlon',url:'https://www.cbtri.org.br'},
-  {name:'CBTri — Indaiatuba SP',date:'2026-06-13',dist:'olimpico',local:'Indaiatuba, SP',sport:'triathlon',url:'https://www.cbtri.org.br'},
-  {name:'Brotas Triathlon',date:'2026-09-19',dist:'sprint',local:'Brotas, SP',sport:'triathlon',url:'https://www.brotastriathlon.com.br'},
-  {name:'Campeonato Paulista Sprint',date:'2026-03-15',dist:'sprint',local:'São Paulo, SP',sport:'triathlon',url:'https://www.cbtri.org.br'},
-  // ═══ TRIATHLON — IRONMAN BRASIL ═══
-  {name:'Ironman Brasil — Florianópolis',date:'2026-05-24',dist:'full',local:'Florianópolis, SC',sport:'triathlon',url:'https://www.ironman.com/im-brazil'},
-  {name:'Ironman 70.3 — Fortaleza',date:'2026-08-30',dist:'half',local:'Fortaleza, CE',sport:'triathlon',url:'https://www.ironman.com/im703-fortaleza'},
-  {name:'Ironman 70.3 — São Paulo',date:'2026-09-20',dist:'half',local:'São Paulo, SP',sport:'triathlon',url:'https://www.ironman.com/im703-saopaulo'},
-  {name:'Ironman 70.3 — Florianópolis',date:'2026-10-18',dist:'half',local:'Florianópolis, SC',sport:'triathlon',url:'https://www.ironman.com/im703-florianopolis'},
-  {name:'Challenge Florianópolis',date:'2026-11-29',dist:'half',local:'Florianópolis, SC',sport:'triathlon',url:'https://www.challenge-florianopolis.com'},
-  // ═══ TRIATHLON — WTCS 2026 ═══
-  {name:'WTCS Abu Dhabi',date:'2026-03-27',dist:'olimpico',local:'Abu Dhabi, UAE',sport:'triathlon',url:'https://triathlon.org'},
-  {name:'WTCS Samarkand',date:'2026-04-25',dist:'sprint',local:'Samarkand, UZB',sport:'triathlon',url:'https://triathlon.org'},
-  {name:'WTCS Yokohama',date:'2026-05-16',dist:'olimpico',local:'Yokohama, JPN',sport:'triathlon',url:'https://yokohamatriathlon.jp'},
-  {name:'WTCS Alghero',date:'2026-06-05',dist:'sprint',local:'Alghero, ITA',sport:'triathlon',url:'https://triathlon.org'},
-  {name:'WTCS Quiberon',date:'2026-06-20',dist:'olimpico',local:'Quiberon, FRA',sport:'triathlon',url:'https://triathlon.org'},
-  {name:'WTCS Hamburg',date:'2026-07-11',dist:'olimpico',local:'Hamburg, GER',sport:'triathlon',url:'https://events.triathlon.org/2026-wtcs-hamburg'},
-  {name:'WTCS London',date:'2026-07-25',dist:'sprint',local:'London, GBR',sport:'triathlon',url:'https://triathlon.org'},
-  {name:'WTCS Grand Final — Pontevedra',date:'2026-09-24',dist:'olimpico',local:'Pontevedra, ESP',sport:'triathlon',url:'https://triathlon.org'},
-  // ═══ TRIATHLON — IRONMAN GLOBAL ═══
-  {name:'Ironman Lanzarote',date:'2026-05-23',dist:'full',local:'Lanzarote, ESP',sport:'triathlon',url:'https://www.ironman.com/im-lanzarote'},
-  {name:'Ironman Frankfurt',date:'2026-06-28',dist:'full',local:'Frankfurt, GER',sport:'triathlon',url:'https://www.ironman.com/im-frankfurt'},
-  {name:'Ironman Kalmar',date:'2026-08-15',dist:'full',local:'Kalmar, SWE',sport:'triathlon',url:'https://www.ironman.com/im-kalmar'},
-  {name:'Ironman New Zealand',date:'2026-03-07',dist:'full',local:'Taupo, NZL',sport:'triathlon',url:'https://www.ironman.com/im-new-zealand'},
-  {name:'Ironman World Championship — Kona',date:'2026-10-10',dist:'full',local:'Kailua-Kona, USA',sport:'triathlon',url:'https://www.ironman.com/im-world-championship'},
-  {name:'Ironman 70.3 Nice',date:'2026-06-07',dist:'half',local:'Nice, FRA',sport:'triathlon',url:'https://www.ironman.com/im703-nice'},
-  {name:'Ironman 70.3 Gdynia',date:'2026-08-02',dist:'half',local:'Gdynia, POL',sport:'triathlon',url:'https://www.ironman.com/im703-gdynia'},
-  {name:'Ironman 70.3 Elsinore',date:'2026-06-07',dist:'half',local:'Elsinore, DEN',sport:'triathlon',url:'https://www.ironman.com'},
-  {name:'Ironman 70.3 Boise',date:'2026-06-06',dist:'half',local:'Boise, ID, USA',sport:'triathlon',url:'https://www.ironman.com/im703-boise'},
-  {name:'Ironman 70.3 Buenos Aires',date:'2026-02-01',dist:'half',local:'Buenos Aires, ARG',sport:'triathlon',url:'https://www.ironman.com/im703-buenos-aires'},
-  {name:'Ironman 70.3 Cartagena',date:'2026-04-05',dist:'half',local:'Cartagena, COL',sport:'triathlon',url:'https://www.ironman.com'},
-  {name:'T100 Gold Coast',date:'2026-03-21',dist:'half',local:'Gold Coast, AUS',sport:'triathlon',url:'https://t100triathlon.com'},
-  {name:'T100 Singapore',date:'2026-04-25',dist:'half',local:'Singapore, SGP',sport:'triathlon',url:'https://t100triathlon.com'},
-  {name:'T100 Vancouver',date:'2026-08-15',dist:'half',local:'Vancouver, CAN',sport:'triathlon',url:'https://t100triathlon.com'},
-  // ═══ CORRIDA — BRASIL ═══
-  {name:'Maratona de São Paulo',date:'2026-04-26',dist:'corrida-maratona',local:'São Paulo, SP',sport:'corrida',url:'https://www.maratonadesaopaulo.com.br'},
-  {name:'Meia Maratona Internacional de SP',date:'2026-08-02',dist:'corrida-meia',local:'São Paulo, SP',sport:'corrida',url:'https://www.meiamaratonasp.com.br'},
-  {name:'Maratona do Rio',date:'2026-06-21',dist:'corrida-maratona',local:'Rio de Janeiro, RJ',sport:'corrida',url:'https://www.maratonadorio.com.br'},
-  {name:'Asics Golden Run SP',date:'2026-09-06',dist:'corrida-10k',local:'São Paulo, SP',sport:'corrida',url:'https://www.asicsgoldenrun.com.br'},
-  {name:'Track&Field Run Series SP',date:'2026-05-10',dist:'corrida-10k',local:'São Paulo, SP',sport:'corrida',url:'https://www.trackandfield.com.br'},
-  {name:'Corrida de São Silvestre',date:'2026-12-31',dist:'corrida-15k',local:'São Paulo, SP',sport:'corrida',url:'https://www.saosilvestre.com.br'},
-  {name:'Meia Maratona de Porto Alegre',date:'2026-06-14',dist:'corrida-meia',local:'Porto Alegre, RS',sport:'corrida',url:'https://www.meiamaratonapoa.com.br'},
-  {name:'Maratona de Florianópolis',date:'2026-10-25',dist:'corrida-maratona',local:'Florianópolis, SC',sport:'corrida',url:'https://www.maratonafloripa.com.br'},
-  {name:'Ultra Trail Mantiqueira',date:'2026-07-05',dist:'corrida-trail',local:'Visconde de Mauá, RJ',sport:'corrida',url:'https://www.ultramantiqueira.com.br'},
-  // ═══ CORRIDA — MUNDIAL ═══
-  {name:'TCS London Marathon',date:'2026-04-26',dist:'corrida-maratona',local:'London, GBR',sport:'corrida',url:'https://www.tcslondonmarathon.com'},
-  {name:'Berlin Marathon',date:'2026-09-27',dist:'corrida-maratona',local:'Berlin, GER',sport:'corrida',url:'https://www.bmw-berlin-marathon.com'},
-  {name:'Chicago Marathon',date:'2026-10-11',dist:'corrida-maratona',local:'Chicago, USA',sport:'corrida',url:'https://www.chicagomarathon.com'},
-  {name:'NYC Marathon',date:'2026-11-01',dist:'corrida-maratona',local:'New York, USA',sport:'corrida',url:'https://www.nyrr.org/tcsnycmarathon'},
-  {name:'Boston Marathon',date:'2026-04-20',dist:'corrida-maratona',local:'Boston, USA',sport:'corrida',url:'https://www.baa.org'},
-  {name:'Tokyo Marathon',date:'2026-03-01',dist:'corrida-maratona',local:'Tokyo, JPN',sport:'corrida',url:'https://www.marathon.tokyo'},
-  {name:'Paris Marathon',date:'2026-04-05',dist:'corrida-maratona',local:'Paris, FRA',sport:'corrida',url:'https://www.schneiderelectricparismarathon.com'},
-  {name:'UTMB — Ultra Trail Mont Blanc',date:'2026-08-28',dist:'corrida-trail',local:'Chamonix, FRA',sport:'corrida',url:'https://www.utmb.world'},
-  // ═══ CICLISMO ═══
-  {name:'Gran Fondo Specialized SP',date:'2026-07-12',dist:'bike-gran-fondo',local:'São Paulo, SP',sport:'ciclismo',url:'https://www.specialized.com/granfondo'},
-  {name:'Volta Ciclística de SP',date:'2026-08-23',dist:'bike-gran-fondo',local:'São Paulo, SP',sport:'ciclismo',url:'https://www.voltaciclistica.com.br'},
-  {name:'Desafio Serra Gaúcha',date:'2026-10-04',dist:'bike-gran-fondo',local:'Bento Gonçalves, RS',sport:'ciclismo',url:'https://www.desafioserragaucha.com.br'},
-  {name:"L'Étape Brasil by Tour de France",date:'2026-09-06',dist:'bike-gran-fondo',local:'Rio de Janeiro, RJ',sport:'ciclismo',url:'https://www.letapebrasil.com.br'},
-  {name:'Granfondo New York',date:'2026-05-17',dist:'bike-gran-fondo',local:'New York, USA',sport:'ciclismo',url:'https://www.granfondonewyork.com'},
-  {name:"L'Étape du Tour — França",date:'2026-07-12',dist:'bike-gran-fondo',local:'França',sport:'ciclismo',url:'https://www.letapedutour.com'},
-  // ═══ NATAÇÃO ═══
-  {name:'Travessia Mar Grande — Salvador',date:'2026-02-01',dist:'swim-open',local:'Salvador, BA',sport:'natacao',url:'https://www.travessiamargrande.com.br'},
-  {name:'Maratona Aquática de BH',date:'2026-06-28',dist:'swim-open',local:'Belo Horizonte, MG',sport:'natacao',url:'https://www.maratonaaquaticabh.com.br'},
-  {name:'Travessia Coroa do Avião',date:'2026-07-19',dist:'swim-open',local:'Itamaracá, PE',sport:'natacao',url:'https://www.travessiacoroadoaviao.com.br'},
-  {name:'FINA World Open Water Championship',date:'2026-08-16',dist:'swim-3800',local:'Budapest, HUN',sport:'natacao',url:'https://www.worldaquatics.com'},
-  // ═══ DUATHLON ═══
-  {name:'Duathlon Brasil — Brasília',date:'2026-05-03',dist:'du-standard',local:'Brasília, DF',sport:'duathlon',url:'https://www.duathlonbrasil.com.br'},
-  {name:'Duathlon Sprint — São Paulo',date:'2026-08-16',dist:'du-sprint',local:'São Paulo, SP',sport:'duathlon',url:'https://www.duathlonsaopaulo.com.br'},
-  {name:'World Duathlon Championship',date:'2026-09-06',dist:'du-standard',local:'Tartu, EST',sport:'duathlon',url:'https://triathlon.org'},
+  // Provas reais vêm da busca web (Netlify Function race-search) ou cadastro manual.
+  // Nenhuma lista estática chumbada: datas e links reais são buscados sob demanda.
 ];
+
+const SPORT_ICONS={
+  'triathlon':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15h4l2-3 3 5 2-4h5"/><circle cx="6" cy="8" r="1.5"/><circle cx="18" cy="8" r="1.5"/></svg>',
+  'corrida':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13" cy="4" r="1.6"/><path d="M8 20l3-5-2-3 4-2 2 4h3M6 12l3-2"/></svg>',
+  'ciclismo':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.5" cy="17" r="3.5"/><circle cx="18.5" cy="17" r="3.5"/><path d="M5.5 17l4-8h5l-3 8M12 6h3"/></svg>',
+  'natacao':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18c1.5 0 1.5 1 3 1s1.5-1 3-1 1.5 1 3 1 1.5-1 3-1 1.5 1 3 1 1.5-1 3-1"/><circle cx="9" cy="7" r="1.6"/><path d="M9 7l4 2-3 3"/></svg>',
+  'duathlon':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="17" r="3"/><circle cx="18" cy="17" r="3"/><path d="M6 17l3-6h4M13 5l1.5 3"/></svg>',
+};
+function sportIcon(s){return SPORT_ICONS[s]||SPORT_ICONS.triathlon;}
+function sportBg(color){return `background:linear-gradient(120deg,${color} 0%,${hexToRgba(color,0.55)} 55%,rgba(8,10,13,0.9) 100%)`;}
 
 const SPORT_INFO={
   'triathlon':{label:'Triathlon',sub:'Nado + Bike + Corrida',color:'#1a6cf0',img:'https://images.unsplash.com/photo-1590874103328-eac38a683ce7?w=800&q=85&auto=format&fit=crop'},
@@ -5885,14 +5873,14 @@ function renderObEsporte(c){
           const info=SPORT_INFO[s];
           const sel=obData.sport===s;
           return `<div data-sport="${s}" onclick="obSelectSport('${s}')" style="position:relative;height:90px;border-radius:10px;overflow:hidden;cursor:pointer;border:2.5px solid ${sel?info.color:'transparent'};transition:border-color .2s">
-            <img src="${info.img}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center top" loading="lazy" onerror="this.style.display='none'">
-            <div style="position:absolute;inset:0;background:linear-gradient(90deg,rgba(8,10,13,.88) 0%,rgba(8,10,13,.5) 60%,rgba(8,10,13,.15) 100%)"></div>
+            <div style="position:absolute;inset:0;${sportBg(info.color)}"></div>
+            <div style="position:absolute;right:-8px;top:50%;transform:translateY(-50%);width:80px;height:80px;color:rgba(255,255,255,0.18)">${sportIcon(s)}</div>
             <div style="position:absolute;inset:0;padding:0 18px;display:flex;align-items:center;gap:14px">
               <div style="flex:1">
-                <div data-label style="font-family:var(--font-display);font-size:22px;letter-spacing:.5px;color:${sel?info.color:'#fff'};line-height:1;margin-bottom:3px">${info.label.toUpperCase()}</div>
-                <div style="font-family:var(--font-ui);font-size:10px;color:rgba(255,255,255,0.5);letter-spacing:.5px">${info.sub}</div>
+                <div data-label style="font-family:var(--font-display);font-size:22px;letter-spacing:.5px;color:${sel?'#fff':'#fff'};line-height:1;margin-bottom:3px">${info.label.toUpperCase()}</div>
+                <div style="font-family:var(--font-ui);font-size:10px;color:rgba(255,255,255,0.7);letter-spacing:.5px">${info.sub}</div>
               </div>
-              <div data-check style="width:22px;height:22px;border-radius:50%;background:${sel?info.color:'transparent'};border:1.5px solid ${sel?info.color:'rgba(255,255,255,0.25)'};display:${sel?'flex':'flex'};align-items:center;justify-content:center;flex-shrink:0;display:flex"><span style="color:#000;font-size:13px;font-weight:900;display:${sel?'block':'none'}">&#10003;</span></div>
+              <div data-check style="width:22px;height:22px;border-radius:50%;background:${sel?'#fff':'transparent'};border:1.5px solid ${sel?'#fff':'rgba(255,255,255,0.4)'};display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="color:${info.color};font-size:13px;font-weight:900;display:${sel?'block':'none'}">&#10003;</span></div>
             </div>
           </div>`;
         }).join('')}
@@ -5912,13 +5900,11 @@ function obSelectSport(s){
     el.style.border='2.5px solid '+(sel?info.color:'transparent');
     const dot=el.querySelector('[data-check]');
     if(dot){
-      dot.style.background=sel?info.color:'transparent';
-      dot.style.borderColor=sel?info.color:'rgba(255,255,255,0.25)';
+      dot.style.background=sel?'#fff':'transparent';
+      dot.style.borderColor=sel?'#fff':'rgba(255,255,255,0.4)';
       const tick=dot.querySelector('span');
-      if(tick) tick.style.display=sel?'block':'none';
+      if(tick){ tick.style.display=sel?'block':'none'; tick.style.color=info.color; }
     }
-    const lbl=el.querySelector('[data-label]');
-    if(lbl) lbl.style.color=sel?info.color:'#fff';
   });
   setTimeout(()=>obNext(),500);
 }
@@ -5926,7 +5912,6 @@ function obSelectSport(s){
 function renderObDistancia(c){
   const sport=obData.sport||'triathlon';
   const sportInfo=SPORT_INFO[sport]||SPORT_INFO.triathlon;
-  const imgs=DIST_IMAGES_BY_SPORT[sport]||{};
   const dists=Object.keys(DIST_INFO).filter(k=>DIST_INFO[k].sport===sport);
   c.innerHTML=`
     <div style="padding:32px 24px 0">
@@ -5936,16 +5921,15 @@ function renderObDistancia(c){
         ${dists.map(d=>{
           const info=DIST_INFO[d];
           const sel=obData.raceDist===d;
-          const img=imgs[d]||sportInfo.img;
           return `<div data-dist="${d}" onclick="obSelectDist('${d}')" style="position:relative;height:100px;border-radius:10px;overflow:hidden;cursor:pointer;border:2.5px solid ${sel?info.color:'transparent'};transition:border-color .2s">
-            <img src="${img}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center" loading="lazy" onerror="this.style.display='none'">
-            <div style="position:absolute;inset:0;background:linear-gradient(90deg,rgba(8,10,13,.88) 0%,rgba(8,10,13,.5) 60%,rgba(8,10,13,.15) 100%)"></div>
+            <div style="position:absolute;inset:0;${sportBg(info.color)}"></div>
+            <div style="position:absolute;right:-6px;top:50%;transform:translateY(-50%);width:82px;height:82px;color:rgba(255,255,255,0.16)">${sportIcon(sport)}</div>
             <div style="position:absolute;inset:0;padding:0 18px;display:flex;align-items:center;gap:14px">
               <div style="flex:1">
-                <div style="font-family:var(--font-display);font-size:20px;letter-spacing:.5px;color:${sel?info.color:'#fff'};line-height:1;margin-bottom:4px">${info.label.toUpperCase()}</div>
-                <div style="font-family:var(--font-ui);font-size:10px;color:rgba(255,255,255,0.5);letter-spacing:.5px">${info.sub}</div>
+                <div style="font-family:var(--font-display);font-size:20px;letter-spacing:.5px;color:#fff;line-height:1;margin-bottom:4px">${info.label.toUpperCase()}</div>
+                <div style="font-family:var(--font-ui);font-size:10px;color:rgba(255,255,255,0.72);letter-spacing:.5px">${info.sub}</div>
               </div>
-              <div data-check style="width:22px;height:22px;border-radius:50%;background:${sel?info.color:'transparent'};border:1.5px solid ${sel?info.color:'rgba(255,255,255,0.25)'};display:${sel?'flex':'flex'};align-items:center;justify-content:center;flex-shrink:0;display:flex"><span style="color:#000;font-size:13px;font-weight:900;display:${sel?'block':'none'}">&#10003;</span></div>
+              <div data-check style="width:22px;height:22px;border-radius:50%;background:${sel?'#fff':'transparent'};border:1.5px solid ${sel?'#fff':'rgba(255,255,255,0.4)'};display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="color:${info.color};font-size:13px;font-weight:900;display:${sel?'block':'none'}">&#10003;</span></div>
             </div>
           </div>`;
         }).join('')}
@@ -5964,13 +5948,11 @@ function obSelectDist(d){
     el.style.border='2.5px solid '+(sel?info.color:'transparent');
     const dot=el.querySelector('[data-check]');
     if(dot){
-      dot.style.background=sel?info.color:'transparent';
-      dot.style.borderColor=sel?info.color:'rgba(255,255,255,0.25)';
+      dot.style.background=sel?'#fff':'transparent';
+      dot.style.borderColor=sel?'#fff':'rgba(255,255,255,0.4)';
       const tick=dot.querySelector('span');
-      if(tick) tick.style.display=sel?'block':'none';
+      if(tick){ tick.style.display=sel?'block':'none'; tick.style.color=info.color; }
     }
-    const lbl=el.querySelector('[data-label]');
-    if(lbl) lbl.style.color=sel?info.color:'#fff';
   });
   setTimeout(()=>obNext(),500);
 }
@@ -5979,45 +5961,36 @@ function renderObProva(c){
   const sport=obData.sport||'triathlon';
   const raceDist=obData.raceDist||'';
   const sportInfo=SPORT_INFO[sport]||SPORT_INFO.triathlon;
-  // Mapeia distância selecionada para categoria de prova equivalente
-  const distToProvaTypes={
-    'sprint':['sprint','super-sprint'],
-    'super-sprint':['super-sprint','sprint'],
-    'olimpico':['olimpico'],
-    'half':['half'],
-    'full':['full'],
-    'corrida-5k':['corrida-5k','corrida-10k'],
-    'corrida-10k':['corrida-10k','corrida-5k'],
-    'corrida-meia':['corrida-meia'],
-    'corrida-maratona':['corrida-maratona'],
-    'corrida-trail':['corrida-trail'],
-    'corrida-15k':['corrida-15k','corrida-10k'],
-  };
-  const validDists=distToProvaTypes[raceDist]||null;
-  const provas=PROVAS_BR_2026.filter(p=>{
-    if(p.sport!==sport)return false;
-    if(validDists&&!validDists.includes(p.dist))return false;
-    return true;
-  });
-  const provasList=provas.length>0?provas:PROVAS_BR_2026.filter(p=>p.sport===sport);
+  const webRaces = obData.webRaces || null; // provas reais buscadas na web
+  const searching = obData._searchingRaces;
+  // Dispara busca automática na primeira vez que entra na tela
+  if(webRaces===null && !searching && !obData._raceSearchTried){
+    obData._raceSearchTried=true;
+    setTimeout(()=>obSearchRaces(),150);
+  }
+  const provaCard=(p,onclickAttr,sel,tag)=>`<div style="border-radius:8px;overflow:hidden;border:2px solid ${sel?sportInfo.color:'var(--border)'};background:${sel?hexToRgba(sportInfo.color,0.08):'var(--surface)'};cursor:pointer" ${onclickAttr}>
+      <div style="padding:14px 16px;display:flex;align-items:center;gap:12px">
+        <div style="flex:1">
+          <div style="font-family:var(--font-ui);font-size:14px;font-weight:700;letter-spacing:.3px;color:${sel?sportInfo.color:'var(--text)'}">${p.name}${tag?` <span style="font-size:8px;color:${sportInfo.color};border:1px solid ${sportInfo.color};border-radius:3px;padding:1px 4px;letter-spacing:1px;vertical-align:middle">${tag}</span>`:''}</div>
+          <div style="font-family:var(--font-body);font-size:11px;color:var(--muted2);margin-top:3px">${p.local||''} &middot; ${p.date?new Date(p.date+'T12:00:00').toLocaleDateString('pt-BR',{day:'numeric',month:'short',year:'numeric'}):''}</div>
+        </div>
+      </div>
+      ${p.url?`<div onclick="event.stopPropagation();window.open('${p.url}','_blank')" style="border-top:1px solid ${sel?sportInfo.color+'44':'var(--border)'};padding:8px 16px;font-family:var(--font-ui);font-size:9px;color:${sel?sportInfo.color:'var(--muted)'};letter-spacing:1.5px;cursor:pointer">VER INSCRICOES</div>`:''}
+    </div>`;
   c.innerHTML=`
     <div style="padding:32px 24px 0">
       <div class="ob-title">Qual e<br>sua prova?</div>
-      <div class="ob-sub">Selecione ou cadastre manualmente.</div>
+      <div class="ob-sub">Selecione, busque provas reais ou cadastre manualmente.</div>
+      <div onclick="obSearchRaces()" style="margin-bottom:14px;padding:12px 16px;border:1.5px solid ${sportInfo.color};border-radius:8px;cursor:pointer;text-align:center;font-family:var(--font-ui);font-size:12px;color:${sportInfo.color};letter-spacing:1px;display:flex;align-items:center;justify-content:center;gap:8px">
+        ${searching?'<span style="width:14px;height:14px;border:2px solid '+sportInfo.color+';border-top-color:transparent;border-radius:50%;display:inline-block;animation:spin 0.8s linear infinite"></span> BUSCANDO PROVAS REAIS...':'BUSCAR PROVAS REAIS NA WEB'}
+      </div>
       <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
-        ${provasList.map((p,i)=>{
-          const globalIdx=PROVAS_BR_2026.indexOf(p);
-          const sel=obData.provaIdx===globalIdx;
-          return `<div style="border-radius:8px;overflow:hidden;border:2px solid ${sel?sportInfo.color:'var(--border)'};background:${sel?hexToRgba(sportInfo.color,0.08):'var(--surface)'};cursor:pointer" onclick="obSelectProvaAuto(${globalIdx})">
-            <div style="padding:14px 16px;display:flex;align-items:center;gap:12px">
-              <div style="flex:1">
-                <div style="font-family:var(--font-ui);font-size:14px;font-weight:700;letter-spacing:.3px;color:${sel?sportInfo.color:'var(--text)'}">${p.name}</div>
-                <div style="font-family:var(--font-body);font-size:11px;color:var(--muted2);margin-top:3px">${p.local} &middot; ${p.date?new Date(p.date+'T12:00:00').toLocaleDateString('pt-BR',{day:'numeric',month:'short',year:'numeric'}):''}</div>
-              </div>
-            </div>
-            ${p.url?`<div onclick="event.stopPropagation();window.open('${p.url}','_blank')" style="border-top:1px solid ${sel?sportInfo.color+'44':'var(--border)'};padding:8px 16px;font-family:var(--font-ui);font-size:9px;color:${sel?sportInfo.color:'var(--muted)'};letter-spacing:1.5px;cursor:pointer">VER INSCRICOES</div>`:''}
-          </div>`;
-        }).join('')}
+        ${webRaces&&webRaces.length?`<div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;margin-bottom:2px">PROVAS REAIS</div>`+webRaces.map((p,i)=>{
+          const sel=obData.provaIdx==='web'+i;
+          return provaCard(p,`onclick="obSelectWebRace(${i})"`,sel,p.scope==='internacional'?'INTL':'BR');
+        }).join(''):''}
+        ${webRaces&&webRaces.length===0?`<div style="font-family:var(--font-body);font-size:12px;color:var(--muted2);padding:8px 2px;text-align:center">Nenhuma prova encontrada agora. Tente buscar de novo ou cadastre manualmente abaixo.</div>`:''}
+        ${!webRaces&&!searching?`<div style="font-family:var(--font-body);font-size:12px;color:var(--muted2);padding:8px 2px;text-align:center">Buscando provas reais para voce...</div>`:''}
         <div onclick="obSelectProvaAuto(-1)" style="padding:14px 16px;background:${obData.provaIdx===-1?'rgba(0,230,118,.08)':'var(--surface)'};border:2px solid ${obData.provaIdx===-1?'var(--accent)':'var(--border)'};border-radius:8px;cursor:pointer;text-align:center;font-family:var(--font-ui);font-size:12px;color:var(--muted);letter-spacing:1px">
           + OUTRA PROVA (cadastrar manualmente)
         </div>
@@ -6031,6 +6004,36 @@ function renderObProva(c){
     <div style="padding:0 24px 24px;margin-top:auto">
       <button class="ob-btn-skip" onclick="obNext()">Pular por agora</button>
     </div>`;
+}
+
+async function obSearchRaces(){
+  if(obData._searchingRaces) return;
+  obData._searchingRaces=true;
+  renderOnboarding();
+  const distLabel=(DIST_INFO[obData.raceDist]&&DIST_INFO[obData.raceDist].label)||obData.raceDist||'';
+  const location=(getMytriProfile().city)||localStorage.getItem('mytri_gps_city')||'Brasil';
+  try{
+    const resp=await fetch('/.netlify/functions/race-search',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({sport:obData.sport||'triathlon',raceDist:obData.raceDist||'',distLabel,location,monthsAhead:10})
+    });
+    const data=await resp.json();
+    obData.webRaces=Array.isArray(data.races)?data.races:[];
+  }catch(e){ obData.webRaces=[]; }
+  obData._searchingRaces=false;
+  renderOnboarding();
+}
+
+function obSelectWebRace(i){
+  const p=(obData.webRaces||[])[i];
+  if(!p)return;
+  obData.provaIdx='web'+i;
+  obData.raceName=p.name;
+  obData.raceDate=p.date;
+  obData.raceLocal=p.local;
+  obData.raceUrl=p.url||'';
+  renderOnboarding();
+  setTimeout(()=>obNext(),500);
 }
 
 function obSelectProvaAuto(i){
@@ -6510,6 +6513,9 @@ function obFinish(){
     ftp:obData.ftp||prof.ftp||'',
     swim:obData.swimPace||prof.swim||'',
     nextRace:obData.raceName||prof.nextRace||'',
+    raceName:obData.raceName||prof.raceName||'',
+    raceUrl:obData.raceUrl||prof.raceUrl||'',
+    raceLocal:obData.raceLocal||prof.raceLocal||'',
     raceDist:obData.raceDist||'sprint',
     raceDate:obData.raceDate||'',
     goalTime:obData.goalTime||'',
@@ -6530,8 +6536,16 @@ function obFinish(){
   localStorage.setItem('mytri_profile',JSON.stringify(finalProfile));
   // Força Supabase com dados novos - apaga o antigo e salva o novo
   sbSet('mytri_profile', finalProfile).catch(()=>{});
-  // Regenerar plano com novos dados do onboarding
-  setTimeout(()=>{ plan=generatePlan(finalProfile); },200);
+  // Regenerar plano com novos dados do onboarding — invalida cache antigo e grava o novo AGORA
+  localStorage.removeItem('mytri_plan_cache');
+  try{
+    plan = generatePlan(finalProfile);
+    localStorage.setItem('mytri_plan_cache', JSON.stringify({
+      plan,
+      generatedAt: Date.now(),
+      profileHash: finalProfile.sport + finalProfile.raceDist + finalProfile.raceDate + finalProfile.weeklyHours
+    }));
+  }catch(e){ console.error('plan gen (obFinish)', e); }
   sbSet('mytri_onboard_done','1').catch(()=>{});
   localStorage.setItem('mytri_onboard_done','1');
   document.getElementById('view-onboard').classList.remove('active');
