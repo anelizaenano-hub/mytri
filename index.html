@@ -373,7 +373,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .ob-screen.active{display:flex}
 .ob-title{font-family:var(--font-display);font-size:36px;letter-spacing:1px;line-height:1.1;margin-bottom:8px}
 .ob-sub{font-family:var(--font-body);font-size:15px;color:var(--muted2);line-height:1.6;margin-bottom:32px}
-.ob-btn{width:100%;padding:18px;background:var(--accent);color:#000;font-family:var(--font-ui);font-size:14px;font-weight:700;letter-spacing:2px;border:none;border-radius:4px;cursor:pointer;margin-top:auto}
+.ob-btn{width:100%;padding:18px;background:var(--accent);color:#000;font-family:var(--font-ui);font-size:14px;font-weight:700;letter-spacing:2px;border:none;border-radius:4px;cursor:pointer}
 .ob-btn-skip{width:100%;padding:14px;background:none;color:var(--muted);font-family:var(--font-ui);font-size:12px;letter-spacing:1px;border:none;cursor:pointer;margin-top:8px}
 .ob-level-cards{display:flex;flex-direction:column;gap:12px;margin-bottom:24px}
 .ob-level-card{padding:20px;background:var(--surface);border:2px solid var(--border);border-radius:6px;cursor:pointer;transition:all .2s}
@@ -440,6 +440,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 <div id="view-onboard"></div>
 <div id="view-plan-summary"></div>
 <div id="session-analysis-modal"></div>
+<div id="workout-detail-modal" style="display:none;position:fixed;inset:0;z-index:320;background:rgba(0,0,0,0.6);align-items:flex-end"></div>
 <div id="view-agenda" class="view active"></div>
 <div id="view-hoje" class="view" style="display:none"></div>
 <div id="view-semana" class="view" style="display:none"></div>
@@ -1165,6 +1166,8 @@ async function syncToCloud(){
 
 async function syncFromCloud(){
   if(!_syncReady)return;
+  // Se o onboarding acabou de limpar o estado, não deixa a nuvem trazer o lixo antigo de volta
+  if(localStorage.getItem('mytri_ob_just_saved'))return;
   try{
     const checks=await sbGet('nano_checks');
     const extras=await sbGet('nano_extras');
@@ -1244,6 +1247,8 @@ function getWeek(w){
           type: TYPE_MAP[origType] || REST,
           text: sess.label || origType || '',
           dist: distMap[origType] || '',
+          structure: sess.structure || null, // aquecimento/bloco/desaquecimento
+          coach: sess.coach || '',           // racional/instrução do coach
           _plan_sess: sess, // referência à sessão completa para o modal de detalhe
         };
       }).filter(s=>s.type && s.type!==REST);
@@ -1459,6 +1464,63 @@ const activityTypes=[
   {type:TENNIS,label:'Pickleball', fields:[{key:'time',label:'DURACAO',unit:'min'}]},
   {type:REST,  label:'Descanso',   fields:[]},
 ];
+
+function showWorkoutDetail(w,d,key){
+  const sessions=getEffectiveSessions(w,d);
+  // achar a sessão pelo key
+  let sess=null;
+  sessions.forEach(s=>{ const k=ovKey(w,d,s._si!=null?s._si:('x'+s._idx)); if(k===key||s._key===key) sess=s; });
+  if(!sess) sess=sessions.find(s=>s.text)||sessions[0];
+  if(!sess){ return; }
+  const modal=document.getElementById('workout-detail-modal');
+  const color=(typeof colorMap!=='undefined'&&colorMap[sess.type])||'#00e676';
+  const struct=sess.structure||(sess._plan_sess&&sess._plan_sess.structure)||null;
+  const coach=sess.coach||(sess._plan_sess&&sess._plan_sess.coach)||'';
+  const typeLabels={swim:'NATACAO',bike:'BIKE',run:'CORRIDA',brick:'TIJOLO',gym:'FORCA',rest:'DESCANSO'};
+  let structHtml='';
+  if(struct&&struct.length){
+    structHtml=struct.map(b=>`
+      <div style="display:flex;gap:12px;padding:14px 0;border-bottom:1px solid var(--border)">
+        <div style="width:52px;flex-shrink:0;text-align:center">
+          <div style="font-family:var(--font-display);font-size:22px;color:${color};line-height:1">${b.dur}</div>
+          <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:1px">MIN</div>
+        </div>
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
+            <span style="font-family:var(--font-ui);font-size:12px;font-weight:700;color:var(--text);letter-spacing:.3px">${b.part}</span>
+            ${b.zone?`<span style="font-family:var(--font-ui);font-size:9px;color:${color};border:1px solid ${color}55;border-radius:3px;padding:1px 5px;letter-spacing:.5px">${b.zone}</span>`:''}
+          </div>
+          ${b.fc?`<div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);margin-bottom:3px">${b.fc}</div>`:''}
+          <div style="font-family:var(--font-body);font-size:12px;color:var(--muted2);line-height:1.45">${b.desc||''}</div>
+        </div>
+      </div>`).join('');
+  } else {
+    structHtml=`<div style="font-family:var(--font-body);font-size:13px;color:var(--muted2);padding:16px 0">Treino livre — siga o volume/distancia indicado no card.</div>`;
+  }
+  modal.innerHTML=`
+    <div style="background:var(--surface);border-top:1px solid var(--border);border-radius:16px 16px 0 0;width:100%;max-height:85vh;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 0 40px">
+      <div style="position:sticky;top:0;background:var(--surface);padding:20px 22px 14px;border-bottom:1px solid var(--border)">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <div style="font-family:var(--font-ui);font-size:10px;color:${color};letter-spacing:2px;margin-bottom:4px">${typeLabels[sess.type]||''}${sess.dist?' · '+sess.dist:''}</div>
+            <div style="font-family:var(--font-display);font-size:24px;color:var(--text);line-height:1">${sess.text||''}</div>
+          </div>
+          <button onclick="closeWorkoutDetail()" style="background:none;border:none;color:var(--muted2);font-size:26px;cursor:pointer;line-height:1;padding:0 4px">&times;</button>
+        </div>
+      </div>
+      <div style="padding:8px 22px 0">
+        <div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;margin:12px 0 4px">ESTRUTURA DO TREINO</div>
+        ${structHtml}
+        ${coach?`<div style="margin-top:18px;background:${color}12;border:1px solid ${color}33;border-radius:10px;padding:14px 16px">
+          <div style="font-family:var(--font-ui);font-size:10px;color:${color};letter-spacing:1.5px;margin-bottom:6px">RACIONAL DO COACH</div>
+          <div style="font-family:var(--font-body);font-size:13px;color:var(--text);line-height:1.55">${coach}</div>
+        </div>`:''}
+      </div>
+    </div>`;
+  modal.style.display='flex';
+  modal.onclick=(e)=>{ if(e.target===modal) closeWorkoutDetail(); };
+}
+function closeWorkoutDetail(){ const m=document.getElementById('workout-detail-modal'); if(m) m.style.display='none'; }
 
 function showAddModal(w,d,opts){
   const isEdit=!!opts;
@@ -2126,7 +2188,7 @@ function _buildDaySlide(w,d){
             <div class="drag-handle">&#9776;</div>
             <div class="session-type-dot" style="background:${colorMap[sess.type]}"></div>
             <div style="flex:1">
-              <span class="session-card-title">${sess.text}</span>${zoneHtml}
+              <span class="session-card-title" onclick="event.stopPropagation();showWorkoutDetail(${w},${d},'${key}')" style="cursor:pointer;text-decoration:underline;text-decoration-color:${colorMap[sess.type]}55;text-underline-offset:3px">${sess.text}</span>${zoneHtml}
             </div>
             <div style="flex-shrink:0">
               <span class="session-card-dist">${mainMetric}</span>
@@ -2506,53 +2568,70 @@ function changeSemana(dir){semanaWeek=Math.max(1,Math.min(16,semanaWeek+dir));_r
 // ── FASES ──
 function renderFases(){
   const container=document.getElementById('agenda-content')||document.getElementById('view-fases');container.innerHTML='';const checks=loadChecks();
-  plan.forEach(block=>{
-    const section=document.createElement('div');section.className='block-section';
-    const label=document.createElement('div');label.className='block-label';
-    label.textContent=`${String(block.block).padStart(2,'0')} ${block.blockName}`;
-    section.appendChild(label);
-    block.weeks.forEach(week=>{
-      const total=week.days.flatMap(d=>d).filter(s=>s.type!==REST).length;
-      const done=week.days.flatMap((d,di)=>d.map((s,si)=>({s,key:ck(week.w,di,si)}))).filter(({s,key})=>s.type!==REST&&checks[key]).length;
-      const wDiv=document.createElement('div');wDiv.className='phase-week';
-      let badge='';
-      if(week.race)badge='<span class="badge">PROVA</span>';
-      else if(week.taper)badge='<span class="badge" style="background:#e05c2a">TAPER</span>';
-      else if(week.recovery)badge='<span class="badge" style="background:#9b6af0">REC</span>';
-      wDiv.innerHTML=`
-        <div class="phase-week-header" onclick="togglePhaseWeek(this)">
-          <span class="phase-week-num">SEM ${week.w}${badge}</span>
-          <span class="phase-week-dates">${getWeekDates(week.w)}</span>
-          <span class="phase-week-progress">${done}/${total}</span>
-        </div>
-        <div class="phase-week-body" id="pw${week.w}"></div>`;
-      const body=wDiv.querySelector(`#pw${week.w}`);
-      week.days.forEach((daySessions,di)=>{
-        const row=document.createElement('div');row.className='phase-day-row';
-        const _dayDate=new Date(PLAN_START);_dayDate.setDate(PLAN_START.getDate()+(week.w-1)*7+di);
-        const _dayNum=_dayDate.getDate();const _dayMon=_dayDate.toLocaleString('pt-BR',{month:'short'}).replace('.','').toUpperCase();
-        const dl=document.createElement('span');dl.className='phase-day-label';dl.textContent=DAY_NAMES[di];row.appendChild(dl);
-        const dr=document.createElement('span');dr.style.cssText='font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:.5px;margin-left:auto;padding-right:8px';dr.textContent=_dayNum+' '+_dayMon;row.appendChild(dr);
-        const ps=document.createElement('div');ps.className='phase-sessions';
-        const isAllRest=daySessions.every(s=>s.type===REST);
-        if(isAllRest){const r=document.createElement('span');r.style.cssText='font-size:10px;color:var(--rest);font-family:var(--font-ui);letter-spacing:.5px;text-transform:uppercase';r.textContent=daySessions[0]?.text||'Descanso';ps.appendChild(r);}
-        else{
-          daySessions.forEach((sess,si)=>{
-            if(sess.type===REST){const r=document.createElement('span');r.style.cssText='font-size:10px;color:var(--rest);font-style:italic';r.textContent=sess.text;ps.appendChild(r);return;}
-            const key=ck(week.w,di,si);const isDone=!!checks[key];
-            const sessEl=document.createElement('div');sessEl.className='phase-session';
-            sessEl.style.cursor='pointer';
-            sessEl.innerHTML=`<div class="phase-dot" style="background:${colorMap[sess.type]}"></div><span style="${isDone?'text-decoration:line-through;opacity:.35':''}font-family:var(--font-ui);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.3px">${sess.text}${sess.dist?` <span style="color:var(--accent);font-family:var(--font-display);font-size:11px">${sess.dist}</span>`:''}</span>`;
-            sessEl.onclick=()=>{hojeWeek=week.w;hojeDay=di;switchTabHoje();};
-            ps.appendChild(sessEl);
-            if(sess.note){const n=document.createElement('div');n.className='phase-note';n.textContent=sess.note;ps.appendChild(n);}
-          });
-        }
-        row.appendChild(ps);body.appendChild(row);
+  const allWeeks=getAllWeeks();
+  if(!allWeeks.length){
+    container.innerHTML=`<div style="padding:48px 24px;text-align:center;font-family:var(--font-body);font-size:14px;color:var(--muted2)">Nenhum plano gerado ainda.<br>Complete o onboarding para ver as fases.</div>`;
+    return;
+  }
+  const FASE_LABELS={base:'BASE',build:'CONSTRUCAO',peak:'PICO',taper:'AFUNILAMENTO',race:'SEMANA DA PROVA'};
+  const FASE_COLORS={base:'#1a6cf0',build:'#00e676',peak:'#e05c2a',taper:'#f0a500',race:'#9b6af0'};
+  let lastFase=null;
+  allWeeks.forEach(rawWeek=>{
+    const week=getWeek(rawWeek.w); // adaptado: days = {di:[sessões]}
+    if(!week)return;
+    const fase=rawWeek.fase||'base';
+    // cabeçalho de fase quando muda
+    if(fase!==lastFase){
+      lastFase=fase;
+      const label=document.createElement('div');label.className='block-label';
+      label.style.cssText='font-family:var(--font-ui);font-size:11px;letter-spacing:2px;color:'+(FASE_COLORS[fase]||'#00e676')+';margin:20px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--border)';
+      label.textContent=FASE_LABELS[fase]||fase.toUpperCase();
+      container.appendChild(label);
+    }
+    // contar total/done da semana
+    let total=0,done=0;
+    Object.keys(week.days).forEach(di=>{
+      (week.days[di]||[]).forEach((s,si)=>{
+        if(s.type===REST)return;
+        total++; if(checks[ck(rawWeek.w,di,si)])done++;
       });
-      section.appendChild(wDiv);
     });
-    container.appendChild(section);
+    const wDiv=document.createElement('div');wDiv.className='phase-week';
+    let badge='';
+    if(fase==='race')badge='<span class="badge">PROVA</span>';
+    else if(fase==='taper')badge='<span class="badge" style="background:#f0a500">TAPER</span>';
+    else if(rawWeek.isRecovery)badge='<span class="badge" style="background:#9b6af0">REC</span>';
+    wDiv.innerHTML=`
+      <div class="phase-week-header" onclick="togglePhaseWeek(this)">
+        <span class="phase-week-num">SEM ${rawWeek.w}${badge}</span>
+        <span class="phase-week-dates">${getWeekDates(rawWeek.w)}</span>
+        <span class="phase-week-progress">${done}/${total}</span>
+      </div>
+      <div class="phase-week-body" id="pw${rawWeek.w}"></div>`;
+    const body=wDiv.querySelector(`#pw${rawWeek.w}`);
+    for(let di=0;di<7;di++){
+      const daySessions=week.days[di]||[];
+      const row=document.createElement('div');row.className='phase-day-row';
+      const _dayDate=new Date(getPlanStart());_dayDate.setDate(_dayDate.getDate()+(rawWeek.w-1)*7+di);
+      const _dayNum=_dayDate.getDate();const _dayMon=_dayDate.toLocaleString('pt-BR',{month:'short'}).replace('.','').toUpperCase();
+      const dl=document.createElement('span');dl.className='phase-day-label';dl.textContent=DAY_NAMES[di];row.appendChild(dl);
+      const dr=document.createElement('span');dr.style.cssText='font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:.5px;margin-left:auto;padding-right:8px';dr.textContent=_dayNum+' '+_dayMon;row.appendChild(dr);
+      const ps=document.createElement('div');ps.className='phase-sessions';
+      if(!daySessions.length||daySessions.every(s=>s.type===REST)){
+        const r=document.createElement('span');r.style.cssText='font-size:10px;color:var(--rest);font-family:var(--font-ui);letter-spacing:.5px;text-transform:uppercase';r.textContent='Descanso';ps.appendChild(r);
+      }else{
+        daySessions.forEach((sess,si)=>{
+          if(sess.type===REST)return;
+          const key=ck(rawWeek.w,di,si);const isDone=!!checks[key];
+          const sessEl=document.createElement('div');sessEl.className='phase-session';sessEl.style.cursor='pointer';
+          sessEl.innerHTML=`<div class="phase-dot" style="background:${colorMap[sess.type]}"></div><span style="${isDone?'text-decoration:line-through;opacity:.35':''}font-family:var(--font-ui);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.3px">${sess.text}${sess.dist?` <span style="color:var(--accent);font-family:var(--font-display);font-size:11px">${sess.dist}</span>`:''}</span>`;
+          sessEl.onclick=()=>{hojeWeek=rawWeek.w;hojeDay=di;switchTabHoje();};
+          ps.appendChild(sessEl);
+        });
+      }
+      row.appendChild(ps);body.appendChild(row);
+    }
+    container.appendChild(wDiv);
   });
 }
 function togglePhaseWeek(header){header.nextElementSibling.classList.toggle('open');}
@@ -2632,30 +2711,33 @@ function renderStats(){
     </div>`;
 
   const progressDiv=document.createElement('div');progressDiv.className='progress-section';progressDiv.innerHTML='<div class="progress-title">PROGRESSO POR FASE</div>';
-  plan.forEach(block=>{
-    let blockDone=0,blockTotal=0;
-    block.weeks.forEach(week=>{
-      for(let d=0;d<7;d++){
-        getEffectiveSessions(week.w,d).forEach(sess=>{
-          if(sess.type===REST)return;
-          blockTotal++;
-          const key=sess._origin==='plan'
-            ?ck(week.w,d,sess._si)
-            :`ex_w${week.w}_d${d}_i${sess._idx}`;
-          if(checks[key])blockDone++;
-        });
-      }
-    });
-    const blockPct=Math.round((blockDone/Math.max(blockTotal,1))*100);
+  const FASE_LABELS={base:'BASE',build:'CONSTRUCAO',peak:'PICO',taper:'AFUNILAMENTO',race:'PROVA'};
+  const faseStats={};
+  getAllWeeks().forEach(week=>{
+    const fase=week.fase||'base';
+    if(!faseStats[fase])faseStats[fase]={done:0,total:0};
+    for(let d=0;d<7;d++){
+      getEffectiveSessions(week.w,d).forEach(sess=>{
+        if(sess.type===REST)return;
+        faseStats[fase].total++;
+        const key=sess._origin==='plan'?ck(week.w,d,sess._si):`ex_w${week.w}_d${d}_i${sess._idx}`;
+        if(checks[key])faseStats[fase].done++;
+      });
+    }
+  });
+  ['base','build','peak','taper','race'].forEach(fase=>{
+    const st=faseStats[fase];if(!st||st.total===0)return;
+    const blockPct=Math.round((st.done/Math.max(st.total,1))*100);
     const row=document.createElement('div');row.className='progress-row';
     row.innerHTML=`
       <div class="progress-label">
-        <span style="font-family:var(--font-ui);font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase">${block.blockName}</span>
-        <span style="color:var(--accent);font-family:var(--font-display);font-size:13px">${blockDone}/${blockTotal}</span>
+        <span style="font-family:var(--font-ui);font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase">${FASE_LABELS[fase]}</span>
+        <span style="color:var(--accent);font-family:var(--font-display);font-size:13px">${st.done}/${st.total}</span>
       </div>
       <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:${blockPct}%;background:var(--accent)"></div></div>`;
     progressDiv.appendChild(row);
   });
+  container.appendChild(progressDiv);
 
   const volDiv=document.createElement('div');volDiv.className='vol-breakdown';
   volDiv.innerHTML=`
@@ -2764,7 +2846,7 @@ function renderStats(){
   });}}
   // Total planejado por série no plano completo
   const muscPlanned={A:0,B:0,C:0,D:0};
-  const _twM=planWeekCount();for(let wk=1;wk<=_twM;wk++){for(let di=0;di<7;di++){plan.forEach(block=>{block.weeks.forEach(week=>{if(week.w!==wk)return;const day=week.days[di]||[];day.forEach(sess=>{const m2=(sess.text||'').match(/Musc\.\s*([ABCD])/i);if(m2)muscPlanned[m2[1].toUpperCase()]++;});});});}}
+  const _twM=planWeekCount();for(let wk=1;wk<=_twM;wk++){const _wkA=getWeek(wk);if(_wkA&&_wkA.days){for(let di=0;di<7;di++){(_wkA.days[di]||[]).forEach(sess=>{const m2=(sess.text||'').match(/Musc\.\s*([ABCD])/i);if(m2)muscPlanned[m2[1].toUpperCase()]++;});}}}
   const muscTotal=Math.max(...Object.values(muscPlanned))||1;
   const muscDiv=document.createElement('div');
   muscDiv.style.cssText='background:var(--surface);border:1px solid var(--border);border-top:2px solid #9b6af0;padding:16px;margin-bottom:8px';
@@ -5213,31 +5295,30 @@ function renderProfile(){
   const athlete=stravaTokens.athlete||{};
   const photoEl=prof.photo?`<img src="${prof.photo}" class="profile-avatar">`:
     `<div class="profile-avatar-placeholder">?</div>`;
-  // Foto secundária (estilo Facebook): usa coverPhoto, ou a 1a foto extra, como capa atrás do avatar
+  // Foto secundária: aparece como um círculo maior ATRÁS do avatar redondo (estilo moldura)
   const secondary = prof.coverPhoto || (prof.photos && prof.photos[0]) || '';
-  const coverBg = secondary ? `url('${secondary}') center/cover` : 'linear-gradient(135deg,#1a6cf0,#0d3a8a)';
 
   vp.innerHTML=`
-    <div onclick="changeCoverPhoto()" style="position:relative;height:170px;background:${coverBg};cursor:pointer">
-      <div style="position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,0.05),rgba(8,10,13,0.75))"></div>
-      <div style="position:absolute;bottom:10px;right:10px;background:rgba(0,0,0,0.5);border-radius:4px;padding:5px 10px;font-family:var(--font-ui);font-size:9px;color:#fff;letter-spacing:.5px">EDITAR FOTO DE CAPA</div>
-    </div>
-    <input type="file" id="profile-cover-input" accept="image/*" style="display:none" onchange="handleCoverPhoto(event)">
-
     <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border);background:var(--bg)">
       <button onclick="closeProfile()" style="background:none;border:none;color:var(--muted2);font-size:22px;cursor:pointer;padding:0">&#8592;</button>
       <div style="font-family:var(--font-ui);font-size:12px;letter-spacing:2px;color:var(--text)">MEU PERFIL</div>
       <button onclick="submitProfile()" style="background:var(--accent);border:none;color:#000;font-family:var(--font-ui);font-size:11px;font-weight:700;letter-spacing:1px;padding:8px 14px;border-radius:3px;cursor:pointer">SALVAR</button>
     </div>
+    <input type="file" id="profile-cover-input" accept="image/*" style="display:none" onchange="handleCoverPhoto(event)">
 
-    <div class="profile-hero" style="margin-top:-58px">
-      <div onclick="changeProfilePhoto()" style="display:inline-block;cursor:pointer;position:relative">
-        ${photoEl}
-        <div style="position:absolute;bottom:14px;right:0;background:var(--accent);border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:13px">+</div>
+    <div class="profile-hero" style="padding-top:36px">
+      <div style="position:relative;display:inline-block;line-height:0">
+        <!-- Foto secundária: círculo maior atrás do avatar -->
+        <div onclick="changeCoverPhoto()" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:148px;height:148px;border-radius:50%;overflow:hidden;cursor:pointer;${secondary?`background:url('${secondary}') center/cover`:'background:linear-gradient(135deg,#1a6cf0,#0d3a8a)'};box-shadow:0 4px 20px rgba(0,0,0,0.4)"></div>
+        <!-- Avatar redondo na frente -->
+        <div onclick="changeProfilePhoto()" style="position:relative;cursor:pointer;z-index:1;line-height:0">
+          ${photoEl}
+          <div style="position:absolute;bottom:14px;right:2px;background:var(--accent);border:2px solid var(--bg);border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-size:14px;z-index:2">+</div>
+        </div>
       </div>
       <input type="file" id="profile-photo-input" accept="image/*" style="display:none" onchange="handleProfilePhoto(event)">
       <input type="file" id="profile-extra-photo-input" accept="image/*" style="display:none" onchange="handleExtraPhoto(event)">
-      <div class="profile-name">${prof.name||'Sem nome'}</div>
+      <div class="profile-name" style="margin-top:14px">${prof.name||'Sem nome'}</div>
       <div class="profile-city" id="profile-city-display">${prof.city||'Detectando localizacao...'}</div>
       <div onclick="resetCity()" style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;cursor:pointer;margin-top:2px;text-decoration:underline">ATUALIZAR LOCALIZACAO</div>
       ${athlete.firstname?`<div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:4px">STRAVA: ${athlete.firstname} ${athlete.lastname||''}</div>`:''}
@@ -5815,7 +5896,7 @@ function renderOnboarding(){
   const totalBars=screens.length-1;
   const prog=`<div class="ob-progress">${obProgress(obStep,totalBars)}</div>`;
   const back=obStep>0?`<button onclick="obBack()" style="position:absolute;top:52px;left:20px;background:none;border:none;color:var(--muted2);font-size:22px;cursor:pointer;z-index:10">&#8592;</button>`:'';
-  el.innerHTML=prog+back+`<div id="ob-screen-wrap" style="flex:1;display:flex;flex-direction:column;overflow-y:auto"></div>`;
+  el.innerHTML=prog+back+`<div id="ob-screen-wrap" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:40px"></div>`;
   screens[obStep](document.getElementById('ob-screen-wrap'));
 }
 
@@ -5875,7 +5956,7 @@ function renderObWelcome(c){
 
 function renderObIntro(c){
   c.innerHTML=`
-    <div style="padding:64px 28px 24px;display:flex;flex-direction:column;min-height:100%">
+    <div style="padding:64px 28px 40px;display:flex;flex-direction:column">
       <div class="ob-title" style="margin-bottom:8px">O que e<br>o MyTri?</div>
       <div class="ob-sub" style="margin-bottom:28px">Nao e mais um app de planilha generica.</div>
 
@@ -5903,9 +5984,7 @@ function renderObIntro(c){
         </div>
       </div>
 
-      <div style="margin-top:auto;padding-top:28px">
-        <button class="ob-btn" onclick="obNext()">MONTAR MEU PLANO</button>
-      </div>
+      <button class="ob-btn" style="margin-top:32px" onclick="obNext()">MONTAR MEU PLANO</button>
     </div>`;
 }
 
@@ -5933,7 +6012,7 @@ function renderObEsporte(c){
         }).join('')}
       </div>
     </div>
-    <div style="padding:0 24px 24px;margin-top:auto">
+    <div style="padding:24px">
       <button class="ob-btn" onclick="obNext()">CONTINUAR</button>
     </div>`;
 }
@@ -5982,7 +6061,7 @@ function renderObDistancia(c){
         }).join('')}
       </div>
     </div>
-    <div style="padding:0 24px 24px;margin-top:auto">
+    <div style="padding:24px">
       <button class="ob-btn" onclick="obNext()">CONTINUAR</button>
     </div>`;
 }
@@ -6054,7 +6133,7 @@ function renderObProva(c){
         <button class="ob-btn" onclick="obNext()" style="margin-top:12px">CONTINUAR</button>
       `:''}
     </div>
-    <div style="padding:0 24px 24px;margin-top:auto">
+    <div style="padding:24px">
       <button class="ob-btn-skip" onclick="obNext()">Pular por agora</button>
     </div>`;
 }
@@ -6166,7 +6245,7 @@ function renderObMeta(c){
         </div>
       </div>
     </div>
-    <div style="padding:0 24px 24px;margin-top:auto">
+    <div style="padding:24px">
       <button class="ob-btn" onclick="obSaveMeta();obNext()">CONTINUAR</button>
       <button class="ob-btn-skip" onclick="obData.goalTime=null;obNext()">Quero apenas completar a prova</button>
     </div>`;
@@ -6256,7 +6335,7 @@ function renderObModalidades(c){
           ${sec.extra}
         </div>`).join('')}
     </div>
-    <div style="padding:0 24px 24px;margin-top:auto">
+    <div style="padding:24px">
       <button class="ob-btn" onclick="obSaveModalidades();obNext()">CONTINUAR</button>
     </div>`;
 }
@@ -6308,7 +6387,7 @@ function renderObFitness(c){
         </div>
       </div>
     </div>
-    <div style="padding:16px 24px 24px;margin-top:auto">
+    <div style="padding:16px 24px 24px">
       <button class="ob-btn" onclick="obSaveFitness();obNext()">CONTINUAR</button>
       <button class="ob-btn-skip" onclick="obNext()">Pular</button>
     </div>`;
@@ -6341,7 +6420,7 @@ function renderObHoras(c){
         </div>`).join('')}
       </div>
     </div>
-    <div style="padding:0 24px 24px;margin-top:auto">
+    <div style="padding:24px">
       <button class="ob-btn" onclick="obNext()">CONTINUAR</button>
     </div>`;
 }
@@ -6385,7 +6464,7 @@ function renderObDias(c){
         ${obData.diasDisponiveis.length} dia${obData.diasDisponiveis.length!==1?'s':''} selecionado${obData.diasDisponiveis.length!==1?'s':''}
       </div>
     </div>
-    <div style="padding:0 24px 24px;margin-top:auto">
+    <div style="padding:24px">
       <button class="ob-btn" onclick="obNext()" ${obData.diasDisponiveis.length===0?'disabled style="opacity:.4"':''}>CONTINUAR</button>
       <button class="ob-btn-skip" onclick="obData.diasDisponiveis=['seg','ter','qua','qui','sex'];obNext()">Pular — usar dias uteis</button>
     </div>`;
@@ -6433,7 +6512,7 @@ function renderObLesoes(c){
         <textarea id="ob-lesao-detalhe" placeholder="Ex: infiltracao em maio/2026, dor ao pedalar..." oninput="obData.lesaoDetalhe=this.value" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:12px;border-radius:4px;resize:none;height:70px">${obData.lesaoDetalhe||''}</textarea>
       </div>`:''}
     </div>
-    <div style="padding:0 24px 24px;margin-top:auto">
+    <div style="padding:24px">
       <button class="ob-btn" onclick="obNext()">CONTINUAR</button>
     </div>`;
 }
@@ -6620,9 +6699,13 @@ function obFinish(){
   // LIMPEZA TOTAL de estado antigo — novo plano começa do zero, sem treinos "concluídos"
   // ou edições de um plano anterior vazando pra este.
   ['nano_tri_v2','nano_extras_v1','nano_overrides_v1','nano_order_v1','nano_cal_cache','mytri_plan_cache'].forEach(k=>localStorage.removeItem(k));
-  sbSet('nano_tri_v2',{}).catch(()=>{});
-  sbSet('nano_extras_v1',{}).catch(()=>{});
-  sbSet('nano_overrides_v1',{}).catch(()=>{});
+  _memChecks={};
+  // Zera também no Supabase (chaves reais usadas por syncFromCloud) pra não voltar no próximo load
+  sbSet('nano_checks',{}).catch(()=>{});
+  sbSet('nano_extras',{}).catch(()=>{});
+  sbSet('nano_overrides',{}).catch(()=>{});
+  sbSet('nano_order',{}).catch(()=>{});
+  sbSet('nano_history',[]).catch(()=>{});
   // Salva localmente PRIMEIRO
   localStorage.setItem('mytri_profile',JSON.stringify(finalProfile));
   // Força Supabase com dados novos - apaga o antigo e salva o novo
