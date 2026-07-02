@@ -2376,7 +2376,16 @@ let semanaWeek;
 function renderSemana(){const {w}=getCurrentWeekAndDay();semanaWeek=w;_renderSemana(w);}
 function _renderSemana(w){
   semanaWeek=w;const container=document.getElementById('agenda-content')||document.getElementById('view-semana');container.innerHTML='';
-  const week=getWeek(w);if(!week)return;
+  let week=getWeek(w);
+  if(!week){
+    // clampar para uma semana válida do plano
+    const all=getAllWeeks();
+    if(all.length){ week=getWeek(all[0].w)||all[0]; semanaWeek=week.w; }
+  }
+  if(!week){
+    container.innerHTML=`<div style="padding:48px 24px;text-align:center;font-family:var(--font-body);font-size:14px;color:var(--muted2)">Nenhum plano gerado ainda.<br>Complete o onboarding para ver sua semana.</div>`;
+    return;
+  }
   const nav=document.createElement('div');nav.className='week-nav';
   nav.innerHTML=`
     <button class="nav-btn" onclick="changeSemana(-1)" ${w<=1?'disabled':''}>&#8592;</button>
@@ -2555,7 +2564,7 @@ function renderStats(){
   const {w:cw}=getCurrentWeekAndDay();const pct=Math.round((vol.done/Math.max(vol.total,1))*100);
 
   let totalSwim=0,totalBike=0,totalRun=0;
-  for(let wk=1;wk<=16;wk++){for(let d=0;d<7;d++){getEffectiveSessions(wk,d).forEach(sess=>{const v=sessionVolume(sess);totalSwim+=v.swim;totalBike+=v.bike;totalRun+=v.run;});}}
+  const _twS=planWeekCount();for(let wk=1;wk<=_twS;wk++){for(let d=0;d<7;d++){getEffectiveSessions(wk,d).forEach(sess=>{const v=sessionVolume(sess);totalSwim+=v.swim;totalBike+=v.bike;totalRun+=v.run;});}}
 
   // Calcular totalKm e rota ANTES de usar no HTML
   const totalKm=vol.swim+vol.bike+vol.run;
@@ -2744,7 +2753,7 @@ function renderStats(){
   });
   // Contar também de checks do plano (sessões não editadas)
   const checksAll=loadChecks();
-  for(let wk=1;wk<=16;wk++){for(let di=0;di<7;di++){getEffectiveSessions(wk,di).forEach(sess=>{
+  const _twV=planWeekCount();for(let wk=1;wk<=_twV;wk++){for(let di=0;di<7;di++){getEffectiveSessions(wk,di).forEach(sess=>{
     const key=sess._origin==='plan'?ck(wk,di,sess._si):`ex_w${wk}_d${di}_i${sess._idx}`;
     if(!checksAll[key])return;
     const t=sess.text||'';const m=t.match(/Musc\.\s*([ABCD])/i);
@@ -2755,7 +2764,7 @@ function renderStats(){
   });}}
   // Total planejado por série no plano completo
   const muscPlanned={A:0,B:0,C:0,D:0};
-  for(let wk=1;wk<=16;wk++){for(let di=0;di<7;di++){plan.forEach(block=>{block.weeks.forEach(week=>{if(week.w!==wk)return;const day=week.days[di]||[];day.forEach(sess=>{const m2=(sess.text||'').match(/Musc\.\s*([ABCD])/i);if(m2)muscPlanned[m2[1].toUpperCase()]++;});});});}}
+  const _twM=planWeekCount();for(let wk=1;wk<=_twM;wk++){for(let di=0;di<7;di++){plan.forEach(block=>{block.weeks.forEach(week=>{if(week.w!==wk)return;const day=week.days[di]||[];day.forEach(sess=>{const m2=(sess.text||'').match(/Musc\.\s*([ABCD])/i);if(m2)muscPlanned[m2[1].toUpperCase()]++;});});});}}
   const muscTotal=Math.max(...Object.values(muscPlanned))||1;
   const muscDiv=document.createElement('div');
   muscDiv.style.cssText='background:var(--surface);border:1px solid var(--border);border-top:2px solid #9b6af0;padding:16px;margin-bottom:8px';
@@ -3148,16 +3157,17 @@ function renderConquistas(){
   if(prsData.longestBike>0) prTags.push({label:`${prsData.longestBike.toFixed(0)}km`,sub:'BIKE MAIS LONGO',color:'#e05c2a'});
   if(prsData.bestHR<999) prTags.push({label:`${prsData.bestHR}bpm`,sub:'FC MINIMA',color:'#9b6af0'});
 
+  const prCard=(t)=>`<div style="flex:1;min-width:calc(50% - 5px);background:${t.color}12;border:1px solid ${t.color}33;border-radius:10px;padding:16px">
+        <div style="font-family:var(--font-display);font-size:26px;color:${t.color};line-height:1">${t.label}</div>
+        <div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;margin-top:6px">${t.sub}</div>
+      </div>`;
   prSection.innerHTML=`
     <div style="font-family:var(--font-ui);font-size:10px;color:var(--accent);letter-spacing:2px;margin-bottom:12px">PERSONAL RECORDS</div>
-    ${prTags.length>0?`<div style="display:flex;flex-wrap:wrap;gap:8px">
-      ${prTags.map(t=>`<div style="background:${t.color}15;border:1px solid ${t.color}40;border-radius:8px;padding:10px 14px;min-width:100px">
-        <div style="font-family:var(--font-display);font-size:18px;color:${t.color}">${t.label}</div>
-        <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:.5px;margin-top:2px">${t.sub}</div>
-      </div>`).join('')}
+    ${prTags.length>0?`<div style="display:flex;flex-wrap:wrap;gap:10px">
+      ${prTags.map(prCard).join('')}
     </div>
-    <div style="font-family:var(--font-body);font-size:11px;color:var(--muted);margin-top:10px;line-height:1.5">Seus recordes entrarao no ranking da comunidade por modalidade e distancia em breve.</div>`
-    :`<div style="font-family:var(--font-body);font-size:12px;color:var(--muted);text-align:center;padding:16px">Complete treinos com dados do Strava para registrar seus recordes.</div>`}
+    <div style="font-family:var(--font-body);font-size:11px;color:var(--muted);margin-top:12px;line-height:1.5">Seus recordes entrarao no ranking da comunidade por modalidade e distancia em breve.</div>`
+    :`<div style="font-family:var(--font-body);font-size:12px;color:var(--muted2);text-align:center;padding:24px 16px;background:var(--surface);border:1px dashed var(--border);border-radius:10px">Complete treinos com dados do Strava para registrar seus recordes.</div>`}
   `;
   container.appendChild(prSection);
 
@@ -5132,8 +5142,8 @@ async function syncProfileFromSupabase(){
     const remote=await sbGet('mytri_profile');
     if(!remote||!Object.keys(remote).length) return;
     const local=JSON.parse(localStorage.getItem('mytri_profile')||'{}');
-    // Local tem dados mais recentes do onboarding - não sobrescreve
-    if(local.sport||local.raceDist||local.pace||local.ftp) return;
+    // Local com QUALQUER dado de onboarding é a fonte de verdade — remoto nunca sobrescreve
+    if(local.sport||local.raceDist||local.pace||local.ftp||local.raceName||local.name) return;
     const isInvalidCity=c=>!c||c==='Centro, Brazil'||c==='Centro'||c==='Brazil'||c==='Brasil'||c.startsWith('Centro,');
     if(isInvalidCity(remote.city)&&!isInvalidCity(local.city)) remote.city=local.city;
     if(isInvalidCity(remote.city)) delete remote.city;
@@ -5788,6 +5798,7 @@ function renderOnboarding(){
   el.innerHTML='';
   const screens=[
     renderObWelcome,
+    renderObIntro,
     renderObEsporte,
     renderObDistancia,
     renderObProva,
@@ -5860,6 +5871,42 @@ function renderObWelcome(c){
     vids[vcur].style.opacity='1';
   },6000);
   c._clearVideoInterval=()=>clearInterval(iv);
+}
+
+function renderObIntro(c){
+  c.innerHTML=`
+    <div style="padding:64px 28px 24px;display:flex;flex-direction:column;min-height:100%">
+      <div class="ob-title" style="margin-bottom:8px">O que e<br>o MyTri?</div>
+      <div class="ob-sub" style="margin-bottom:28px">Nao e mais um app de planilha generica.</div>
+
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <div style="display:flex;gap:14px;align-items:flex-start">
+          <div style="width:38px;height:38px;border-radius:9px;background:rgba(0,230,118,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--accent)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/><circle cx="12" cy="12" r="4"/></svg></div>
+          <div>
+            <div style="font-family:var(--font-ui);font-size:13px;font-weight:700;color:var(--text);letter-spacing:.3px;margin-bottom:2px">PLANO 100% PERSONALIZADO</div>
+            <div style="font-family:var(--font-body);font-size:13px;color:var(--muted2);line-height:1.5">Cada treino gerado pela sua prova, distancia, nivel, lesoes e dias disponiveis. Nenhum plano igual ao outro.</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:14px;align-items:flex-start">
+          <div style="width:38px;height:38px;border-radius:9px;background:rgba(26,108,240,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#1a6cf0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
+          <div>
+            <div style="font-family:var(--font-ui);font-size:13px;font-weight:700;color:var(--text);letter-spacing:.3px;margin-bottom:2px">CONECTA COM STRAVA E GARMIN</div>
+            <div style="font-family:var(--font-body);font-size:13px;color:var(--muted2);line-height:1.5">Puxa seus treinos reais e compara com o planejado. Um co-piloto, nao um substituto.</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:14px;align-items:flex-start">
+          <div style="width:38px;height:38px;border-radius:9px;background:rgba(224,92,42,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#e05c2a"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div>
+          <div>
+            <div style="font-family:var(--font-ui);font-size:13px;font-weight:700;color:var(--text);letter-spacing:.3px;margin-bottom:2px">TUDO NUM LUGAR SO</div>
+            <div style="font-family:var(--font-body);font-size:13px;color:var(--muted2);line-height:1.5">Provas reais com link de inscricao, bike fit por IA, clima, estatisticas e recordes pessoais.</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:auto;padding-top:28px">
+        <button class="ob-btn" onclick="obNext()">MONTAR MEU PLANO</button>
+      </div>
+    </div>`;
 }
 
 function renderObEsporte(c){
@@ -5985,10 +6032,16 @@ function renderObProva(c){
         ${searching?'<span style="width:14px;height:14px;border:2px solid '+sportInfo.color+';border-top-color:transparent;border-radius:50%;display:inline-block;animation:spin 0.8s linear infinite"></span> BUSCANDO PROVAS REAIS...':'BUSCAR PROVAS REAIS NA WEB'}
       </div>
       <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
-        ${webRaces&&webRaces.length?`<div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;margin-bottom:2px">PROVAS REAIS</div>`+webRaces.map((p,i)=>{
-          const sel=obData.provaIdx==='web'+i;
-          return provaCard(p,`onclick="obSelectWebRace(${i})"`,sel,p.scope==='internacional'?'INTL':'BR');
-        }).join(''):''}
+        ${webRaces&&webRaces.length?(()=>{
+          const nac=webRaces.filter(p=>p.scope!=='internacional');
+          const intl=webRaces.filter(p=>p.scope==='internacional');
+          let out='';
+          if(nac.length){ out+=`<div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;margin-bottom:2px">PROVAS NO BRASIL</div>`;
+            out+=nac.map((p)=>{ const i=webRaces.indexOf(p); const sel=obData.provaIdx==='web'+i; return provaCard(p,`onclick="obSelectWebRace(${i})"`,sel,'BR'); }).join(''); }
+          if(intl.length){ out+=`<div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;margin:10px 0 2px">INTERNACIONAIS</div>`;
+            out+=intl.map((p)=>{ const i=webRaces.indexOf(p); const sel=obData.provaIdx==='web'+i; return provaCard(p,`onclick="obSelectWebRace(${i})"`,sel,'INTL'); }).join(''); }
+          return out;
+        })():''}
         ${webRaces&&webRaces.length===0?`<div style="font-family:var(--font-body);font-size:12px;color:var(--muted2);padding:8px 2px;text-align:center">Nenhuma prova encontrada agora. Tente buscar de novo ou cadastre manualmente abaixo.</div>`:''}
         ${!webRaces&&!searching?`<div style="font-family:var(--font-body);font-size:12px;color:var(--muted2);padding:8px 2px;text-align:center">Buscando provas reais para voce...</div>`:''}
         <div onclick="obSelectProvaAuto(-1)" style="padding:14px 16px;background:${obData.provaIdx===-1?'rgba(0,230,118,.08)':'var(--surface)'};border:2px solid ${obData.provaIdx===-1?'var(--accent)':'var(--border)'};border-radius:8px;cursor:pointer;text-align:center;font-family:var(--font-ui);font-size:12px;color:var(--muted);letter-spacing:1px">
@@ -6018,7 +6071,8 @@ async function obSearchRaces(){
       body:JSON.stringify({sport:obData.sport||'triathlon',raceDist:obData.raceDist||'',distLabel,location,monthsAhead:10})
     });
     const data=await resp.json();
-    obData.webRaces=Array.isArray(data.races)?data.races:[];
+    const today=new Date().toISOString().slice(0,10);
+    obData.webRaces=(Array.isArray(data.races)?data.races:[]).filter(r=>r&&r.date&&r.date>=today);
   }catch(e){ obData.webRaces=[]; }
   obData._searchingRaces=false;
   renderOnboarding();
@@ -6051,15 +6105,46 @@ function obSelectProvaAuto(i){
   }
 }
 
+// Estima tempo-alvo aproximado pela distância selecionada + pace/nível do atleta.
+// Serve como ponto de partida do picker (o atleta ajusta como quiser).
+function estimateGoalTime(raceDist, obData){
+  const paceStrToSec = (p)=>{ if(!p)return null; const m=String(p).match(/(\d+):(\d+)/); return m?(+m[1]*60+ +m[2]):null; };
+  const runPaceSec = paceStrToSec(obData.runPace) || ({beginner:390,intermediate:330,advanced:270}[obData.runLevel]||360); // s/km
+  const swimPaceSec = paceStrToSec(obData.swimPace) || ({beginner:150,intermediate:120,advanced:100}[obData.swimLevel]||135); // s/100m
+  const ftp = parseInt(obData.ftp)||({beginner:150,intermediate:200,advanced:260}[obData.bikeLevel]||180);
+  const bikeSpeed = Math.max(22, Math.min(40, ftp/6)); // km/h grosseiro
+  // distâncias (km) por categoria
+  const D = {
+    'super-sprint':{s:0.4,b:10,r:2.5},'sprint':{s:0.75,b:20,r:5},'olimpico':{s:1.5,b:40,r:10},
+    'half':{s:1.9,b:90,r:21.1},'full':{s:3.8,b:180,r:42.2},
+    'corrida-5k':{r:5},'corrida-10k':{r:10},'corrida-15k':{r:15},'corrida-meia':{r:21.1},'corrida-maratona':{r:42.2},'corrida-trail':{r:21},
+    'bike-gran-fondo':{b:100},'bike-criterium':{b:40},'bike-mtb':{b:50},'bike-century':{b:160},
+    'swim-1500':{s:1.5},'swim-3800':{s:3.8},'swim-open':{s:2},
+    'du-sprint':{r:5,b:20},'du-standard':{r:10,b:40},
+  };
+  const d=D[raceDist]; if(!d) return {hr:1,min:30};
+  let sec=0;
+  if(d.s) sec += (d.s*1000/100)*swimPaceSec + 120; // + T1
+  if(d.b) sec += (d.b/bikeSpeed)*3600 + (d.s?120:0); // + T2 se tri
+  if(d.r) sec += d.r*runPaceSec;
+  const hr=Math.floor(sec/3600), min=Math.round((sec%3600)/60/5)*5;
+  return {hr:Math.max(0,hr), min:Math.min(55,min)};
+}
+
 function renderObMeta(c){
-  const dist=DIST_INFO[obData.raceDist]||DIST_INFO.sprint;
-  const hr=obData.goalHr||1;
-  const min=obData.goalMin||30;
+  const dist=DIST_INFO[obData.raceDist]||{label:'Prova',sub:''};
+  // Default estimado só na primeira vez que abre a tela (não sobrescreve ajuste manual)
+  if(obData.goalHr===undefined && obData.goalMin===undefined){
+    const est=estimateGoalTime(obData.raceDist,obData);
+    obData.goalHr=est.hr; obData.goalMin=est.min;
+  }
+  const hr=obData.goalHr||0;
+  const min=obData.goalMin||0;
   c.innerHTML=`
     <div style="padding:32px 24px 0">
       <div class="ob-title">Qual e<br>sua meta?</div>
       <div class="ob-sub">Tempo alvo para ${obData.raceName||dist.label}.</div>
-      <div style="font-family:var(--font-ui);font-size:10px;color:var(--accent);letter-spacing:2px;margin-bottom:16px">${dist.label.toUpperCase()} &middot; ${dist.swim} / ${dist.bike} / ${dist.run}</div>
+      <div style="font-family:var(--font-ui);font-size:10px;color:var(--accent);letter-spacing:2px;margin-bottom:16px">${dist.label.toUpperCase()} &middot; ${dist.sub||''}</div>
 
       <div style="display:flex;align-items:center;justify-content:center;gap:16px;margin:32px 0">
         <div style="text-align:center">
@@ -6094,7 +6179,7 @@ function obAdjust(field,delta){
 }
 
 function obSaveMeta(){
-  obData.goalTime=`${String(obData.goalHr||1).padStart(2,'0')}:${String(obData.goalMin||30).padStart(2,'0')}`;
+  obData.goalTime=`${String(obData.goalHr||0).padStart(2,'0')}:${String(obData.goalMin||0).padStart(2,'0')}`;
 }
 
 function renderObModalidades(c){
@@ -6471,7 +6556,7 @@ function renderObFim(c){
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:20px;width:100%;text-align:left;margin-top:8px">
         ${obData.raceName?`<div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;margin-bottom:4px">PROVA</div><div style="font-family:var(--font-body);font-size:14px;margin-bottom:12px">${obData.raceName}</div>`:''}
         <div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;margin-bottom:4px">DISTANCIA</div>
-        <div style="font-family:var(--font-body);font-size:14px;margin-bottom:12px">${dist.label} &middot; ${dist.swim} / ${dist.bike} / ${dist.run}</div>
+        <div style="font-family:var(--font-body);font-size:14px;margin-bottom:12px">${dist.label} &middot; ${dist.sub||''}</div>
         ${obData.raceDate?`<div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;margin-bottom:4px">DATA</div><div style="font-family:var(--font-body);font-size:14px;margin-bottom:12px">${new Date(obData.raceDate+'T12:00:00').toLocaleDateString('pt-BR',{day:'numeric',month:'long',year:'numeric'})}</div>`:''}
         ${obData.goalTime?`<div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;margin-bottom:4px">META</div><div style="font-family:var(--font-body);font-size:14px">${obData.goalTime}</div>`:'<div style="font-family:var(--font-body);font-size:13px;color:var(--muted2)">Meta: completar a prova</div>'}
       </div>
@@ -6532,12 +6617,17 @@ function obFinish(){
   // Bloqueia sync do Supabase por 60s
   localStorage.setItem('mytri_ob_just_saved','1');
   setTimeout(()=>localStorage.removeItem('mytri_ob_just_saved'),60000);
+  // LIMPEZA TOTAL de estado antigo — novo plano começa do zero, sem treinos "concluídos"
+  // ou edições de um plano anterior vazando pra este.
+  ['nano_tri_v2','nano_extras_v1','nano_overrides_v1','nano_order_v1','nano_cal_cache','mytri_plan_cache'].forEach(k=>localStorage.removeItem(k));
+  sbSet('nano_tri_v2',{}).catch(()=>{});
+  sbSet('nano_extras_v1',{}).catch(()=>{});
+  sbSet('nano_overrides_v1',{}).catch(()=>{});
   // Salva localmente PRIMEIRO
   localStorage.setItem('mytri_profile',JSON.stringify(finalProfile));
   // Força Supabase com dados novos - apaga o antigo e salva o novo
   sbSet('mytri_profile', finalProfile).catch(()=>{});
-  // Regenerar plano com novos dados do onboarding — invalida cache antigo e grava o novo AGORA
-  localStorage.removeItem('mytri_plan_cache');
+  // Regenerar plano com novos dados do onboarding — grava o cache novo AGORA
   try{
     plan = generatePlan(finalProfile);
     localStorage.setItem('mytri_plan_cache', JSON.stringify({
