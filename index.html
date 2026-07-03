@@ -335,7 +335,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 #view-profile{display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:200;background:var(--bg);overflow-y:auto;padding-bottom:80px}
 #view-profile.active{display:block}
 .profile-hero{position:relative;background:var(--surface);padding:32px 20px 24px;text-align:center;border-bottom:1px solid var(--border)}
-.profile-avatar{width:88px;height:88px;border-radius:50%;object-fit:cover;border:3px solid var(--accent);margin-bottom:12px}
+.profile-avatar{width:96px;height:96px;border-radius:50%;object-fit:cover;border:4px solid var(--bg);margin-bottom:0;box-shadow:0 0 0 1px var(--border)}
 .profile-avatar-placeholder{width:88px;height:88px;border-radius:50%;background:var(--surface2);border:3px solid var(--border);display:inline-flex;align-items:center;justify-content:center;margin-bottom:12px;font-size:36px;color:var(--muted)}
 .profile-name{font-family:var(--font-display);font-size:26px;letter-spacing:1px;margin-bottom:4px}
 .profile-city{font-family:var(--font-body);font-size:13px;color:var(--muted2);margin-bottom:16px}
@@ -612,6 +612,31 @@ function buildSession(type, fase, week, zones, paces, lesoes, level) {
   const hasLesaoLombar = lesaoSet.has('lombar') || lesaoSet.has('piriforme');
   const hasLesaoOmbro  = lesaoSet.has('ombro');
 
+  // Escala de forca/core por nivel do atleta (iniciante < intermediario < avancado)
+  const lvl = (level==='advanced') ? 2 : (level==='intermediate' ? 1 : 0);
+  const LVL_LABEL = ['iniciante','intermediario','avancado'][lvl];
+  // series por nivel
+  const SET = [2,3,4][lvl];               // 2, 3 ou 4 series
+  const SET_CORE = [2,3,3][lvl];
+  // reps/tempo por nivel para exercicios comuns
+  const R = {
+    squat:   ['3x10','3x12','4x12'][lvl],
+    lunge:   ['3x8','3x10','3x12'][lvl],
+    rdl:     ['3x8','3x10','4x10'][lvl],
+    stepup:  ['3x8','3x10','3x12'][lvl],
+    legpress:['3x10','3x12','4x12'][lvl],
+    plank:   ['30s','45s','60s'][lvl],
+    plankL:  ['20s','30s','40s'][lvl],
+    hollow:  ['15s','20s','30s'][lvl],
+    twist:   ['3x16','3x20','3x24'][lvl],
+    legraise:['3x10','3x12','3x15'][lvl],
+    deadbug: ['3x8','3x10','3x12'][lvl],
+    birddog: ['3x8','3x10','3x12'][lvl],
+    pallof:  ['3x10','3x12','3x14'][lvl],
+    bridge:  ['3x12','3x15','3x20'][lvl],
+    clam:    ['3x12','3x15','3x20'][lvl],
+  };
+
   const sessions = {
     // ── CORRIDA ────────────────────────────────────────────────────────────────
     run_z2: {
@@ -829,11 +854,37 @@ function buildSession(type, fase, week, zones, paces, lesoes, level) {
       zone: '',
       fcAlvo: '',
       structure: [
-        { part: 'Ativação', dur: 10, zone: '', fc: '', desc: 'Glúteo bridge 3x15 / clamshell 3x15 / dead bug 3x10' },
-        { part: 'Força Principal', dur: 25, zone: '', fc: '', desc: hasLesaoJoelho ? 'Evite agachamento profundo: leg press parcial, split squat suave' : 'Agachamento 3x12 / Lunges 3x10 / Step up 3x10 / Core plank 3x45s' },
-        { part: 'Mobilidade Final', dur: 10, zone: '', fc: '', desc: 'Piriforme, quadril, tornozelo — áreas críticas para triathlon/corrida' },
+        { part: 'Ativacao', dur: 10, zone: '', fc: '', desc: `Gluteo bridge ${R.bridge} / clamshell ${R.clam} / dead bug ${R.deadbug} — prepara quadril e core` },
+        { part: `Forca Principal (nivel ${LVL_LABEL})`, dur: lvl===0?20:25, zone: '', fc: '', desc: hasLesaoJoelho ? `Evite agachamento profundo. Leg press parcial ${R.legpress} / split squat suave ${R.lunge} / cadeira extensora leve ${R.stepup}` : (hasLesaoLombar ? `Sem carga axial. Leg press ${R.legpress} / cadeira flexora ${R.stepup} / elevacao pelvica ${R.bridge} / afundo com halteres ${R.lunge}` : `Agachamento ${R.squat} / Afundo ${R.lunge} / Terra romeno ${R.rdl} / Step up ${R.stepup}`) },
+        { part: 'Mobilidade Final', dur: 10, zone: '', fc: '', desc: 'Piriforme, quadril, tornozelo — areas criticas para corrida e ciclismo' },
       ],
-      coach: 'Força é a base que protege de lesões. Prioridade no core e glúteos — os motores do atletismo.',
+      coach: `Forca e a base que protege de lesoes. Volume ajustado ao seu nivel (${LVL_LABEL}): ${SET} series por exercicio. Prioridade em gluteos, cadeia posterior e core. Carga moderada, execucao perfeita.`,
+    },
+
+    core: {
+      type: 'FORCE',
+      label: 'Core e Abdominal',
+      zone: '',
+      fcAlvo: '',
+      structure: [
+        { part: 'Ativacao', dur: 6, zone: '', fc: '', desc: `Dead bug ${R.deadbug} / bird dog ${R.birddog} cada lado — ativa o transverso do abdomen` },
+        { part: `Core Principal (nivel ${LVL_LABEL})`, dur: 18, zone: '', fc: '', desc: hasLesaoLombar ? `Prancha frontal ${SET_CORE}x${R.plank} / prancha lateral ${SET_CORE}x${R.plankL} cada lado / gluteo bridge ${R.bridge} (evite flexao de coluna sob carga)` : `Prancha ${SET_CORE}x${R.plank} / prancha lateral ${SET_CORE}x${R.plankL} / hollow hold ${SET_CORE}x${R.hollow} / russian twist ${R.twist} / elevacao de pernas ${R.legraise}` },
+        { part: 'Estabilidade', dur: 6, zone: '', fc: '', desc: `Pallof press ${R.pallof} cada lado / prancha com toque de ombro — anti-rotacao para postura de corrida` },
+      ],
+      coach: `Core forte = economia de movimento e protecao da lombar. Volume nivel ${LVL_LABEL}. E o elo que transfere forca entre pernas e tronco. Qualidade sobre quantidade.`,
+    },
+
+    mobility: {
+      type: 'FORCE',
+      label: 'Mobilidade e Alongamento',
+      zone: '',
+      fcAlvo: '',
+      structure: [
+        { part: 'Liberacao Miofascial', dur: 10, zone: '', fc: '', desc: hasLesaoJoelho ? 'Foam roller: IT band, quadriceps, panturrilha, gluteos — atencao redobrada no trato iliotibial' : 'Foam roller: quadriceps, IT band, panturrilha, gluteos, dorsais' },
+        { part: 'Alongamento Dinamico', dur: 12, zone: '', fc: '', desc: 'Cadeia posterior, flexores do quadril, piriforme, tornozelo. Segure 30s cada, respire fundo' },
+        { part: 'Mobilidade Articular', dur: 8, zone: '', fc: '', desc: hasLesaoOmbro ? 'Quadril e tornozelo. Ombro: rotacao suave sem carga, respeitando a lesao' : 'Quadril, tornozelo e ombro (importante para nado). Movimentos amplos e controlados' },
+      ],
+      coach: 'Mobilidade e o que mantem voce treinando sem parar. Recupera tecido, previne lesao e melhora amplitude. Dia leve mas essencial — nao pule.',
     },
   };
 
@@ -856,34 +907,34 @@ function getSessionMix(sport, raceDist, fase){
   // helper: monta lista priorizada [chave, secundária(s), força, longa, easy...]
   const MIX = {
     corrida: {
-      base:  isLong ? ['run_long','run_z2','strength','run_z2'] : ['run_z2','run_tempo','strength','run_z2'],
-      build: isShort ? ['run_intervals','run_tempo','run_z2','strength'] : ['run_tempo','run_long','run_z2','run_intervals'],
-      peak:  isShort ? ['run_intervals','run_race_pace','run_z2'] : ['run_race_pace','run_long','run_z2','run_intervals'],
-      taper: ['run_race_pace','run_z2','run_z2'],
+      base:  isLong ? ['run_long','run_z2','strength','core','run_z2','mobility'] : ['run_z2','run_tempo','strength','core','run_z2','mobility'],
+      build: isShort ? ['run_intervals','run_tempo','run_z2','strength','core'] : ['run_tempo','run_long','run_z2','run_intervals','strength','core'],
+      peak:  isShort ? ['run_intervals','run_race_pace','run_z2','core'] : ['run_race_pace','run_long','run_z2','run_intervals','core'],
+      taper: ['run_race_pace','run_z2','run_z2','mobility'],
     },
     ciclismo: {
-      base:  isLong ? ['bike_long','bike_z2','strength','bike_z2'] : ['bike_z2','bike_tempo','strength','bike_z2'],
-      build: isShort ? ['bike_intervals','bike_tempo','bike_z2','strength'] : ['bike_tempo','bike_long','bike_z2','bike_intervals'],
-      peak:  isShort ? ['bike_intervals','bike_tempo','bike_z2'] : ['bike_tempo','bike_long','bike_z2','bike_intervals'],
-      taper: ['bike_tempo','bike_z2','bike_z2'],
+      base:  isLong ? ['bike_long','bike_z2','strength','core','bike_z2','mobility'] : ['bike_z2','bike_tempo','strength','core','bike_z2','mobility'],
+      build: isShort ? ['bike_intervals','bike_tempo','bike_z2','strength','core'] : ['bike_tempo','bike_long','bike_z2','bike_intervals','strength','core'],
+      peak:  isShort ? ['bike_intervals','bike_tempo','bike_z2','core'] : ['bike_tempo','bike_long','bike_z2','bike_intervals','core'],
+      taper: ['bike_tempo','bike_z2','bike_z2','mobility'],
     },
     natacao: {
-      base:  ['swim_tech','swim_z2','swim_z2'],
-      build: isLong ? ['swim_z2','swim_open_water','swim_tech','swim_intervals'] : ['swim_intervals','swim_tech','swim_z2'],
-      peak:  isLong ? ['swim_open_water','swim_z2','swim_intervals'] : ['swim_intervals','swim_z2','swim_tech'],
-      taper: ['swim_tech','swim_z2'],
+      base:  ['swim_tech','swim_z2','swim_z2','strength','core','mobility'],
+      build: isLong ? ['swim_z2','swim_open_water','swim_tech','swim_intervals','strength','core'] : ['swim_intervals','swim_tech','swim_z2','strength','core'],
+      peak:  isLong ? ['swim_open_water','swim_z2','swim_intervals','core'] : ['swim_intervals','swim_z2','swim_tech','core'],
+      taper: ['swim_tech','swim_z2','mobility'],
     },
     triathlon: {
-      base:  ['swim_tech','bike_z2','run_z2','swim_z2','bike_long'],
-      build: ['swim_intervals','bike_tempo','run_tempo','bike_brick','run_long'],
-      peak:  ['bike_brick','swim_intervals','run_race_pace','bike_intervals','swim_z2'],
-      taper: ['swim_tech','bike_z2','run_z2','swim_z2'],
+      base:  ['swim_tech','bike_z2','run_z2','swim_z2','bike_long','strength','core','mobility'],
+      build: ['swim_intervals','bike_tempo','run_tempo','bike_brick','run_long','strength','core'],
+      peak:  ['bike_brick','swim_intervals','run_race_pace','bike_intervals','swim_z2','core'],
+      taper: ['swim_tech','bike_z2','run_z2','swim_z2','mobility'],
     },
     duathlon: {
-      base:  ['run_z2','bike_z2','run_z2','bike_long','strength'],
-      build: ['run_tempo','bike_tempo','bike_brick','run_long','bike_z2'],
-      peak:  ['bike_brick','run_intervals','bike_intervals','run_race_pace'],
-      taper: ['run_z2','bike_z2','run_z2'],
+      base:  ['run_z2','bike_z2','run_z2','bike_long','strength','core','mobility'],
+      build: ['run_tempo','bike_tempo','bike_brick','run_long','bike_z2','strength','core'],
+      peak:  ['bike_brick','run_intervals','bike_intervals','run_race_pace','core'],
+      taper: ['run_z2','bike_z2','run_z2','mobility'],
     },
   };
   const bySport = MIX[sport] || MIX.triathlon;
@@ -969,6 +1020,20 @@ function generatePlan(profile) {
   const paceBase = calcPaceAlvo(runLevel, runPace);
   const paces    = paceZones(paceBase);
 
+  // Fator de volume por DISTANCIA da prova — escala a duração das sessões específicas.
+  // Um super-sprint/5k tem sessões curtas; um Ironman/maratona tem sessões muito mais longas.
+  const distVolFactor = (()=>{
+    const d = profile.raceDist || '';
+    const F = {
+      'super-sprint':0.7,'sprint':0.85,'olimpico':1.1,'half':1.5,'full':2.0,
+      'corrida-5k':0.7,'corrida-10k':0.9,'corrida-15k':1.05,'corrida-meia':1.3,'corrida-maratona':1.8,'corrida-trail':1.4,
+      'bike-criterium':0.85,'bike-gran-fondo':1.4,'bike-mtb':1.2,'bike-century':1.9,
+      'swim-1500':0.85,'swim-3800':1.6,'swim-open':1.3,
+      'du-sprint':0.85,'du-standard':1.1,
+    };
+    return F[d] || 1.0;
+  })();
+
   // Distribuição de fases
   const faseDist = getFaseDistribution(totalWeeks);
   const planWeeks = [];
@@ -993,6 +1058,19 @@ function generatePlan(profile) {
         const sessData = buildSession(sessType, fase, w, zonesFC, paces, lesoes, runLevel);
         // Calcular duração total
         const durTotal = sessData.structure ? sessData.structure.reduce((a,b) => a + (b.dur||0), 0) : 45;
+        // Força/core/mobilidade têm duração fixa (não escalam com distância da prova);
+        // sessões específicas (nado/bike/corrida/brick) escalam pelo fator de distância.
+        const isSupport = sessData.type === 'FORCE';
+        // Cap realista de duração por sessão: sessões longas de fim de semana podem ser maiores,
+        // mas nada de treinos de 5h. Dias úteis (seg-qui) respeitam o teto de tempo do atleta.
+        const isLongType = /_long|_open_water|brick/.test(sessType);
+        const isWeekend = di>=5;
+        // teto por tempo semanal declarado (menos-3 / 3-4 / 6-8 / 8-12 / 12+)
+        const weeklyCapMap = {'menos-3':50,'3-4':70,'6-8':90,'8-12':120,'12-plus':150};
+        const wCap = weeklyCapMap[weeklyHrs] || 90;
+        const sessionCap = isLongType ? (isWeekend ? wCap*2.2 : wCap) : (isWeekend ? wCap*1.4 : wCap*0.75);
+        let durFinal = isSupport ? durTotal : Math.round(durTotal * distVolFactor);
+        if(!isSupport) durFinal = Math.min(durFinal, Math.round(sessionCap));
         return {
           d: di,
           sessions: [{
@@ -1001,7 +1079,7 @@ function generatePlan(profile) {
             _sessType: sessType,
             _fase: fase,
             _week: w,
-            _durMin: Math.round(durTotal * volMult),
+            _durMin: Math.round(durFinal * volMult),
             _isRecovery: isRecovery,
             _zonesFC: zonesFC,
             _zonesFTP: zonesFTP,
@@ -1091,11 +1169,18 @@ function initPlan() {
     try {
       const cache = JSON.parse(cacheRaw);
       const hash = prof.sport + prof.raceDist + prof.raceDate + prof.weeklyHours;
-      if (cache.profileHash === hash && cache.plan) {
+      const cachedOk = cache.plan && cache.plan[0] && Array.isArray(cache.plan[0].weeks)
+        && cache.plan[0].weeks.length > 0
+        && cache.plan[0].weeks[0].days
+        && Array.isArray(cache.plan[0].weeks[0].days)
+        && cache.plan[0].weeks[0].days[0]
+        && 'sessions' in cache.plan[0].weeks[0].days[0];
+      if (cache.profileHash === hash && cachedOk) {
         plan = cache.plan;
         return;
       }
-    } catch(e) {}
+      localStorage.removeItem('mytri_plan_cache');
+    } catch(e) { localStorage.removeItem('mytri_plan_cache'); }
   }
   loadPlanFromProfile();
 }
@@ -2438,6 +2523,10 @@ let semanaWeek;
 function renderSemana(){const {w}=getCurrentWeekAndDay();semanaWeek=w;_renderSemana(w);}
 function _renderSemana(w){
   semanaWeek=w;const container=document.getElementById('agenda-content')||document.getElementById('view-semana');container.innerHTML='';
+  if(!plan||!plan[0]||!plan[0].weeks||!plan[0].weeks.length){
+    try{ initPlan(); }catch(e){}
+    if(!plan||!plan[0]||!plan[0].weeks||!plan[0].weeks.length){ try{ loadPlanFromProfile(); }catch(e){} }
+  }
   let week=getWeek(w);
   if(!week){
     // clampar para uma semana válida do plano
@@ -2457,7 +2546,8 @@ function _renderSemana(w){
   const dateLabel=document.createElement('div');dateLabel.className='week-dates-label';dateLabel.textContent=getWeekDates(w);container.appendChild(dateLabel);
 
   const checks=loadChecks();
-  week.days.forEach((daySessions,di)=>{
+  for(let di=0;di<7;di++){
+    const daySessions=week.days[di]||[];
     const effective=getEffectiveSessions(w,di);
     const block=document.createElement('div');block.className='day-block';block.style.cursor='pointer';
     block.addEventListener('click',(e)=>{if(e.target.classList.contains('mini-check'))return;hojeWeek=w;hojeDay=di;switchTabHoje();});
@@ -2546,7 +2636,7 @@ function _renderSemana(w){
       });
     }
     block.appendChild(sessionsDiv);container.appendChild(block);
-  });
+  }
   let swimKm=0,bikeKm=0,runKm=0;
   for(let d=0;d<7;d++){getEffectiveSessions(w,d).forEach(sess=>{const v=sessionVolume(sess);swimKm+=v.swim;bikeKm+=v.bike;runKm+=v.run;});}
   const summary=document.createElement('div');summary.className='week-summary';
@@ -2637,6 +2727,131 @@ function renderFases(){
 function togglePhaseWeek(header){header.nextElementSibling.classList.toggle('open');}
 
 // ── STATS ──
+// ── REPORTS VIA IA ──
+function _reportModal(){
+  let m=document.getElementById('report-modal');
+  if(!m){
+    m=document.createElement('div');
+    m.id='report-modal';
+    m.style.cssText='display:none;position:fixed;inset:0;z-index:340;background:rgba(0,0,0,0.6);align-items:flex-end';
+    document.body.appendChild(m);
+  }
+  return m;
+}
+function closeReport(){ const m=document.getElementById('report-modal'); if(m) m.style.display='none'; }
+
+// Coleta metricas reais da janela (semana atual / ultimas 4 semanas / ciclo todo)
+function _reportData(type){
+  const prof=getMytriProfile();
+  const checks=loadChecks();
+  const {w:curW}=getCurrentWeekAndDay();
+  const totalW=planWeekCount()||16;
+  const daysToRace=countdownDays();
+  const distLabels={'super-sprint':'Super Sprint','sprint':'Sprint','olimpico':'Olimpico','half':'Half','full':'Ironman','corrida-5k':'5km','corrida-10k':'10km','corrida-meia':'Meia Maratona','corrida-maratona':'Maratona'};
+
+  function windowStats(wStart,wEnd){
+    let done=0,total=0,swimKm=0,bikeKm=0,runKm=0,strengthDone=0;
+    for(let w=Math.max(1,wStart);w<=Math.min(totalW,wEnd);w++){
+      for(let d=0;d<7;d++){
+        getEffectiveSessions(w,d).forEach(sess=>{
+          if(sess.type===REST)return;
+          total++;
+          const key=sess._origin==='plan'?ck(w,d,sess._si):`ex_w${w}_d${d}_i${sess._idx}`;
+          if(checks[key]){
+            done++;
+            const v=sessionVolume(sess);
+            swimKm+=v.swim;bikeKm+=v.bike;runKm+=v.run;
+            if(sess.type===GYM)strengthDone++;
+          }
+        });
+      }
+    }
+    return {done,total,pct:Math.round(done/Math.max(total,1)*100),
+      swimKm:+swimKm.toFixed(1),bikeKm:+bikeKm.toFixed(1),runKm:+runKm.toFixed(1),strengthDone};
+  }
+
+  const base={name:prof.name||'atleta',sport:prof.sport||'triathlon',
+    raceName:prof.raceName||'sua prova',raceDist:distLabels[prof.raceDist]||prof.raceDist||'',
+    daysToRace,phase:(getAllWeeks().find(wk=>wk.w===curW)||{}).faseLabel||''};
+
+  if(type==='weekly'){
+    const st=windowStats(curW,curW);
+    return {...base,...st,week:curW,totalWeeks:totalW};
+  }
+  if(type==='monthly'){
+    const st=windowStats(curW-3,curW);
+    const trend=[];
+    for(let w=Math.max(1,curW-3);w<=curW;w++){ trend.push(windowStats(w,w).pct); }
+    return {...base,...st,weeklyTrend:trend};
+  }
+  if(type==='race'){
+    const st=windowStats(1,totalW);
+    return {...base,...st,goalTime:prof.goalTime||'',actualTime:'',notes:''};
+  }
+  return base;
+}
+
+async function openReport(type){
+  const m=_reportModal();
+  const titles={weekly:'REPORT SEMANAL',monthly:'REPORT MENSAL',race:'RETROSPECTIVA POS-PROVA'};
+  m.innerHTML=`
+    <div style="background:var(--surface);border-top:1px solid var(--border);border-radius:16px 16px 0 0;width:100%;max-height:80vh;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 0 40px">
+      <div style="position:sticky;top:0;background:var(--surface);padding:20px 22px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+        <div style="font-family:var(--font-ui);font-size:12px;color:var(--accent);letter-spacing:2px">${titles[type]||'REPORT'}</div>
+        <button onclick="closeReport()" style="background:none;border:none;color:var(--muted2);font-size:26px;cursor:pointer;line-height:1;padding:0 4px">&times;</button>
+      </div>
+      <div id="report-body" style="padding:22px">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:14px;padding:24px 0">
+          <div class="plan-loading-ring"></div>
+          <div style="font-family:var(--font-body);font-size:13px;color:var(--muted2);text-align:center">Analisando seus dados<br>e gerando o report...</div>
+        </div>
+      </div>
+    </div>`;
+  m.style.display='flex';
+  m.onclick=(e)=>{ if(e.target===m) closeReport(); };
+
+  const data=_reportData(type);
+  const body=document.getElementById('report-body');
+
+  // Aviso se ha poucos dados
+  if((data.total||0)===0){
+    body.innerHTML=`<div style="font-family:var(--font-body);font-size:13px;color:var(--muted2);text-align:center;padding:20px;line-height:1.6">Ainda nao ha treinos suficientes nesta janela para gerar um report.<br>Marque alguns treinos como concluidos e volte aqui.</div>`;
+    return;
+  }
+
+  try{
+    const resp=await fetch('/.netlify/functions/reports',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({type,data})
+    });
+    const j=await resp.json();
+    const text=j.text||'';
+    if(text){
+      // metricas resumidas no topo + texto da IA
+      body.innerHTML=`
+        <div style="display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap">
+          <div style="flex:1;min-width:80px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center">
+            <div style="font-family:var(--font-display);font-size:22px;color:var(--accent)">${data.pct||0}%</div>
+            <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:2px">ADERENCIA</div>
+          </div>
+          <div style="flex:1;min-width:80px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center">
+            <div style="font-family:var(--font-display);font-size:22px;color:var(--text)">${data.done||0}/${data.total||0}</div>
+            <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:2px">SESSOES</div>
+          </div>
+          <div style="flex:1;min-width:80px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center">
+            <div style="font-family:var(--font-display);font-size:22px;color:var(--text)">${((data.swimKm||0)+(data.bikeKm||0)+(data.runKm||0)).toFixed(0)}</div>
+            <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:2px">KM TOTAL</div>
+          </div>
+        </div>
+        <div style="font-family:var(--font-body);font-size:14px;color:var(--text);line-height:1.6">${text.replace(/\n\n/g,'</p><p style="margin-top:12px">').replace(/\n/g,' ')}</div>`;
+    }else{
+      body.innerHTML=`<div style="font-family:var(--font-body);font-size:13px;color:var(--muted2);text-align:center;padding:20px">Nao foi possivel gerar o report agora. Tente novamente em instantes.</div>`;
+    }
+  }catch(e){
+    body.innerHTML=`<div style="font-family:var(--font-body);font-size:13px;color:var(--muted2);text-align:center;padding:20px">Erro de conexao ao gerar o report. Verifique sua internet e tente de novo.</div>`;
+  }
+}
+
 function renderStats(){
   const container=document.getElementById('view-stats');container.innerHTML='';
   const checks=loadChecks();const days=countdownDays();const vol=getVolume();
@@ -2870,6 +3085,19 @@ function renderStats(){
 
   container.appendChild(cd);container.appendChild(distCard);container.appendChild(progressDiv);container.appendChild(volDiv);container.appendChild(zoneDiv);container.appendChild(muscDiv);
 
+  // ── REPORTS VIA IA ──
+  const repDiv=document.createElement('div');
+  repDiv.style.cssText='background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--accent);padding:16px;margin-bottom:8px';
+  repDiv.innerHTML=`
+    <div style="font-family:var(--font-ui);font-size:9px;font-weight:700;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:4px">REPORTS INTELIGENTES</div>
+    <div style="font-family:var(--font-body);font-size:12px;color:var(--muted2);margin-bottom:12px;line-height:1.5">Analise do seu treino gerada por IA a partir dos seus dados reais de aderencia e volume.</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button onclick="openReport('weekly')" style="flex:1;min-width:90px;background:rgba(0,230,118,0.08);border:1px solid rgba(0,230,118,0.3);color:var(--accent);font-family:var(--font-ui);font-size:10px;font-weight:700;letter-spacing:1px;padding:12px 8px;border-radius:6px;cursor:pointer">SEMANAL</button>
+      <button onclick="openReport('monthly')" style="flex:1;min-width:90px;background:rgba(0,230,118,0.08);border:1px solid rgba(0,230,118,0.3);color:var(--accent);font-family:var(--font-ui);font-size:10px;font-weight:700;letter-spacing:1px;padding:12px 8px;border-radius:6px;cursor:pointer">MENSAL</button>
+      <button onclick="openReport('race')" style="flex:1;min-width:90px;background:rgba(0,230,118,0.08);border:1px solid rgba(0,230,118,0.3);color:var(--accent);font-family:var(--font-ui);font-size:10px;font-weight:700;letter-spacing:1px;padding:12px 8px;border-radius:6px;cursor:pointer">POS-PROVA</button>
+    </div>`;
+  container.appendChild(repDiv);
+
   // ── STRAVA CARD ──
   let stravaTokens=null;
   try{stravaTokens=JSON.parse(localStorage.getItem('strava_tokens'));}catch(e){}
@@ -3033,7 +3261,7 @@ function calcCycleVolume(){
   const checks=loadChecks();
   let swim=0,bike=0,run=0,sessoesDone=0,sessoesTotal=0;
   getAllWeeks().forEach(week=>{
-    week.days.forEach((day,di)=>{
+    for(let di=0;di<7;di++){
       getEffectiveSessions(week.w,di).forEach(sess=>{
         if(sess.type===REST)return;
         sessoesTotal++;
@@ -3046,7 +3274,7 @@ function calcCycleVolume(){
           swim+=v.swim;bike+=v.bike;run+=v.run;
         }
       });
-    });
+    }
   });
   return{swim,bike,run,sessoesDone,sessoesTotal};
 }
@@ -3471,39 +3699,41 @@ async function generateCoaching(){
     });
   }
 
-  // Análise local
-  const daysLeft=16-w;
-  const phase=w<=4?'Base':w<=8?'Construção I':w<=12?'Construção II':'Taper';
+  // Dados REAIS do perfil/plano (nao mais hardcoded para triathlon/Guaruja)
+  const prof=getMytriProfile();
+  const totalW=planWeekCount()||16;
+  const daysLeft=Math.max(0,totalW-w);
+  const rawWeek=getAllWeeks().find(wk=>wk.w===w);
+  const phase=(rawWeek&&rawWeek.faseLabel)?rawWeek.faseLabel:(w<=Math.ceil(totalW*0.35)?'Base':w<=Math.ceil(totalW*0.7)?'Construção':w<=Math.ceil(totalW*0.9)?'Pico':'Afunilamento');
+  const raceName=prof.raceName||(prof.city?('sua prova em '+prof.city):'sua prova');
   const swimPct=swimTotal?Math.round(swimDone/swimTotal*100):0;
   const bikePct=bikeTotal?Math.round(bikeDone/bikeTotal*100):0;
   const runPct=runTotal?Math.round(runDone/runTotal*100):0;
 
+  // Quais modalidades existem de fato neste plano
+  const mods=[];
+  if(swimTotal)mods.push({n:'Natação',pct:swimPct,done:swimDone,total:swimTotal});
+  if(bikeTotal)mods.push({n:'Bike',pct:bikePct,done:bikeDone,total:bikeTotal});
+  if(runTotal)mods.push({n:'Corrida',pct:runPct,done:runDone,total:runTotal});
+
   let pontoForte='',pontoAtencao='',dica='';
+  if(mods.length){
+    const forte=mods.reduce((a,b)=>b.pct>a.pct?b:a);
+    const fraco=mods.reduce((a,b)=>b.pct<a.pct?b:a);
+    pontoForte=`${forte.n} em dia`;
+    if(fraco.pct<forte.pct||fraco.done<fraco.total)pontoAtencao=`${fraco.n} precisa de atenção (${fraco.done}/${fraco.total} sessões)`;
+    else pontoAtencao='Tudo em dia esta semana';
+  }else{ pontoForte='Sem sessões planejadas'; pontoAtencao='Adicione treinos à sua semana'; }
 
-  // Ponto forte
-  const maxPct=Math.max(swimPct,bikePct,runPct);
-  if(maxPct===runPct&&runTotal)pontoForte='Corrida em dia';
-  else if(maxPct===bikePct&&bikeTotal)pontoForte='Bike consistente';
-  else if(maxPct===swimPct&&swimTotal)pontoForte='Natação em dia';
-  else pontoForte='Musculação em dia';
-
-  // Ponto de atenção
-  const minPct=Math.min(
-    swimTotal?swimPct:100,
-    bikeTotal?bikePct:100,
-    runTotal?runPct:100
-  );
-  if(minPct===swimPct&&swimTotal)pontoAtencao=`Natação precisa de atenção (${swimDone}/${swimTotal} sessões)`;
-  else if(minPct===bikePct&&bikeTotal)pontoAtencao=`Bike abaixo do esperado (${bikeDone}/${bikeTotal} sessões)`;
-  else pontoAtencao=`Corrida abaixo do esperado (${runDone}/${runTotal} sessões)`;
-
-  // Dica por fase
-  if(phase==='Base')dica='Mantenha o ritmo em Z2. Consistência agora vale mais que intensidade.';
-  else if(phase==='Construção I')dica='Aumente gradualmente o volume de natação. É seu ponto fraco — cada sessão conta.';
-  else if(phase==='Construção II')dica='Os simulados desta fase são cruciais. Execute em ritmo de prova real.';
+  // Dica pela fase real
+  const pl=phase.toLowerCase();
+  if(pl.includes('base'))dica='Mantenha o ritmo em Z2. Consistência agora vale mais que intensidade.';
+  else if(pl.includes('constru')||pl.includes('build'))dica='Aumente o volume gradualmente. Foque no seu ponto mais fraco — cada sessão conta.';
+  else if(pl.includes('pico')||pl.includes('peak'))dica='Os treinos-chave desta fase são cruciais. Execute em ritmo de prova.';
   else dica='Reduza o volume mas mantenha a intensidade. Confie no trabalho feito.';
 
-  const text=`Semana ${w} de 16 — ${phase}. ${pct}% do plano total concluído, faltam ${daysLeft} semanas para Guarujá. ${pontoForte} esta semana. Atenção: ${pontoAtencao}. ${dica}`;
+  const faltamTxt = daysLeft>0 ? `faltam ${daysLeft} ${daysLeft===1?'semana':'semanas'} para ${raceName}` : `é a semana de ${raceName}`;
+  const text=`Semana ${w} de ${totalW} — ${phase}. ${pct}% do plano concluído, ${faltamTxt}. ${pontoForte} esta semana. Atenção: ${pontoAtencao}. ${dica}`;
 
   el.textContent=text;
   localStorage.setItem('nano_coach_cache',JSON.stringify({text,ts:Date.now(),week:w}));
@@ -4497,7 +4727,7 @@ function renderClubMyProfile(c){
 
       ${p.bio?`<div style="font-family:var(--font-body);font-size:13px;color:var(--muted2);line-height:1.6;margin-bottom:12px">${p.bio}</div>`:''}
       ${p.nextRace?`<div style="background:rgba(26,108,240,0.1);border:1px solid rgba(26,108,240,0.25);border-radius:8px;padding:10px 14px;margin-bottom:12px"><div style="font-family:var(--font-ui);font-size:8px;color:#1a6cf0;letter-spacing:1px">PROXIMA PROVA</div><div style="font-family:var(--font-body);font-size:13px;color:var(--text);margin-top:2px">${p.nextRace}</div></div>`:''}
-      ${p.igHandle?`<a href="https://instagram.com/${p.igHandle}" target="_blank" style="display:flex;align-items:center;gap:8px;text-decoration:none;margin-bottom:16px"><div style="width:28px;height:28px;border-radius:7px;background:linear-gradient(45deg,#f09433,#dc2743,#bc1888);display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.332.014 7.052.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.058-1.28.072-1.689.072-4.948 0-3.259-.014-3.667-.072-4.948-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0z"/></svg></div><span style="font-family:var(--font-body);font-size:13px;color:#E1306C">@${p.igHandle}</span></a>`:''}
+      ${p.igHandle?`<a href="https://instagram.com/${p.igHandle}" target="_blank" style="display:flex;align-items:center;gap:8px;text-decoration:none;margin-bottom:16px"><div style="width:28px;height:28px;border-radius:7px;background:linear-gradient(45deg,#f09433,#dc2743,#bc1888);display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.332.014 7.052.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.058-1.28.072-1.689.072-4.948 0-3.259-.014-3.667-.072-4.948-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg></div><span style="font-family:var(--font-body);font-size:13px;color:#E1306C">@${p.igHandle}</span></a>`:''}
 
       <button onclick="clubState.step='swipe';saveClubState();renderClub()" style="width:100%;padding:14px;background:var(--accent);color:#000;font-family:var(--font-ui);font-size:13px;font-weight:700;letter-spacing:2px;border:none;cursor:pointer;border-radius:6px">VOLTAR AOS CARDS</button>
     </div>`;
@@ -4902,7 +5132,7 @@ function showClubProfile(id){
       ${myShareIG&&p.igHandle?`
       <a href="https://instagram.com/${p.igHandle}" target="_blank" style="display:flex;align-items:center;gap:10px;background:linear-gradient(45deg,rgba(240,148,51,0.1),rgba(188,24,136,0.1));border:1px solid rgba(225,48,108,0.3);border-radius:8px;padding:12px 16px;margin-bottom:12px;text-decoration:none">
         <div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888);display:flex;align-items:center;justify-content:center;flex-shrink:0">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.332.014 7.052.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.058-1.28.072-1.689.072-4.948 0-3.259-.014-3.667-.072-4.948-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0z"/></svg>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.332.014 7.052.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.058-1.28.072-1.689.072-4.948 0-3.259-.014-3.667-.072-4.948-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
         </div>
         <div>
           <div style="font-family:var(--font-ui);font-size:8px;color:#E1306C;letter-spacing:1px">INSTAGRAM</div>
@@ -5163,6 +5393,7 @@ async function resetCity(){
     localStorage.removeItem('mytri_gps_city');
     const saved=JSON.parse(localStorage.getItem('mytri_profile')||'{}');
     delete saved.city;
+    saved.cityLocked=false;
     localStorage.setItem('mytri_profile',JSON.stringify(saved));
     await sbSet('mytri_profile',saved);
   }catch(e){}
@@ -5172,6 +5403,9 @@ async function resetCity(){
 }
 
 function detectGPSLocation(force){
+  if(!force){
+    try{ const p=JSON.parse(localStorage.getItem('mytri_profile')||'{}'); if(p.cityLocked&&p.city) return; }catch(e){}
+  }
   if(!navigator.geolocation){
     const el=document.getElementById('profile-city-display');
     if(el)el.textContent='GPS indisponivel';
@@ -5295,7 +5529,7 @@ function renderProfile(){
   const athlete=stravaTokens.athlete||{};
   const photoEl=prof.photo?`<img src="${prof.photo}" class="profile-avatar">`:
     `<div class="profile-avatar-placeholder">?</div>`;
-  // Foto secundária: aparece como um círculo maior ATRÁS do avatar redondo (estilo moldura)
+  // Foto secundária: preenche TODO o box do cabecalho (fundo), avatar por cima
   const secondary = prof.coverPhoto || (prof.photos && prof.photos[0]) || '';
 
   vp.innerHTML=`
@@ -5306,22 +5540,24 @@ function renderProfile(){
     </div>
     <input type="file" id="profile-cover-input" accept="image/*" style="display:none" onchange="handleCoverPhoto(event)">
 
-    <div class="profile-hero" style="padding-top:36px">
-      <div style="position:relative;display:inline-block;line-height:0">
-        <!-- Foto secundária: círculo maior atrás do avatar -->
-        <div onclick="changeCoverPhoto()" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:148px;height:148px;border-radius:50%;overflow:hidden;cursor:pointer;${secondary?`background:url('${secondary}') center/cover`:'background:linear-gradient(135deg,#1a6cf0,#0d3a8a)'};box-shadow:0 4px 20px rgba(0,0,0,0.4)"></div>
-        <!-- Avatar redondo na frente -->
-        <div onclick="changeProfilePhoto()" style="position:relative;cursor:pointer;z-index:1;line-height:0">
-          ${photoEl}
-          <div style="position:absolute;bottom:14px;right:2px;background:var(--accent);border:2px solid var(--bg);border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-size:14px;z-index:2">+</div>
-        </div>
+    <div class="profile-hero" style="padding:0;text-align:left;border-bottom:1px solid var(--border)">
+      <!-- Capa retangular (foto secundaria) -->
+      <div onclick="changeCoverPhoto()" style="position:relative;height:130px;cursor:pointer;${secondary?`background:url('${secondary}') center/cover`:'background:linear-gradient(135deg,#12161c,#1a2530)'}">
+        ${secondary?`<div style="position:absolute;top:10px;right:12px;background:rgba(0,0,0,0.55);border-radius:4px;padding:5px 10px;font-family:var(--font-ui);font-size:9px;color:#fff;letter-spacing:.5px">EDITAR CAPA</div>`:`<div style="position:absolute;top:10px;right:12px;font-family:var(--font-ui);font-size:9px;color:rgba(255,255,255,0.6);letter-spacing:.5px">+ FOTO DE CAPA</div>`}
       </div>
-      <input type="file" id="profile-photo-input" accept="image/*" style="display:none" onchange="handleProfilePhoto(event)">
-      <input type="file" id="profile-extra-photo-input" accept="image/*" style="display:none" onchange="handleExtraPhoto(event)">
-      <div class="profile-name" style="margin-top:14px">${prof.name||'Sem nome'}</div>
-      <div class="profile-city" id="profile-city-display">${prof.city||'Detectando localizacao...'}</div>
-      <div onclick="resetCity()" style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;cursor:pointer;margin-top:2px;text-decoration:underline">ATUALIZAR LOCALIZACAO</div>
-      ${athlete.firstname?`<div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:4px">STRAVA: ${athlete.firstname} ${athlete.lastname||''}</div>`:''}
+      <!-- Avatar sobreposto no canto inferior esquerdo (estilo LinkedIn) -->
+      <div style="padding:0 20px 20px;position:relative">
+        <div onclick="changeProfilePhoto()" style="display:inline-block;cursor:pointer;position:relative;margin-top:-44px">
+          ${photoEl}
+          <div style="position:absolute;bottom:2px;right:0;background:var(--accent);border:2px solid var(--bg);border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-size:14px;z-index:2">+</div>
+        </div>
+        <input type="file" id="profile-photo-input" accept="image/*" style="display:none" onchange="handleProfilePhoto(event)">
+        <input type="file" id="profile-extra-photo-input" accept="image/*" style="display:none" onchange="handleExtraPhoto(event)">
+        <div class="profile-name" style="text-align:left;margin-top:10px">${prof.name||'Sem nome'}</div>
+        <div class="profile-city" id="profile-city-display" style="text-align:left">${prof.city||'Detectando localizacao...'}</div>
+        <div onclick="resetCity()" style="font-family:var(--font-ui);font-size:9px;color:var(--muted2);letter-spacing:1px;cursor:pointer;margin-top:2px;text-decoration:underline">ATUALIZAR LOCALIZACAO</div>
+        ${athlete.firstname?`<div style="font-family:var(--font-ui);font-size:10px;color:var(--muted2);letter-spacing:1px;margin-top:4px">STRAVA: ${athlete.firstname} ${athlete.lastname||''}</div>`:''}
+      </div>
     </div>
 
     ${(()=>{
@@ -6386,11 +6622,37 @@ function renderObFitness(c){
           ${[{v:'M',l:'Masculino'},{v:'F',l:'Feminino'},{v:'',l:'Prefer nao dizer'}].map(s=>`<button onclick="obData.sexo='${s.v}';renderOnboarding()" style="flex:1;padding:12px 8px;background:${obData.sexo===s.v?'rgba(0,230,118,.1)':'var(--surface)'};border:1.5px solid ${obData.sexo===s.v?'var(--accent)':'var(--border)'};color:${obData.sexo===s.v?'var(--accent)':'var(--muted2)'};font-family:var(--font-ui);font-size:10px;letter-spacing:.5px;border-radius:4px;cursor:pointer">${s.l}</button>`).join('')}
         </div>
       </div>
+
+      <div style="margin-top:16px">
+        <div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;margin-bottom:6px">CEP (define sua cidade no perfil e no clube)</div>
+        <input id="ob-cep" type="text" inputmode="numeric" maxlength="9" placeholder="00000-000" value="${obData.cep||''}" oninput="obFormatCep(this)" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:12px;border-radius:4px">
+        <div id="ob-cep-status" style="font-family:var(--font-body);font-size:11px;color:var(--muted);margin-top:6px">${obData.cepCity?('Cidade: '+obData.cepCity):'Sua localizacao ficara fixa neste CEP'}</div>
+      </div>
     </div>
     <div style="padding:16px 24px 24px">
       <button class="ob-btn" onclick="obSaveFitness();obNext()">CONTINUAR</button>
       <button class="ob-btn-skip" onclick="obNext()">Pular</button>
     </div>`;
+}
+
+function obFormatCep(input){
+  let v=input.value.replace(/\D/g,'').slice(0,8);
+  if(v.length>5)v=v.slice(0,5)+'-'+v.slice(5);
+  input.value=v;
+  obData.cep=v;
+  const status=document.getElementById('ob-cep-status');
+  if(v.replace(/\D/g,'').length===8){
+    if(status)status.textContent='Buscando cidade...';
+    fetch('https://viacep.com.br/ws/'+v.replace(/\D/g,'')+'/json/')
+      .then(r=>r.json())
+      .then(d=>{
+        if(d.erro){ if(status)status.textContent='CEP nao encontrado'; return; }
+        const cidade=d.localidade&&d.uf?(d.localidade+', '+d.uf):(d.localidade||'');
+        obData.cepCity=cidade; obData.cepBairro=d.bairro||'';
+        if(status)status.textContent='Cidade: '+cidade;
+      })
+      .catch(()=>{ if(status)status.textContent='Erro ao buscar CEP'; });
+  }
 }
 
 function obSaveFitness(){
@@ -6560,7 +6822,7 @@ function renderObStrava(c){
         ${igConnected?`
           <div style="display:flex;align-items:center;gap:16px;padding:20px;background:rgba(225,48,108,.1);border:2px solid #E1306C;border-radius:8px">
             <div style="width:52px;height:52px;border-radius:50%;background:linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888);display:flex;align-items:center;justify-content:center">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="white"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.332.014 7.052.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.058-1.28.072-1.689.072-4.948 0-3.259-.014-3.667-.072-4.948-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0z"/></svg>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="white"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.332.014 7.052.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.058-1.28.072-1.689.072-4.948 0-3.259-.014-3.667-.072-4.948-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
             </div>
             <div>
               <div style="font-family:var(--font-ui);font-size:12px;color:#E1306C;letter-spacing:1px;margin-bottom:4px">INSTAGRAM CONECTADO</div>
@@ -6569,7 +6831,7 @@ function renderObStrava(c){
           </div>
         `:`
           <button onclick="obConnectInstagram()" style="display:flex;align-items:center;justify-content:center;gap:10px;background:linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888);color:#fff;border:none;padding:16px;border-radius:8px;font-family:var(--font-ui);font-size:13px;font-weight:700;letter-spacing:1px;cursor:pointer">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.332.014 7.052.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.058-1.28.072-1.689.072-4.948 0-3.259-.014-3.667-.072-4.948-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0z"/></svg>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.332.014 7.052.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.058-1.28.072-1.689.072-4.948 0-3.259-.014-3.667-.072-4.948-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
             CONECTAR INSTAGRAM
           </button>
         `}
@@ -6587,7 +6849,7 @@ function obConnectInstagram(){
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;width:100%;max-width:340px">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
         <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888);display:flex;align-items:center;justify-content:center">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.332.014 7.052.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.058-1.28.072-1.689.072-4.948 0-3.259-.014-3.667-.072-4.948-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0z"/></svg>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.332.014 7.052.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.058-1.28.072-1.689.072-4.948 0-3.259-.014-3.667-.072-4.948-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
         </div>
         <div style="font-family:var(--font-display);font-size:18px;letter-spacing:.5px">CONECTAR INSTAGRAM</div>
       </div>
@@ -6671,7 +6933,9 @@ function obFinish(){
     weight:obData.weight||prof.weight||athlete.weight||'',
     altura:obData.altura||prof.altura||'',
     sexo:obData.sexo||prof.sexo||'',
-    city:prof.city||localStorage.getItem('mytri_gps_city')||'',
+    city:obData.cepCity||prof.city||localStorage.getItem('mytri_gps_city')||'',
+    cep:obData.cep||prof.cep||'',
+    cityLocked:!!obData.cepCity,
     photo:prof.photo||athlete.profile||athlete.profile_medium||'',
     pace:obData.runPace||prof.pace||'',
     ftp:obData.ftp||prof.ftp||'',
