@@ -2459,30 +2459,182 @@ function changeHojeDay(dir){
   if(hojeDay>6){hojeWeek=Math.min(16,hojeWeek+1);hojeDay=0;}
 }
 
+// ── MODAL DE CONCLUSAO DE TREINO (dados reais/manuais + report pos-execucao) ──
+function _completeModalEl(){
+  let m=document.getElementById('complete-modal');
+  if(!m){
+    m=document.createElement('div');
+    m.id='complete-modal';
+    m.style.cssText='display:none;position:fixed;inset:0;z-index:350;background:rgba(0,0,0,0.6);align-items:flex-end';
+    document.body.appendChild(m);
+  }
+  return m;
+}
+function closeCompleteSession(){ const m=document.getElementById('complete-modal'); if(m) m.style.display='none'; }
+
+// Procura atividade do Strava que ja bateu com este treino (via override gravado no sync)
+function _findStravaMatch(w,d,si){
+  try{
+    const ov=getOverride(w,d,si);
+    if(ov && (ov.stravaData||ov.stravaDist||ov.stravaZone)) return ov;
+  }catch(e){}
+  return null;
+}
+
+function openCompleteSession(w,d,si,key){
+  const sessions=getEffectiveSessions(w,d);
+  const sess=sessions.find(s=>s._origin==='plan'&&s._si===si)||sessions[si]||sessions[0];
+  if(!sess){ _commitComplete(key); return; }
+
+  const typeLabels={swim:'NATACAO',bike:'BIKE',run:'CORRIDA',brick:'TIJOLO',gym:'FORCA',rest:'DESCANSO'};
+  const color=(typeof colorMap!=='undefined'&&colorMap[sess.type])||'#00e676';
+  const strava=_findStravaMatch(w,d,si);
+  const m=_completeModalEl();
+
+  // Campos por modalidade
+  const isSwim=sess.type==='swim';
+  const distLabel=isSwim?'Distancia (m)':'Distancia (km)';
+  const paceLabel=sess.type==='bike'?'Velocidade media (km/h)':'Pace medio (min/km)';
+
+  const zoneOpts=['Z1','Z2','Z3','Z4'].map(z=>`<button type="button" class="cmp-zone" data-zone="${z}" onclick="_cmpSelZone(this,'${z}')" style="flex:1;padding:10px 4px;background:var(--surface);border:1.5px solid var(--border);color:var(--muted2);font-family:var(--font-ui);font-size:11px;font-weight:700;border-radius:6px;cursor:pointer">${z}</button>`).join('');
+
+  const senseOpts=[['Facil','😌'],['Moderado','💪'],['Forte','🔥'],['Maximo','⚡']].map(([t])=>`<button type="button" class="cmp-sense" data-sense="${t}" onclick="_cmpSelSense(this,'${t}')" style="flex:1;padding:10px 4px;background:var(--surface);border:1.5px solid var(--border);color:var(--muted2);font-family:var(--font-ui);font-size:10px;font-weight:700;border-radius:6px;cursor:pointer">${t}</button>`).join('');
+
+  const stravaBanner = strava ? `
+    <div style="background:rgba(252,76,2,0.1);border:1px solid rgba(252,76,2,0.35);border-radius:10px;padding:12px 14px;margin-bottom:16px">
+      <div style="font-family:var(--font-ui);font-size:9px;color:#fc4c02;letter-spacing:1.5px;margin-bottom:4px">DADOS DO STRAVA ENCONTRADOS</div>
+      <div style="font-family:var(--font-body);font-size:13px;color:var(--text)">${strava.stravaData||strava.stravaDist||''}</div>
+      <div style="font-family:var(--font-body);font-size:11px;color:var(--muted2);margin-top:6px">Estes dados reais serao usados no treino. Voce pode ajustar abaixo se quiser.</div>
+    </div>` : `
+    <div style="font-family:var(--font-body);font-size:12px;color:var(--muted2);margin-bottom:16px;line-height:1.5">Preencha os dados do treino que voce realizou. Eles substituem os valores sugeridos e alimentam seu report.</div>`;
+
+  // Pre-preenche do strava quando houver
+  const pv=(k)=>{ if(!strava||!strava.stravaData) return ''; return ''; };
+
+  m.innerHTML=`
+    <div style="background:var(--surface);border-top:1px solid var(--border);border-radius:16px 16px 0 0;width:100%;max-height:88vh;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 0 40px">
+      <div style="position:sticky;top:0;background:var(--surface);padding:20px 22px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;z-index:1">
+        <div>
+          <div style="font-family:var(--font-ui);font-size:10px;color:${color};letter-spacing:2px;margin-bottom:4px">CONCLUIR ${typeLabels[sess.type]||''}</div>
+          <div style="font-family:var(--font-display);font-size:22px;color:var(--text);line-height:1">${sess.text||''}</div>
+        </div>
+        <button onclick="closeCompleteSession()" style="background:none;border:none;color:var(--muted2);font-size:26px;cursor:pointer;line-height:1;padding:0 4px">&times;</button>
+      </div>
+      <div style="padding:18px 22px 0">
+        ${stravaBanner}
+        <div style="display:flex;gap:10px;margin-bottom:14px">
+          <div style="flex:1"><div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:5px">TEMPO (min)</div><input id="cmp-time" type="number" inputmode="numeric" placeholder="45" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:11px;border-radius:6px"></div>
+          <div style="flex:1"><div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:5px">${distLabel.toUpperCase()}</div><input id="cmp-dist" type="number" inputmode="decimal" step="0.1" placeholder="${isSwim?'1000':'10'}" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:11px;border-radius:6px"></div>
+        </div>
+        <div style="display:flex;gap:10px;margin-bottom:14px">
+          <div style="flex:1"><div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:5px">${paceLabel.toUpperCase()}</div><input id="cmp-pace" type="text" placeholder="${sess.type==='bike'?'30':'5:30'}" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:11px;border-radius:6px"></div>
+          <div style="flex:1"><div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:5px">FC MEDIA (bpm)</div><input id="cmp-hr" type="number" inputmode="numeric" placeholder="135" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:11px;border-radius:6px"></div>
+        </div>
+        <div style="margin-bottom:14px"><div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:5px">FC MAX (bpm) — opcional</div><input id="cmp-hrmax" type="number" inputmode="numeric" placeholder="165" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:11px;border-radius:6px"></div>
+        <div style="margin-bottom:14px">
+          <div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:6px">ZONA FC PREDOMINANTE</div>
+          <div style="display:flex;gap:8px">${zoneOpts}</div>
+        </div>
+        <div style="margin-bottom:20px">
+          <div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:6px">COMO FOI O ESFORCO?</div>
+          <div style="display:flex;gap:8px">${senseOpts}</div>
+        </div>
+        <button onclick="_saveComplete(${w},${d},${si},'${key}')" style="width:100%;padding:16px;background:var(--accent);color:#000;font-family:var(--font-ui);font-size:13px;font-weight:700;letter-spacing:2px;border:none;border-radius:6px;cursor:pointer;margin-bottom:10px">CONCLUIR TREINO</button>
+        <button onclick="_saveComplete(${w},${d},${si},'${key}',true)" style="width:100%;padding:12px;background:transparent;color:var(--muted2);font-family:var(--font-ui);font-size:11px;letter-spacing:1px;border:1px solid var(--border);border-radius:6px;cursor:pointer">MARCAR SEM DADOS</button>
+      </div>
+    </div>`;
+  m.style.display='flex';
+  m.onclick=(e)=>{ if(e.target===m) closeCompleteSession(); };
+
+  // Pre-selecionar zona do strava
+  if(strava&&strava.stravaZone){ setTimeout(()=>{ const b=m.querySelector(`.cmp-zone[data-zone="${strava.stravaZone}"]`); if(b)_cmpSelZone(b,strava.stravaZone); },50); }
+}
+
+let _cmpZone=null,_cmpSense=null;
+function _cmpSelZone(btn,z){ _cmpZone=z; document.querySelectorAll('.cmp-zone').forEach(b=>{b.style.background='var(--surface)';b.style.borderColor='var(--border)';b.style.color='var(--muted2)';}); const c=zones[z]?zones[z].color:'var(--accent)'; btn.style.background=c+'22';btn.style.borderColor=c;btn.style.color=c; }
+function _cmpSelSense(btn,t){ _cmpSense=t; document.querySelectorAll('.cmp-sense').forEach(b=>{b.style.background='var(--surface)';b.style.borderColor='var(--border)';b.style.color='var(--muted2)';}); btn.style.background='var(--accent)22';btn.style.borderColor='var(--accent)';btn.style.color='var(--accent)'; }
+
+function _saveComplete(w,d,si,key,skipData){
+  if(!skipData){
+    const time=document.getElementById('cmp-time')?.value||'';
+    const dist=document.getElementById('cmp-dist')?.value||'';
+    const pace=document.getElementById('cmp-pace')?.value||'';
+    const hr=document.getElementById('cmp-hr')?.value||'';
+    const hrmax=document.getElementById('cmp-hrmax')?.value||'';
+    const sess=getEffectiveSessions(w,d).find(s=>s._origin==='plan'&&s._si===si);
+    const isSwim=sess&&sess.type==='swim';
+    const isBike=sess&&sess.type==='bike';
+    // Montar linha de dados reais (mesmo formato do strava)
+    const parts=[];
+    if(dist)parts.push(isSwim?(dist+'m'):(dist+'km'));
+    if(pace)parts.push(isBike?(pace+'km/h'):(pace+'/km'));
+    if(time)parts.push(time+'min');
+    if(hr)parts.push(hr+'bpm');
+    if(hrmax)parts.push('max '+hrmax);
+    if(_cmpSense)parts.push(_cmpSense);
+    const realData=parts.join(' · ');
+    const patch={ manualData:realData };
+    if(realData)patch.stravaData=realData; // reusa o campo que ja e exibido/sobreposto
+    if(dist)patch.stravaDist=isSwim?(dist+'m'):(dist+'km');
+    if(_cmpZone)patch.manualZone=_cmpZone;
+    if(_cmpSense)patch.sensacao=_cmpSense;
+    patch.completedManual=true;
+    try{ setOverride(w,d,si,patch); }catch(e){}
+  }
+  _cmpZone=null;_cmpSense=null;
+  closeCompleteSession();
+  _commitComplete(key);
+  // Report pos-execucao automatico se houver dados
+  const ov=getOverride(w,d,si);
+  if(ov && (ov.stravaData||ov.manualData)){
+    const sess=getEffectiveSessions(w,d).find(s=>s._origin==='plan'&&s._si===si);
+    if(sess) setTimeout(()=>maybeShowSessionAnalysis(key,sess,w,d),500);
+  }
+}
+
+// Faz parse do key no formato wN_dN_sN (plano) para {w,d,si}
+function _parseKey(key){
+  const m=String(key).match(/^w(\d+)_d(\d+)_s(\d+)$/);
+  if(m) return {w:+m[1],d:+m[2],si:+m[3],isPlan:true};
+  const e=String(key).match(/^ex_w(\d+)_d(\d+)_i(\d+)$/);
+  if(e) return {w:+e[1],d:+e[2],idx:+e[3],isPlan:false};
+  return null;
+}
+
 function toggleCheck(e,key){
-  e.stopPropagation();
+  if(e&&e.stopPropagation)e.stopPropagation();
   const c=loadChecks();
   const wasChecked=!!c[key];
-  if(c[key])delete c[key];else c[key]=true;
-  const nowChecked=!!c[key];
-  saveChecks(c);
-  // Dispara análise ao marcar (não ao desmarcar), só na aba HOJE, só sessões do plano
-  if(nowChecked && !wasChecked && currentTab==='hoje'){
-    // Encontra a sessão pelo key (formato: w_d_si)
-    const parts=key.split('_');
-    if(parts.length>=3){
-      const w=parseInt(parts[0]),d=parseInt(parts[1]),si=parseInt(parts[2]);
-      const sessions=getEffectiveSessions(w,d);
-      const sess=sessions.find(s=>s._origin==='plan'&&s._si===si);
-      if(sess) setTimeout(()=>maybeShowSessionAnalysis(key,sess,w,d),600);
-    }
+  const pk=_parseKey(key);
+
+  // AO MARCAR uma sessao do PLANO: abre o modal de conclusao (dados reais/manuais)
+  // em vez de so marcar. Ao DESMARCAR: remove direto.
+  if(!wasChecked && pk && pk.isPlan){
+    openCompleteSession(pk.w,pk.d,pk.si,key);
+    return;
   }
+
+  // Desmarcar (ou sessao extra): comportamento direto
+  if(c[key])delete c[key];else c[key]=true;
+  saveChecks(c);
+  _refreshAfterCheck(e,key,c);
+}
+
+// Marca a sessao como concluida de fato (chamado pelo modal apos salvar dados)
+function _commitComplete(key){
+  const c=loadChecks();
+  c[key]=true;
+  saveChecks(c);
+  _refreshAfterCheck(null,key,c);
+}
+
+function _refreshAfterCheck(e,key,c){
   if(currentTab==='hoje'){
     _renderHoje(hojeWeek,hojeDay);
     renderStats();
   }else if(currentTab==='semana'){
-    const miniCheck=e.target.closest?.('.mini-check')||e.target;
-    const sessionRow=miniCheck?.closest?.('.mini-session');
+    const miniCheck=e&&e.target&&e.target.closest?e.target.closest('.mini-check')||e.target:null;
+    const sessionRow=miniCheck&&miniCheck.closest?miniCheck.closest('.mini-session'):null;
     if(sessionRow){const isDone=!!c[key];miniCheck.className='mini-check'+(isDone?' done':'');miniCheck.textContent=isDone?'✓':'';sessionRow.className='mini-session'+(isDone?' done':'');}
     updateDayBadges(semanaWeek);updateVolumeSummary(semanaWeek);
     renderStats();
@@ -6358,7 +6510,7 @@ function renderObProva(c){
       <div class="ob-title">Qual e<br>sua prova?</div>
       <div class="ob-sub">Selecione, busque provas reais ou cadastre manualmente.</div>
       <div onclick="obSearchRaces()" style="margin-bottom:14px;padding:12px 16px;border:1.5px solid ${sportInfo.color};border-radius:8px;cursor:pointer;text-align:center;font-family:var(--font-ui);font-size:12px;color:${sportInfo.color};letter-spacing:1px;display:flex;align-items:center;justify-content:center;gap:8px">
-        ${searching?'<span style="width:14px;height:14px;border:2px solid '+sportInfo.color+';border-top-color:transparent;border-radius:50%;display:inline-block;animation:spin 0.8s linear infinite"></span> BUSCANDO PROVAS REAIS...':'BUSCAR PROVAS REAIS NA WEB'}
+        ${searching?'<span style="width:14px;height:14px;border:2px solid '+sportInfo.color+';border-top-color:transparent;border-radius:50%;display:inline-block;animation:spin 0.8s linear infinite"></span> BUSCANDO SUA PROXIMA PROVA...':'BUSCAR SUA PROXIMA PROVA'}
       </div>
       <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
         ${webRaces&&webRaces.length?(()=>{
