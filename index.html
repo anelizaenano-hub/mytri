@@ -5326,23 +5326,29 @@ function clubAction(action){
   },350);
 }
 
+function _myRealRace(){
+  try{ const prof=getMytriProfile(); return (prof && prof.raceName) ? prof.raceName : ''; }catch(e){ return ''; }
+}
 function renderClubMatch(c){
   const p=clubState.matchedWith;
+  const myRace=_myRealRace();
+  // Só é "prova em comum" se a prova do match bate com a sua prova real
+  const sameRace = myRace && p.nextRace && (p.nextRace.toLowerCase().includes(myRace.toLowerCase().split('—')[0].trim().split(' ').slice(0,2).join(' ')) || myRace.toLowerCase().includes((p.nextRace||'').toLowerCase().split('—')[0].trim().split(' ').slice(0,2).join(' ')));
   c.style.cssText='padding-bottom:80px;min-height:100vh;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:32px 24px';
 
   c.innerHTML=`
     <div style="font-size:48px;margin-bottom:16px;animation:pulse 1s infinite"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5"><path d="M2 12c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><path d="M2 17c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><circle cx="12" cy="6" r="2"/><path d="M12 8v4"/></svg></div>
     <div style="font-family:var(--font-display);font-size:36px;letter-spacing:1px;color:var(--accent);margin-bottom:8px">É UM MATCH!</div>
-    <div style="font-family:var(--font-body);font-size:15px;color:var(--muted2);line-height:1.6;margin-bottom:28px">Você e <strong style="color:var(--text)">${p.name}</strong> curtiram um ao outro.<br>Vocês têm muito em comum — incluindo a próxima prova!</div>
+    <div style="font-family:var(--font-body);font-size:15px;color:var(--muted2);line-height:1.6;margin-bottom:28px">Você e <strong style="color:var(--text)">${p.name}</strong> curtiram um ao outro.${sameRace?'<br>Vocês vão para a mesma prova!':'<br>Vocês têm muito em comum.'}</div>
 
     <div style="display:flex;gap:12px;margin-bottom:28px">
       <img src="${p.photo}" style="width:100px;height:100px;border-radius:50%;object-fit:cover;border:3px solid var(--accent)">
     </div>
 
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;width:100%;margin-bottom:24px;text-align:left">
-      <div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1.5px;margin-bottom:8px">PRÓXIMA PROVA EM COMUM</div>
+    ${p.nextRace?`<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;width:100%;margin-bottom:24px;text-align:left">
+      <div style="font-family:var(--font-ui);font-size:9px;color:${sameRace?'var(--accent)':'var(--muted)'};letter-spacing:1.5px;margin-bottom:8px">${sameRace?'PRÓXIMA PROVA EM COMUM':'PRÓXIMA PROVA DE '+p.name.split(' ')[0].toUpperCase()}</div>
       <div style="font-family:var(--font-body);font-size:14px;color:var(--text)">${p.nextRace}</div>
-    </div>
+    </div>`:''}
 
     <div style="font-family:var(--font-body);font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:24px;background:rgba(0,230,118,0.06);border:1px solid rgba(0,230,118,0.2);border-radius:8px;padding:14px">
       Em breve você poderá enviar uma mensagem diretamente pelo app. Por enquanto, nos vemos na largada!
@@ -5542,21 +5548,29 @@ function renderProfile(){
 
     <div class="profile-hero" style="padding:0;text-align:left;border-bottom:1px solid var(--border)">
       <!-- Capa retangular (foto secundaria) -->
-      <div onclick="changeCoverPhoto()" style="position:relative;height:130px;cursor:pointer;${secondary?`background:url('${secondary}') center/cover`:'background:linear-gradient(135deg,#12161c,#1a2530)'}">
+      <div onclick="changeCoverPhoto()" style="position:relative;height:112px;cursor:pointer;${secondary?`background:url('${secondary}') center/cover`:'background:linear-gradient(135deg,#12161c,#1a2530)'}">
         ${secondary?`<div style="position:absolute;top:10px;right:12px;background:rgba(0,0,0,0.55);border-radius:4px;padding:5px 10px;font-family:var(--font-ui);font-size:9px;color:#fff;letter-spacing:.5px">EDITAR CAPA</div>`:`<div style="position:absolute;top:10px;right:12px;font-family:var(--font-ui);font-size:9px;color:rgba(255,255,255,0.6);letter-spacing:.5px">+ FOTO DE CAPA</div>`}
       </div>
-      <!-- Avatar sobreposto no canto inferior esquerdo (estilo LinkedIn) -->
-      <div style="padding:0 20px 20px;position:relative">
-        <div onclick="changeProfilePhoto()" style="display:inline-block;cursor:pointer;position:relative;margin-top:-44px">
-          ${photoEl}
-          <div style="position:absolute;bottom:2px;right:0;background:var(--accent);border:2px solid var(--bg);border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-size:14px;z-index:2">+</div>
+      <!-- Avatar sobreposto + dados ao lado (estilo LinkedIn compacto) -->
+      <div style="padding:0 20px 16px;position:relative">
+        <div style="display:flex;align-items:flex-end;gap:14px;margin-top:-40px">
+          <div onclick="changeProfilePhoto()" style="cursor:pointer;position:relative;flex-shrink:0;line-height:0">
+            ${photoEl}
+            <div style="position:absolute;bottom:2px;right:0;background:var(--accent);border:2px solid var(--bg);border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-size:14px;z-index:2">+</div>
+          </div>
+          <div style="flex:1;padding-bottom:4px">
+            <div class="profile-name" style="text-align:left;margin:0;line-height:1.05">${prof.name||'Sem nome'}</div>
+          </div>
         </div>
         <input type="file" id="profile-photo-input" accept="image/*" style="display:none" onchange="handleProfilePhoto(event)">
         <input type="file" id="profile-extra-photo-input" accept="image/*" style="display:none" onchange="handleExtraPhoto(event)">
-        <div class="profile-name" style="text-align:left;margin-top:10px">${prof.name||'Sem nome'}</div>
-        <div class="profile-city" id="profile-city-display" style="text-align:left">${prof.city||'Detectando localizacao...'}</div>
-        <div onclick="resetCity()" style="font-family:var(--font-ui);font-size:9px;color:var(--muted2);letter-spacing:1px;cursor:pointer;margin-top:2px;text-decoration:underline">ATUALIZAR LOCALIZACAO</div>
-        ${athlete.firstname?`<div style="font-family:var(--font-ui);font-size:10px;color:var(--muted2);letter-spacing:1px;margin-top:4px">STRAVA: ${athlete.firstname} ${athlete.lastname||''}</div>`:''}
+        <div style="margin-top:8px">
+          <div class="profile-city" id="profile-city-display" style="text-align:left">${prof.city||'Detectando localizacao...'}</div>
+          <div style="display:flex;align-items:center;gap:14px;margin-top:4px;flex-wrap:wrap">
+            <div onclick="resetCity()" style="font-family:var(--font-ui);font-size:9px;color:var(--muted2);letter-spacing:1px;cursor:pointer;text-decoration:underline">ATUALIZAR LOCALIZACAO</div>
+            ${athlete.firstname?`<div style="font-family:var(--font-ui);font-size:9px;color:var(--muted2);letter-spacing:1px">STRAVA: ${athlete.firstname} ${athlete.lastname||''}</div>`:''}
+          </div>
+        </div>
       </div>
     </div>
 
@@ -6647,9 +6661,10 @@ function obFormatCep(input){
       .then(r=>r.json())
       .then(d=>{
         if(d.erro){ if(status)status.textContent='CEP nao encontrado'; return; }
-        const cidade=d.localidade&&d.uf?(d.localidade+', '+d.uf):(d.localidade||'');
-        obData.cepCity=cidade; obData.cepBairro=d.bairro||'';
-        if(status)status.textContent='Cidade: '+cidade;
+        const bairroP=d.bairro?d.bairro+', ':'';
+        const cidade=d.localidade&&d.uf?(bairroP+d.localidade+', '+d.uf):(bairroP+(d.localidade||''));
+        obData.cepCity=cidade; obData.cepBairro=d.bairro||''; obData.cepCidadeBase=d.localidade||'';
+        if(status)status.textContent='Local: '+cidade;
       })
       .catch(()=>{ if(status)status.textContent='Erro ao buscar CEP'; });
   }
@@ -6945,7 +6960,7 @@ function obFinish(){
     raceUrl:obData.raceUrl||prof.raceUrl||'',
     raceLocal:obData.raceLocal||prof.raceLocal||'',
     raceDist:obData.raceDist||'sprint',
-    raceDate:obData.raceDate||'',
+    raceDate:(()=>{ const d=obData.raceDate; const today=new Date().toISOString().slice(0,10); if(d && d>=today) return d; const def=new Date(); def.setDate(def.getDate()+84); return def.toISOString().slice(0,10); })(),
     goalTime:obData.goalTime||'',
     weeklyHours:obData.weeklyHours||'3-4',
     swimLevel:obData.swimLevel||'beginner',
@@ -6962,7 +6977,7 @@ function obFinish(){
   setTimeout(()=>localStorage.removeItem('mytri_ob_just_saved'),60000);
   // LIMPEZA TOTAL de estado antigo — novo plano começa do zero, sem treinos "concluídos"
   // ou edições de um plano anterior vazando pra este.
-  ['nano_tri_v2','nano_extras_v1','nano_overrides_v1','nano_order_v1','nano_cal_cache','mytri_plan_cache'].forEach(k=>localStorage.removeItem(k));
+  ['nano_tri_v2','nano_extras_v1','nano_overrides_v1','nano_order_v1','nano_cal_cache','mytri_plan_cache','mytri_club','nano_coach_cache'].forEach(k=>localStorage.removeItem(k));
   _memChecks={};
   // Zera também no Supabase (chaves reais usadas por syncFromCloud) pra não voltar no próximo load
   sbSet('nano_checks',{}).catch(()=>{});
