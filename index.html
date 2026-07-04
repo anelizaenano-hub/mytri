@@ -1512,15 +1512,34 @@ function applyOverride(sess,w,d,si){
 }
 
 // ── EFFECTIVE SESSIONS ──
+// Escala uma string de distancia (ex "10km", "1500m", "20km+5km") por um fator
+function _scaleDist(dist,factor){
+  if(!dist||!factor||factor===1)return dist;
+  return String(dist).replace(/([\d.]+)/g,(num)=>{
+    const v=parseFloat(num); if(isNaN(v))return num;
+    const scaled=v*factor;
+    return (scaled>=10?Math.round(scaled):Math.round(scaled*10)/10).toString();
+  });
+}
 function getEffectiveSessions(w,d){
   const week=getWeek(w);if(!week)return[];
   const raw=week.days[d]||[];
   const out=[];
+  const _recalFactor=getWeekAdjust(w);
   raw.forEach((origSess,si)=>{
     if(origSess.type===REST)return;
     const s=applyOverride(origSess,w,d,si);
     if(s===null)return;
-    out.push(Object.assign({},s,{_origin:'plan',_si:si}));
+    // Aplica recalibracao semanal ao volume PLANEJADO (nao mexe em forca nem no que ja foi executado)
+    let sAdj=s;
+    if(_recalFactor && _recalFactor!==1 && origSess.type!=='FORCE'){
+      const ov=getOverride(w,d,si);
+      const jaExecutado = ov && (ov.stravaData||ov.manualData||ov.stravaDist);
+      if(!jaExecutado && s.dist){
+        sAdj=Object.assign({},s,{dist:_scaleDist(s.dist,_recalFactor),_recalApplied:_recalFactor});
+      }
+    }
+    out.push(Object.assign({},sAdj,{_origin:'plan',_si:si}));
   });
   getExtras(w,d).forEach((item,idx)=>{
     out.push({type:item.type,text:item.text||item.label,dist:item.dist,note:item.note,stravaZone:item.stravaZone||null,manualZone:item.manualZone||null,cal:item.cal||null,_origin:'extra',_idx:idx});
@@ -1535,6 +1554,107 @@ function getEffectiveSessions(w,d){
     return ordered;
   }
   return out;
+}
+
+// ── RECALIBRACAO SEMANAL DINAMICA ──
+// Analisa o que foi REALMENTE executado numa semana e ajusta o volume da proxima,
+// fechando o ciclo plano -> execucao -> analise -> plano ajustado.
+const RECAL_KEY='nano_recal_v1';
+function loadRecal(){try{return JSON.parse(localStorage.getItem(RECAL_KEY)||'{}')}catch(e){return{}}}
+function saveRecal(o){try{localStorage.setItem(RECAL_KEY,JSON.stringify(o));}catch(e){}}
+function getWeekAdjust(w){ const r=loadRecal(); return (r[w]&&typeof r[w].factor==='number')?r[w].factor:1; }
+
+// Analisa a semana w: aderencia, volume real vs planejado, sensacao media
+function analyzeWeek(w){
+  const checks=loadChecks();
+  let planned=0,done=0,volPlanned=0,volDone=0;
+  const senseScore={ 'Facil':1,'Moderado':2,'Forte':3,'Maximo':4 };
+  let senseSum=0,senseCount=0;
+  for(let d=0;d<7;d++){
+    const week=getWeek(w); if(!week)continue;
+    const raw=week.days[d]||[];
+    raw.forEach((origSess,si)=>{
+      if(origSess.type===REST||origSess.type==='FORCE')return; // forca nao entra no volume aerobico
+      planned++;
+      const vP=sessionVolume(origSess); const vpTotal=(vP.swim||0)+(vP.bike||0)+(vP.run||0);
+      volPlanned+=vpTotal;
+      const key=ck(w,d,si);
+      if(checks[key]){
+        done++;
+        const ov=getOverride(w,d,si);
+        const vD=sessionVolume(origSess,ov); volDone+=(vD.swim||0)+(vD.bike||0)+(vD.run||0);
+        if(ov&&ov.sensacao&&senseScore[ov.sensacao]){ senseSum+=senseScore[ov.sensacao]; senseCount++; }
+      }
+    });
+  }
+  const adherence = planned>0 ? done/planned : 0;
+  const volRatio = volPlanned>0 ? volDone/volPlanned : 0;
+  const avgSense = senseCount>0 ? senseSum/senseCount : 0; // 0=sem dado, 1=facil ... 4=maximo
+  return { w, planned, done, adherence, volPlanned, volDone, volRatio, avgSense, senseCount };
+}
+
+// Decide o fator de ajuste para a PROXIMA semana com base na analise
+function computeAdjustment(a, fase, lesoes){
+  const hasLesao = Array.isArray(lesoes) && lesoes.length>0;
+  const faseLow = (fase||'').toLowerCase();
+  // Taper/pico nunca aumentam volume — sao fases de afunilamento
+  const isTaper = faseLow.includes('taper')||faseLow.includes('afunil')||faseLow.includes('pico')||faseLow.includes('peak');
+
+  let factor=1, reason='Mantido', detail='';
+
+  // Sem dados suficientes: nao mexe
+  if(a.done===0 || a.planned===0){
+    return { factor:1, reason:'Sem dados', detail:'Marque treinos como concluidos para o coach recalibrar sua proxima semana.' };
+  }
+
+  if(isTaper){
+    return { factor:1, reason:'Afunilamento', detail:'Fase de taper/pico: volume mantido de proposito para voce chegar descansado.' };
+  }
+
+  // Regras de ajuste
+  if(a.adherence>=0.85 && a.avgSense>0 && a.avgSense<=2.2){
+    // Completou quase tudo e achou facil/moderado -> pode subir
+    factor = hasLesao ? 1.07 : 1.12;
+    reason = 'Progressao';
+    detail = `Voce completou ${Math.round(a.adherence*100)}% dos treinos e a percepcao de esforco foi controlada. Subindo o volume${hasLesao?' com cautela pela sua lesao':''}.`;
+  } else if(a.adherence>=0.85 && a.avgSense>=3.3){
+    // Completou tudo mas achou muito forte -> segura
+    factor = 1.0;
+    reason = 'Consolidacao';
+    detail = `Voce completou bastante, mas o esforco percebido foi alto. Mantendo o volume para consolidar antes de subir.`;
+  } else if(a.adherence>=0.5 && a.adherence<0.85){
+    // Aderencia parcial -> mantem
+    factor = 0.97;
+    reason = 'Ajuste leve';
+    detail = `Aderencia de ${Math.round(a.adherence*100)}%. Reduzindo levemente para voce conseguir fechar a semana completa.`;
+  } else if(a.adherence<0.5){
+    // Aderencia baixa -> reduz para nao acumular carga nao cumprida
+    factor = hasLesao ? 0.85 : 0.9;
+    reason = 'Recuperacao';
+    detail = `Aderencia de ${Math.round(a.adherence*100)}%. Reduzindo o volume para retomar de forma sustentavel, sem culpa.`;
+  } else {
+    factor = 1.0; reason='Mantido'; detail='Volume mantido para a proxima semana.';
+  }
+
+  // Trava de seguranca: nunca ajustar mais que +15% ou -20%
+  factor = Math.max(0.8, Math.min(1.15, factor));
+  return { factor:+factor.toFixed(3), reason, detail };
+}
+
+// Recalibra a semana alvo (proxima) com base na analise da semana fonte (anterior)
+function recalibrateWeek(sourceWeek){
+  const targetWeek = sourceWeek+1;
+  const totalW = planWeekCount()||16;
+  if(targetWeek>totalW) return null;
+  const a = analyzeWeek(sourceWeek);
+  const rawWeek = getAllWeeks().find(wk=>wk.w===targetWeek) || {};
+  const fase = rawWeek.faseLabel||'';
+  const prof = getMytriProfile();
+  const adj = computeAdjustment(a, fase, prof.lesoes||[]);
+  const r=loadRecal();
+  r[targetWeek]={ factor:adj.factor, reason:adj.reason, detail:adj.detail, source:sourceWeek, ts:Date.now(), analysis:{adherence:a.adherence,volRatio:a.volRatio,avgSense:a.avgSense} };
+  saveRecal(r);
+  return r[targetWeek];
 }
 
 // ── VOLUME PARSER ──
@@ -2749,6 +2869,60 @@ function _renderSemana(w){
     <button class="nav-btn" onclick="changeSemana(1)" ${w>=16?'disabled':''}>&#8594;</button>`;
   container.appendChild(nav);
   const dateLabel=document.createElement('div');dateLabel.className='week-dates-label';dateLabel.textContent=getWeekDates(w);container.appendChild(dateLabel);
+
+  // ── CARD DE RECALIBRACAO SEMANAL ──
+  (function(){
+    let recal=loadRecal()[w];
+    const prevWeek=w-1;
+    const prevAnalysis = prevWeek>=1 ? analyzeWeek(prevWeek) : null;
+    // Recalibracao AUTOMATICA: se a semana anterior teve execucao e esta ainda nao foi recalibrada
+    if(!recal && prevAnalysis && prevAnalysis.done>0){
+      recalibrateWeek(prevWeek);
+      recal=loadRecal()[w];
+    }
+    const adj=getWeekAdjust(w);
+    const canRecalibrate=false; // agora e automatico
+
+    // Se ja existe ajuste aplicado nesta semana, mostra o resultado
+    if(recal && recal.factor && recal.factor!==1){
+      const up=recal.factor>1;
+      const pct=Math.round(Math.abs(recal.factor-1)*100);
+      const col=up?'#00e676':(recal.factor<1?'#f0a500':'var(--muted)');
+      const card=document.createElement('div');
+      card.style.cssText=`background:var(--surface);border:1px solid var(--border);border-left:3px solid ${col};border-radius:8px;padding:14px 16px;margin:0 0 14px`;
+      card.innerHTML=`
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <div style="font-family:var(--font-ui);font-size:9px;color:${col};letter-spacing:1.5px">COACH RECALIBROU · ${recal.reason.toUpperCase()}</div>
+          <div style="font-family:var(--font-display);font-size:18px;color:${col}">${up?'+':''}${up?pct:(recal.factor<1?'-'+pct:'0')}%</div>
+        </div>
+        <div style="font-family:var(--font-body);font-size:12px;color:var(--muted2);line-height:1.5">${recal.detail||''}</div>`;
+      container.appendChild(card);
+    } else if(recal && recal.factor===1){
+      const card=document.createElement('div');
+      card.style.cssText='background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 16px;margin:0 0 14px';
+      card.innerHTML=`<div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1.5px;margin-bottom:4px">COACH · ${(recal.reason||'MANTIDO').toUpperCase()}</div><div style="font-family:var(--font-body);font-size:12px;color:var(--muted2);line-height:1.5">${recal.detail||'Volume mantido para esta semana.'}</div>`;
+      container.appendChild(card);
+    }
+
+    // Botao para recalibrar (se a semana anterior tem execucao e ainda nao recalibrou esta)
+    if(canRecalibrate){
+      const adherPct=Math.round(prevAnalysis.adherence*100);
+      const btn=document.createElement('div');
+      btn.style.cssText='background:rgba(0,230,118,0.06);border:1px dashed rgba(0,230,118,0.4);border-radius:8px;padding:14px 16px;margin:0 0 14px;cursor:pointer';
+      btn.innerHTML=`
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="width:32px;height:32px;border-radius:50%;background:rgba(0,230,118,0.15);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          </div>
+          <div style="flex:1">
+            <div style="font-family:var(--font-ui);font-size:11px;font-weight:700;color:var(--accent);letter-spacing:.5px">RECALIBRAR ESTA SEMANA</div>
+            <div style="font-family:var(--font-body);font-size:11px;color:var(--muted2);margin-top:2px">Voce completou ${adherPct}% da semana ${prevWeek}. Deixe o coach ajustar seu volume.</div>
+          </div>
+        </div>`;
+      btn.onclick=()=>{ recalibrateWeek(prevWeek); _renderSemana(w); };
+      container.appendChild(btn);
+    }
+  })();
 
   const checks=loadChecks();
   for(let di=0;di<7;di++){
@@ -6435,7 +6609,6 @@ let obStep=0;
 let obData={sport:null,raceDist:null,goalTime:null,swimLevel:'beginner',bikeLevel:'beginner',runLevel:'beginner',weeklyHours:null,fcMax:'',ftp:'',diasDisponiveis:[]};
 
 async function checkOnboarding(){
-  showOnboarding(); return; // TEMP: força onboarding sempre — remover esta linha pra voltar ao normal
   let done=localStorage.getItem('mytri_onboard_done');
   if(!done){
     try{
@@ -7316,7 +7489,7 @@ function obFinish(){
   setTimeout(()=>localStorage.removeItem('mytri_ob_just_saved'),60000);
   // LIMPEZA TOTAL de estado antigo — novo plano começa do zero, sem treinos "concluídos"
   // ou edições de um plano anterior vazando pra este.
-  ['nano_tri_v2','nano_extras_v1','nano_overrides_v1','nano_order_v1','nano_cal_cache','mytri_plan_cache','mytri_club','nano_coach_cache'].forEach(k=>localStorage.removeItem(k));
+  ['nano_tri_v2','nano_extras_v1','nano_overrides_v1','nano_order_v1','nano_cal_cache','mytri_plan_cache','mytri_club','nano_coach_cache','nano_recal_v1'].forEach(k=>localStorage.removeItem(k));
   _memChecks={};
   // Zera também no Supabase (chaves reais usadas por syncFromCloud) pra não voltar no próximo load
   sbSet('nano_checks',{}).catch(()=>{});
