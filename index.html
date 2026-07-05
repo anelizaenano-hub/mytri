@@ -522,6 +522,13 @@ function getRaceDate(){
   }catch(e){}
   return _FALLBACK_RACE;
 }
+// hasRace(): existe prova real escolhida pelo usuario? (nao inventa Guaruja)
+function hasRace(){
+  try{
+    const p=(getMytriProfile&&getMytriProfile())||{};
+    return !!(p.raceName && String(p.raceName).trim()) && !!p.raceDate;
+  }catch(e){return false;}
+}
 // Aliases para o restante do código que referencia PLAN_START / RACE_DATE como valores.
 // Object.defineProperty permite que continuem sendo "lidos" como datas atuais do plano.
 Object.defineProperty(window,'PLAN_START',{get:getPlanStart,configurable:true});
@@ -1528,8 +1535,11 @@ function renderAgenda(){
 }
 
 function updateCountdown(){
+  const el=document.getElementById('countdown-header');
+  if(!el)return;
+  if(!hasRace()){ el.textContent='LIVRE'; return; }
   const d=countdownDays();
-  document.getElementById('countdown-header').textContent=`${d}D PROVA`;
+  el.textContent=`${d}D PROVA`;
 }
 
 // ── HOJE ──
@@ -3646,11 +3656,25 @@ function renderStats(){
 
   const cd=document.createElement('div');cd.className='stats-section';
   cd.innerHTML=`
-    <div class="stat-countdown">
-      <div class="stat-countdown-num">${days}</div>
-      <div class="stat-countdown-label">DIAS PARA A PROVA</div>
-      <div class="stat-countdown-date">Sprint Triathlon Santa Cecilia &middot; 13/09/2026 &middot; Guaruja-SP</div>
-    </div>
+    ${(()=>{
+      const prof=getMytriProfile&&getMytriProfile()||{};
+      if(hasRace()){
+        const rd=prof.raceDate?new Date(prof.raceDate+'T12:00:00'):null;
+        const rdStr=rd?rd.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric'}):'';
+        const loc=prof.raceLocal||prof.city||'';
+        return `<div class="stat-countdown">
+          <div class="stat-countdown-num">${days}</div>
+          <div class="stat-countdown-label">DIAS PARA A PROVA</div>
+          <div class="stat-countdown-date">${prof.raceName}${rdStr?' &middot; '+rdStr:''}${loc?' &middot; '+loc:''}</div>
+        </div>`;
+      }
+      // Sem prova escolhida: modo treino livre
+      return `<div class="stat-countdown">
+        <div class="stat-countdown-num" style="font-size:44px;letter-spacing:1px">TREINO LIVRE</div>
+        <div class="stat-countdown-label">SEM PROVA DEFINIDA</div>
+        <div class="stat-countdown-date">Plano de base. Defina uma prova no perfil para ativar a contagem e a periodizacao.</div>
+      </div>`;
+    })()}
     <div class="stats-grid">
       <div class="stat-card" style="border-top-color:var(--accent)">
         <div class="stat-card-label">TREINOS FEITOS</div>
@@ -3660,7 +3684,7 @@ function renderStats(){
       <div class="stat-card" style="border-top-color:#00e676">
         <div class="stat-card-label">SEMANA ATUAL</div>
         <div class="stat-card-val" style="color:#00e676">${cw}</div>
-        <div class="stat-card-sub">de 16 semanas</div>
+        <div class="stat-card-sub">de ${planWeekCount()} semanas</div>
       </div>
       <div class="stat-card" style="border-top-color:#9b6af0">
         <div class="stat-card-label">MUSCULACAO</div>
@@ -4052,16 +4076,18 @@ function loadActiveCycle(){
     const v=localStorage.getItem(CK_ACTIVE);
     if(v)return JSON.parse(v);
   }catch(e){}
-  // default: ciclo atual Sprint Santa Cecilia
+  // Sem ciclo salvo: deriva do perfil real. Nunca inventa prova (Guaruja era residuo do app single-user).
+  const p=(getMytriProfile&&getMytriProfile())||{};
+  const todayISO=new Date().toISOString().slice(0,10);
   return{
     id:'cycle_'+Date.now(),
-    type:'sprint',
-    label:'Sprint Triathlon Santa Cecilia TV',
-    location:'Guaruja · SP · Brasil',
-    city:'Guaruja',state:'SP',country:'Brasil',
-    raceDate:'2026-09-13',
-    planStart:'2026-05-25',
-    startedAt:'2026-05-25'
+    type:p.raceDist||'',
+    label:p.raceName||'Treino livre',
+    location:p.raceLocal||p.city||'',
+    city:p.city||'',state:p.state||'',country:p.country||'',
+    raceDate:p.raceDate||'',
+    planStart:todayISO,
+    startedAt:todayISO
   };
 }
 function saveActiveCycle(c){try{localStorage.setItem(CK_ACTIVE,JSON.stringify(c))}catch(e){}scheduleSyncToCloud();}
@@ -7506,7 +7532,10 @@ function renderObFitness(c){
       <div style="margin-top:16px">
         <div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;margin-bottom:6px">CEP (define sua cidade no perfil e no clube)</div>
         <input id="ob-cep" type="text" inputmode="numeric" maxlength="9" placeholder="00000-000" value="${obData.cep||''}" oninput="obFormatCep(this)" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:12px;border-radius:4px">
-        <div id="ob-cep-status" style="font-family:var(--font-body);font-size:11px;color:var(--muted);margin-top:6px">${obData.cepCity?('Cidade: '+obData.cepCity):'Sua localizacao ficara fixa neste CEP'}</div>
+        <div id="ob-cep-status" style="font-family:var(--font-body);font-size:11px;color:var(--muted);margin-top:6px">${obData.cepCity?('Cidade: '+obData.cepCity):'Digite seu CEP ou use sua localizacao atual'}</div>
+        <div style="display:flex;align-items:center;gap:10px;margin:12px 0 4px"><div style="flex:1;height:1px;background:var(--border)"></div><div style="font-family:var(--font-ui);font-size:9px;color:var(--muted2);letter-spacing:1px">OU</div><div style="flex:1;height:1px;background:var(--border)"></div></div>
+        <button type="button" onclick="obUseGPS()" style="width:100%;background:var(--surface);border:1.5px solid var(--border);color:var(--text);font-family:var(--font-ui);font-size:11px;letter-spacing:1px;padding:12px;border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">USAR MINHA LOCALIZACAO ATUAL</button>
+        <div id="ob-gps-status" style="font-family:var(--font-body);font-size:11px;color:var(--muted);margin-top:6px;min-height:14px"></div>
       </div>
     </div>
     <div style="padding:16px 24px 24px">
@@ -7536,6 +7565,32 @@ function obFormatCep(input){
   }
 }
 
+function obUseGPS(){
+  const st=document.getElementById('ob-gps-status');
+  if(!navigator.geolocation){ if(st){st.style.color='var(--danger,#e05c2a)';st.textContent='GPS nao disponivel neste dispositivo. Digite o CEP.';} return; }
+  if(st){st.style.color='var(--muted)';st.textContent='Obtendo sua localizacao...';}
+  navigator.geolocation.getCurrentPosition(async pos=>{
+    try{
+      const lat=pos.coords.latitude, lon=pos.coords.longitude;
+      const r=await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&accept-language=pt-BR`);
+      const d=await r.json();
+      const a=d.address||{};
+      const cidade=a.city||a.town||a.village||a.municipality||'';
+      const uf=a.state||'';
+      const bairro=a.suburb||a.neighbourhood||'';
+      const label=[bairro,cidade,uf].filter(Boolean).join(', ');
+      if(!cidade){ if(st){st.style.color='var(--danger,#e05c2a)';st.textContent='Nao consegui identificar a cidade. Confira ou digite o CEP.';} return; }
+      // Preenche para o usuario CONFIRMAR/corrigir (nao trava)
+      obData.cepCity=label; obData.cepBairro=bairro; obData.cepCidadeBase=cidade; obData.gpsLat=lat; obData.gpsLon=lon;
+      try{ localStorage.setItem('mytri_gps_city',label); }catch(e){}
+      if(st){ st.style.color='var(--accent)'; st.innerHTML='Detectado: <b>'+label+'</b><br><span style="color:var(--muted2)">Confira acima. Se estiver errado, digite o CEP para sobrescrever.</span>'; }
+      const status=document.getElementById('ob-cep-status');
+      if(status){ status.style.color='var(--accent)'; status.textContent='Cidade: '+label; }
+    }catch(e){ if(st){st.style.color='var(--danger,#e05c2a)';st.textContent='Erro ao buscar localizacao. Digite o CEP.';} }
+  }, err=>{
+    if(st){ st.style.color='var(--danger,#e05c2a)'; st.textContent = err.code===1 ? 'Permissao de localizacao negada. Digite o CEP.' : 'Nao foi possivel obter a localizacao. Digite o CEP.'; }
+  }, {enableHighAccuracy:false,timeout:10000,maximumAge:60000});
+}
 function obSaveFitness(){
   obData.age=document.getElementById('ob-idade')?.value||'';
   obData.weight=document.getElementById('ob-peso')?.value||'';
@@ -7827,8 +7882,11 @@ function obFinish(){
     raceName:obData.raceName||'',
     raceUrl:obData.raceUrl||'',
     raceLocal:obData.raceLocal||obData.cepCity||'',
-    raceDist:obData.raceDist||'sprint',
-    raceDate:(()=>{ const d=obData.raceDate; const today=new Date().toISOString().slice(0,10); if(d && d>=today) return d; const def=new Date(); def.setDate(def.getDate()+84); return def.toISOString().slice(0,10); })(),
+    raceDist:obData.raceDist||(obData.raceName?'sprint':''),
+    raceDate:(()=>{ const d=obData.raceDate; const today=new Date().toISOString().slice(0,10);
+      // So define data se houver prova real com data valida futura. Sem prova = treino livre (sem data fantasma).
+      if(obData.raceName && d && d>=today) return d;
+      return ''; })(),
     goalTime:obData.goalTime||'',
     weeklyHours:obData.weeklyHours||'3-4',
     swimLevel:obData.swimLevel||'beginner',
