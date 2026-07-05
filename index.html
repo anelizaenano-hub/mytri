@@ -455,12 +455,12 @@ body.onboarding-active #consult-fab{display:none!important}
 <div id="view-profile"></div>
 
 <!-- FAB Consultoria Live -->
-<div id="consult-fab" onclick="openConsult()" style="position:fixed;right:16px;bottom:76px;z-index:490;width:56px;height:56px;border-radius:50%;background:var(--accent);box-shadow:0 4px 16px rgba(0,230,118,0.4);display:flex;align-items:center;justify-content:center;cursor:pointer">
+<div id="consult-fab" onclick="openConsult()" style="position:fixed;right:16px;bottom:88px;z-index:490;width:56px;height:56px;border-radius:50%;background:var(--accent);border:3px solid var(--bg);box-shadow:0 4px 16px rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;cursor:pointer">
   <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
 </div>
 
 <!-- Modal Consultoria -->
-<div id="consult-modal" style="display:none;position:fixed;inset:0;z-index:495;background:var(--bg);flex-direction:column">
+<div id="consult-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;height:100dvh;z-index:495;background:var(--bg);flex-direction:column">
   <div style="padding:16px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--surface)">
     <div style="display:flex;align-items:center;gap:10px">
       <div style="width:34px;height:34px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center">
@@ -475,7 +475,7 @@ body.onboarding-active #consult-fab{display:none!important}
   </div>
   <div id="consult-messages" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:18px 16px;display:flex;flex-direction:column;gap:12px"></div>
   <div id="consult-suggestions" style="padding:0 12px 8px;display:flex;gap:8px;flex-wrap:wrap"></div>
-  <div style="padding:12px 14px;border-top:1px solid var(--border);background:var(--surface);display:flex;gap:10px;align-items:flex-end;padding-bottom:calc(12px + env(safe-area-inset-bottom))">
+  <div style="padding:12px 14px;border-top:1px solid var(--border);background:var(--surface);display:flex;gap:10px;align-items:flex-end;flex-shrink:0;padding-bottom:calc(16px + env(safe-area-inset-bottom))">
     <textarea id="consult-input" rows="1" placeholder="Pergunte sobre seu treino..." style="flex:1;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:11px 14px;border-radius:20px;resize:none;max-height:100px;line-height:1.3"></textarea>
     <button id="consult-send" onclick="sendConsult()" style="width:44px;height:44px;border-radius:50%;background:var(--accent);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
@@ -1556,63 +1556,54 @@ function getEffectiveSessions(w,d){
   return out;
 }
 
-const EXERCISE_SVG={
-  plank:'<rect x="10" y="66" width="80" height="5" rx="2.5" fill="#1a1e26"/><line x1="6" y1="72" x2="72" y2="72" stroke="#252b35" stroke-width="2.5" stroke-linecap="round"/><line x1="22" y1="50" x2="40" y2="42" stroke="#c8d0dc" stroke-width="4" stroke-linecap="round"/><line x1="22" y1="50" x2="22" y2="64" stroke="#c8d0dc" stroke-width="4" stroke-linecap="round"/><line x1="22" y1="64" x2="22" y2="70" stroke="#c8d0dc" stroke-width="4" stroke-linecap="round"/><line x1="40" y1="42" x2="74" y2="54" stroke="#c8d0dc" stroke-width="5" stroke-linecap="round"/><line x1="74" y1="54" x2="86" y2="70" stroke="#c8d0dc" stroke-width="4" stroke-linecap="round"/><line x1="86" y1="70" x2="92" y2="70" stroke="#c8d0dc" stroke-width="4" stroke-linecap="round"/><circle cx="16" cy="46" r="6" fill="#c8d0dc"/><circle cx="40" cy="42" r="2.4" fill="#00e676"/><circle cx="74" cy="54" r="2.4" fill="#00e676"/><circle cx="22" cy="64" r="2.4" fill="#00e676"/>',
-  plankside:'<rect x="10" y="66" width="80" height="5" rx="2.5" fill="#1a1e26"/><line x1="26" y1="65" x2="80" y2="50" stroke="#c8d0dc" stroke-width="6" stroke-linecap="round"/><line x1="40" y1="61" x2="40" y2="66" stroke="#c8d0dc" stroke-width="4" stroke-linecap="round"/><circle cx="85" cy="47" r="6" fill="#c8d0dc"/><circle cx="40" cy="61" r="2.4" fill="#00e676"/>',
-  squat:'<line x1="6" y1="72" x2="94" y2="72" stroke="#252b35" stroke-width="2.5" stroke-linecap="round"/><line x1="50" y1="23" x2="50" y2="44" stroke="#c8d0dc" stroke-width="5" stroke-linecap="round"/><line x1="50" y1="30" x2="38" y2="40" stroke="#c8d0dc" stroke-width="4" stroke-linecap="round"/><line x1="50" y1="30" x2="62" y2="40" stroke="#c8d0dc" stroke-width="4" stroke-linecap="round"/><line x1="50" y1="44" x2="40" y2="54" stroke="#c8d0dc" stroke-width="5" stroke-linecap="round"/><line x1="40" y1="54" x2="42" y2="70" stroke="#c8d0dc" stroke-width="5" stroke-linecap="round"/><line x1="50" y1="44" x2="60" y2="54" stroke="#c8d0dc" stroke-width="5" stroke-linecap="round"/><line x1="60" y1="54" x2="58" y2="70" stroke="#c8d0dc" stroke-width="5" stroke-linecap="round"/><circle cx="50" cy="16" r="7" fill="#c8d0dc"/><circle cx="50" cy="44" r="2.4" fill="#00e676"/><circle cx="40" cy="54" r="2.4" fill="#00e676"/><circle cx="60" cy="54" r="2.4" fill="#00e676"/>',
-  lunge:'<line x1="6" y1="72" x2="94" y2="72" stroke="#252b35" stroke-width="2.5" stroke-linecap="round"/><line x1="46" y1="23" x2="48" y2="44" stroke="#c8d0dc" stroke-width="5" stroke-linecap="round"/><line x1="48" y1="44" x2="34" y2="56" stroke="#c8d0dc" stroke-width="5" stroke-linecap="round"/><line x1="34" y1="56" x2="34" y2="70" stroke="#c8d0dc" stroke-width="5" stroke-linecap="round"/><line x1="48" y1="44" x2="66" y2="58" stroke="#c8d0dc" stroke-width="5" stroke-linecap="round"/><line x1="66" y1="58" x2="78" y2="70" stroke="#c8d0dc" stroke-width="5" stroke-linecap="round"/><circle cx="46" cy="16" r="7" fill="#c8d0dc"/><circle cx="48" cy="44" r="2.4" fill="#00e676"/><circle cx="34" cy="56" r="2.4" fill="#00e676"/><circle cx="66" cy="58" r="2.4" fill="#00e676"/>',
-  rdl:'<line x1="6" y1="72" x2="94" y2="72" stroke="#252b35" stroke-width="2.5" stroke-linecap="round"/><rect x="37" y="60" width="10" height="4" rx="1" fill="#00e676"/><line x1="34" y1="32" x2="58" y2="44" stroke="#c8d0dc" stroke-width="5" stroke-linecap="round"/><line x1="44" y1="38" x2="42" y2="58" stroke="#c8d0dc" stroke-width="4" stroke-linecap="round"/><line x1="42" y1="58" x2="42" y2="62" stroke="#c8d0dc" stroke-width="4" stroke-linecap="round"/><line x1="58" y1="44" x2="58" y2="70" stroke="#c8d0dc" stroke-width="5" stroke-linecap="round"/><circle cx="30" cy="26" r="7" fill="#c8d0dc"/><circle cx="58" cy="44" r="2.4" fill="#00e676"/><circle cx="44" cy="38" r="2.4" fill="#00e676"/>',
-  stepup:'<line x1="6" y1="72" x2="94" y2="72" stroke="#252b35" stroke-width="2.5" stroke-linecap="round"/><rect x="58" y="56" width="30" height="16" rx="1" fill="#252b35"/><line x1="44" y1="21" x2="46" y2="42" stroke="#c8d0dc" stroke-width="5" stroke-linecap="round"/><line x1="46" y1="42" x2="62" y2="54" stroke="#c8d0dc" stroke-width="5" stroke-linecap="round"/><line x1="62" y1="54" x2="64" y2="56" stroke="#c8d0dc" stroke-width="5" stroke-linecap="round"/><line x1="46" y1="42" x2="40" y2="58" stroke="#c8d0dc" stroke-width="5" stroke-linecap="round"/><line x1="40" y1="58" x2="40" y2="70" stroke="#c8d0dc" stroke-width="5" stroke-linecap="round"/><circle cx="44" cy="14" r="7" fill="#c8d0dc"/><circle cx="46" cy="42" r="2.4" fill="#00e676"/><circle cx="62" cy="54" r="2.4" fill="#00e676"/>',
-  legpress:'<line x1="6" y1="72" x2="94" y2="72" stroke="#252b35" stroke-width="2.5" stroke-linecap="round"/><rect x="14" y="44" width="4" height="20" rx="1" fill="#252b35"/><rect x="72" y="42" width="5" height="18" rx="1" fill="#00e676"/><line x1="20" y1="58" x2="38" y2="50" stroke="#c8d0dc" stroke-width="5" stroke-linecap="round"/><line x1="38" y1="50" x2="54" y2="58" stroke="#c8d0dc" stroke-width="5" stroke-linecap="round"/><line x1="54" y1="58" x2="72" y2="50" stroke="#c8d0dc" stroke-width="5" stroke-linecap="round"/><circle cx="16" cy="60" r="6" fill="#c8d0dc"/><circle cx="38" cy="50" r="2.4" fill="#00e676"/><circle cx="54" cy="58" r="2.4" fill="#00e676"/>',
-  splitsquat:'<line x1="6" y1="72" x2="94" y2="72" stroke="#252b35" stroke-width="2.5" stroke-linecap="round"/><rect x="64" y="60" width="10" height="3" rx="1" fill="#252b35"/><line x1="44" y1="22" x2="45" y2="44" stroke="#c8d0dc" stroke-width="5" stroke-linecap="round"/><line x1="45" y1="44" x2="34" y2="58" stroke="#c8d0dc" stroke-width="5" stroke-linecap="round"/><line x1="34" y1="58" x2="34" y2="70" stroke="#c8d0dc" stroke-width="5" stroke-linecap="round"/><line x1="45" y1="44" x2="60" y2="52" stroke="#c8d0dc" stroke-width="5" stroke-linecap="round"/><line x1="60" y1="52" x2="66" y2="64" stroke="#c8d0dc" stroke-width="5" stroke-linecap="round"/><line x1="66" y1="64" x2="72" y2="64" stroke="#c8d0dc" stroke-width="4" stroke-linecap="round"/><circle cx="44" cy="15" r="7" fill="#c8d0dc"/><circle cx="45" cy="44" r="2.4" fill="#00e676"/><circle cx="34" cy="58" r="2.4" fill="#00e676"/><circle cx="60" cy="52" r="2.4" fill="#00e676"/>',
-  cadeira:'<line x1="6" y1="72" x2="94" y2="72" stroke="#252b35" stroke-width="2.5" stroke-linecap="round"/><rect x="24" y="58" width="14" height="4" rx="1" fill="#252b35"/><rect x="70" y="44" width="4" height="10" rx="1" fill="#00e676"/><line x1="30" y1="44" x2="30" y2="58" stroke="#c8d0dc" stroke-width="5" stroke-linecap="round"/><line x1="30" y1="44" x2="32" y2="34" stroke="#c8d0dc" stroke-width="5" stroke-linecap="round"/><line x1="30" y1="58" x2="52" y2="58" stroke="#c8d0dc" stroke-width="5" stroke-linecap="round"/><line x1="52" y1="58" x2="72" y2="48" stroke="#c8d0dc" stroke-width="5" stroke-linecap="round"/><circle cx="30" cy="28" r="6" fill="#c8d0dc"/><circle cx="30" cy="58" r="2.4" fill="#00e676"/><circle cx="52" cy="58" r="2.4" fill="#00e676"/>',
-  bridge:'<rect x="10" y="66" width="80" height="5" rx="2.5" fill="#1a1e26"/><line x1="24" y1="64" x2="40" y2="64" stroke="#c8d0dc" stroke-width="4" stroke-linecap="round"/><line x1="40" y1="64" x2="52" y2="50" stroke="#c8d0dc" stroke-width="5" stroke-linecap="round"/><line x1="52" y1="50" x2="60" y2="64" stroke="#c8d0dc" stroke-width="5" stroke-linecap="round"/><line x1="60" y1="64" x2="60" y2="66" stroke="#c8d0dc" stroke-width="4" stroke-linecap="round"/><circle cx="20" cy="64" r="5" fill="#c8d0dc"/><circle cx="52" cy="50" r="2.4" fill="#00e676"/><circle cx="60" cy="64" r="2.4" fill="#00e676"/>',
-  clamshell:'<rect x="10" y="66" width="80" height="5" rx="2.5" fill="#1a1e26"/><line x1="30" y1="62" x2="52" y2="62" stroke="#c8d0dc" stroke-width="5" stroke-linecap="round"/><line x1="52" y1="62" x2="48" y2="68" stroke="#c8d0dc" stroke-width="4" stroke-linecap="round"/><line x1="52" y1="62" x2="64" y2="66" stroke="#c8d0dc" stroke-width="4" stroke-linecap="round"/><line x1="64" y1="66" x2="60" y2="68" stroke="#c8d0dc" stroke-width="4" stroke-linecap="round"/><line x1="52" y1="62" x2="56" y2="53" stroke="#c8d0dc" stroke-width="4" stroke-linecap="round"/><line x1="56" y1="53" x2="50" y2="58" stroke="#c8d0dc" stroke-width="4" stroke-linecap="round"/><polyline points="57.0,51.0 55.4,51.2 53.9,51.9 52.6,52.9 51.7,54.2 51.1,55.8 51.0,57.4 51.3,59.0 52.1,60.4 53.2,61.6 54.6,62.5 56.2,62.9 57.8,62.9 59.4,62.5 60.8,61.7 61.9,60.5 62.6,59.1" fill="none" stroke="#00e676" stroke-width="1.5"/><circle cx="26" cy="60" r="5" fill="#c8d0dc"/><circle cx="52" cy="62" r="2.4" fill="#00e676"/>',
-  deadbug:'<rect x="10" y="66" width="80" height="5" rx="2.5" fill="#1a1e26"/><line x1="30" y1="64" x2="58" y2="64" stroke="#c8d0dc" stroke-width="5" stroke-linecap="round"/><line x1="40" y1="64" x2="40" y2="50" stroke="#c8d0dc" stroke-width="4" stroke-linecap="round"/><line x1="58" y1="64" x2="58" y2="50" stroke="#c8d0dc" stroke-width="4" stroke-linecap="round"/><line x1="50" y1="64" x2="66" y2="60" stroke="#c8d0dc" stroke-width="4" stroke-linecap="round"/><line x1="34" y1="64" x2="30" y2="58" stroke="#c8d0dc" stroke-width="4" stroke-linecap="round"/><circle cx="26" cy="64" r="5" fill="#c8d0dc"/><circle cx="40" cy="64" r="2.4" fill="#00e676"/><circle cx="58" cy="64" r="2.4" fill="#00e676"/>',
-  birddog:'<rect x="10" y="66" width="80" height="5" rx="2.5" fill="#1a1e26"/><line x1="36" y1="46" x2="58" y2="46" stroke="#c8d0dc" stroke-width="5" stroke-linecap="round"/><line x1="36" y1="46" x2="34" y2="64" stroke="#c8d0dc" stroke-width="4" stroke-linecap="round"/><line x1="36" y1="46" x2="22" y2="38" stroke="#c8d0dc" stroke-width="4" stroke-linecap="round"/><line x1="58" y1="46" x2="60" y2="64" stroke="#c8d0dc" stroke-width="4" stroke-linecap="round"/><line x1="58" y1="46" x2="74" y2="38" stroke="#c8d0dc" stroke-width="4" stroke-linecap="round"/><circle cx="30" cy="44" r="6" fill="#c8d0dc"/><circle cx="36" cy="46" r="2.4" fill="#00e676"/><circle cx="58" cy="46" r="2.4" fill="#00e676"/>',
-  hollow:'<rect x="10" y="66" width="80" height="5" rx="2.5" fill="#1a1e26"/><line x1="24" y1="60" x2="40" y2="64" stroke="#c8d0dc" stroke-width="4" stroke-linecap="round"/><line x1="40" y1="64" x2="60" y2="64" stroke="#c8d0dc" stroke-width="5" stroke-linecap="round"/><line x1="60" y1="64" x2="76" y2="58" stroke="#c8d0dc" stroke-width="4" stroke-linecap="round"/><polyline points="61.3,58.1 60.5,59.8 59.5,61.3 58.3,62.7 56.9,63.8 55.3,64.8 53.6,65.4 51.8,65.9 50.0,66.0 48.2,65.9 46.4,65.4 44.7,64.8 43.1,63.8 41.7,62.7 40.5,61.3 39.5,59.8 38.7,58.1" fill="none" stroke="#00e676" stroke-width="1.5"/><circle cx="20" cy="56" r="5" fill="#c8d0dc"/><circle cx="50" cy="64" r="2.4" fill="#00e676"/>',
-  twist:'<line x1="6" y1="72" x2="94" y2="72" stroke="#252b35" stroke-width="2.5" stroke-linecap="round"/><line x1="42" y1="31" x2="50" y2="50" stroke="#c8d0dc" stroke-width="5" stroke-linecap="round"/><line x1="46" y1="40" x2="60" y2="44" stroke="#c8d0dc" stroke-width="4" stroke-linecap="round"/><line x1="60" y1="44" x2="66" y2="40" stroke="#c8d0dc" stroke-width="4" stroke-linecap="round"/><line x1="50" y1="50" x2="64" y2="54" stroke="#c8d0dc" stroke-width="5" stroke-linecap="round"/><line x1="64" y1="54" x2="60" y2="64" stroke="#c8d0dc" stroke-width="5" stroke-linecap="round"/><polyline points="61.5,33.9 59.5,33.2 57.4,33.0 55.3,33.5 53.5,34.6 52.1,36.2 51.2,38.2 51.0,40.3 51.4,42.4 52.4,44.3 54.0,45.7 55.9,46.7 58.0,47.0 60.1,46.7 62.0,45.7 63.6,44.3 64.6,42.4" fill="none" stroke="#00e676" stroke-width="1.5"/><circle cx="40" cy="24" r="7" fill="#c8d0dc"/><circle cx="50" cy="50" r="2.4" fill="#00e676"/><circle cx="46" cy="40" r="2.4" fill="#00e676"/>',
-  legraise:'<rect x="10" y="66" width="80" height="5" rx="2.5" fill="#1a1e26"/><line x1="20" y1="66" x2="44" y2="66" stroke="#c8d0dc" stroke-width="5" stroke-linecap="round"/><line x1="44" y1="66" x2="60" y2="52" stroke="#c8d0dc" stroke-width="5" stroke-linecap="round"/><line x1="60" y1="52" x2="66" y2="44" stroke="#c8d0dc" stroke-width="5" stroke-linecap="round"/><polyline points="54.3,51.3 55.0,51.7 55.6,52.2 56.2,52.7 56.7,53.3 57.3,53.8 57.8,54.4 58.3,55.0 58.7,55.7 59.2,56.3 59.6,57.0 60.0,57.7 60.3,58.4 60.6,59.1 60.9,59.8 61.2,60.6 61.4,61.3" fill="none" stroke="#00e676" stroke-width="1.5"/><circle cx="16" cy="66" r="5" fill="#c8d0dc"/><circle cx="44" cy="66" r="2.4" fill="#00e676"/>',
-  pallof:'<line x1="6" y1="72" x2="94" y2="72" stroke="#252b35" stroke-width="2.5" stroke-linecap="round"/><line x1="64" y1="32" x2="80" y2="32" stroke="#00e676" stroke-width="2" stroke-dasharray="3 2"/><line x1="38" y1="23" x2="38" y2="50" stroke="#c8d0dc" stroke-width="5" stroke-linecap="round"/><line x1="38" y1="30" x2="58" y2="32" stroke="#c8d0dc" stroke-width="4" stroke-linecap="round"/><line x1="58" y1="32" x2="64" y2="32" stroke="#c8d0dc" stroke-width="4" stroke-linecap="round"/><line x1="38" y1="50" x2="32" y2="70" stroke="#c8d0dc" stroke-width="5" stroke-linecap="round"/><line x1="38" y1="50" x2="44" y2="70" stroke="#c8d0dc" stroke-width="5" stroke-linecap="round"/><circle cx="38" cy="16" r="7" fill="#c8d0dc"/><circle cx="38" cy="50" r="2.4" fill="#00e676"/><circle cx="38" cy="30" r="2.4" fill="#00e676"/>',
-  foam:'<rect x="10" y="66" width="80" height="5" rx="2.5" fill="#1a1e26"/><ellipse cx="48" cy="64" rx="9" ry="4" fill="#00e676" opacity="0.45"/><line x1="30" y1="52" x2="30" y2="62" stroke="#c8d0dc" stroke-width="4" stroke-linecap="round"/><line x1="30" y1="52" x2="34" y2="42" stroke="#c8d0dc" stroke-width="4" stroke-linecap="round"/><line x1="34" y1="42" x2="56" y2="54" stroke="#c8d0dc" stroke-width="5" stroke-linecap="round"/><line x1="56" y1="54" x2="72" y2="60" stroke="#c8d0dc" stroke-width="5" stroke-linecap="round"/><circle cx="32" cy="36" r="6" fill="#c8d0dc"/><circle cx="56" cy="54" r="2.4" fill="#00e676"/>',
-  stretch:'<rect x="10" y="66" width="80" height="5" rx="2.5" fill="#1a1e26"/><rect x="64" y="58" width="4" height="6" rx="1" fill="#c8d0dc"/><line x1="28" y1="64" x2="66" y2="64" stroke="#c8d0dc" stroke-width="5" stroke-linecap="round"/><line x1="28" y1="64" x2="34" y2="50" stroke="#c8d0dc" stroke-width="5" stroke-linecap="round"/><line x1="34" y1="50" x2="58" y2="62" stroke="#c8d0dc" stroke-width="4" stroke-linecap="round"/><circle cx="36" cy="46" r="6" fill="#c8d0dc"/><circle cx="28" cy="64" r="2.4" fill="#00e676"/>',
-  mobility:'<line x1="6" y1="72" x2="94" y2="72" stroke="#252b35" stroke-width="2.5" stroke-linecap="round"/><line x1="50" y1="23" x2="50" y2="50" stroke="#c8d0dc" stroke-width="5" stroke-linecap="round"/><line x1="50" y1="30" x2="36" y2="34" stroke="#c8d0dc" stroke-width="4" stroke-linecap="round"/><line x1="50" y1="30" x2="64" y2="34" stroke="#c8d0dc" stroke-width="4" stroke-linecap="round"/><line x1="50" y1="50" x2="42" y2="70" stroke="#c8d0dc" stroke-width="5" stroke-linecap="round"/><line x1="50" y1="50" x2="58" y2="70" stroke="#c8d0dc" stroke-width="5" stroke-linecap="round"/><polyline points="33.5,32.3 32.3,32.8 31.0,33.0 29.7,32.8 28.5,32.3 27.5,31.5 26.7,30.5 26.2,29.3 26.0,28.0 26.2,26.7 26.7,25.5 27.5,24.5 28.5,23.7 29.7,23.2 31.0,23.0 32.3,23.2 33.5,23.7" fill="none" stroke="#00e676" stroke-width="1.5"/><polyline points="66.5,23.7 67.7,23.2 69.0,23.0 70.3,23.2 71.5,23.7 72.5,24.5 73.3,25.5 73.8,26.7 74.0,28.0 73.8,29.3 73.3,30.5 72.5,31.5 71.5,32.3 70.3,32.8 69.0,33.0 67.7,32.8 66.5,32.3" fill="none" stroke="#00e676" stroke-width="1.5"/><circle cx="50" cy="16" r="7" fill="#c8d0dc"/><circle cx="50" cy="30" r="2.4" fill="#00e676"/><circle cx="50" cy="50" r="2.4" fill="#00e676"/>',
-};
+// ── BIBLIOTECA DE EXERCICIOS (fotos reais, free-exercise-db, dominio publico) ──
+// Imagens hospedadas no GitHub. Cada exercicio tem 2 fotos (0=inicio, 1=fim).
+const EXDB_BASE='https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/';
+function _exImg(id,frame){ return EXDB_BASE+id+'/'+(frame||0)+'.jpg'; }
 
-// Mapa de reconhecimento: termo no texto -> chave SVG + nome amigavel
+
+// Mapa de reconhecimento: termo no texto -> id da foto no banco + nome amigavel
+// IDs conforme free-exercise-db (dominio publico). Prioriza versoes bodyweight/leves.
 const EXERCISE_MAP=[
-  [/gluteo bridge|elevacao pelvica|ponte/i,'bridge','Elevacao de quadril'],
-  [/clamshell/i,'clamshell','Concha (clamshell)'],
-  [/dead ?bug/i,'deadbug','Dead bug'],
-  [/bird ?dog/i,'birddog','Bird dog'],
-  [/agachamento/i,'squat','Agachamento'],
-  [/split squat/i,'splitsquat','Split squat'],
-  [/leg press/i,'legpress','Leg press'],
-  [/cadeira (extensora|flexora)/i,'cadeira','Cadeira extensora'],
-  [/terra romeno|levantamento terra/i,'rdl','Terra romeno'],
-  [/afundo|lunge/i,'lunge','Afundo'],
-  [/step ?up/i,'stepup','Step up'],
-  [/prancha lateral/i,'plankside','Prancha lateral'],
-  [/prancha|plank/i,'plank','Prancha'],
-  [/hollow/i,'hollow','Hollow hold'],
-  [/russian twist/i,'twist','Russian twist'],
-  [/elevacao de pernas/i,'legraise','Elevacao de pernas'],
-  [/pallof/i,'pallof','Pallof press'],
-  [/foam roller|liberacao/i,'foam','Foam roller'],
-  [/alongamento|cadeia posterior|flexores/i,'stretch','Alongamento'],
-  [/mobilidade|rotacao|articular/i,'mobility','Mobilidade articular'],
+  [/gluteo bridge|elevacao pelvica|ponte|gl[uú]teo/i,'Butt_Lift_Bridge_Raise','Elevacao de quadril'],
+  [/clamshell|concha/i,'Side_Lying_Groin_Stretch','Concha (clamshell)'],
+  [/dead ?bug/i,'Dead_Bug','Dead bug'],
+  [/bird ?dog|quadruped/i,'Bird_Dog','Bird dog'],
+  [/split squat|agachamento b[uú]lgaro/i,'Bulgarian_Split_Squat','Split squat'],
+  [/agachamento livre|agachamento/i,'Bodyweight_Squat','Agachamento'],
+  [/leg press/i,'Leg_Press','Leg press'],
+  [/cadeira extensora|extensora/i,'Leg_Extensions','Cadeira extensora'],
+  [/cadeira flexora|flexora|mesa flexora/i,'Lying_Leg_Curls','Cadeira flexora'],
+  [/terra romeno|levantamento terra|stiff/i,'Romanian_Deadlift','Terra romeno'],
+  [/afundo|lunge|passada/i,'Bodyweight_Walking_Lunge','Afundo'],
+  [/step ?up|subida no banco/i,'Dumbbell_Step_Ups','Step up'],
+  [/prancha lateral/i,'Side_Bridge','Prancha lateral'],
+  [/prancha|plank/i,'Plank','Prancha'],
+  [/hollow/i,'Flat_Bench_Lying_Leg_Raise','Hollow hold'],
+  [/russian twist|torcao russa/i,'Russian_Twist','Russian twist'],
+  [/elevacao de pernas|leg raise/i,'Flat_Bench_Lying_Leg_Raise','Elevacao de pernas'],
+  [/pallof/i,'Cable_Wood_Chop','Pallof press'],
+  [/abdominal|crunch|core/i,'Crunches','Abdominal'],
+  [/foam roller|liberacao|liberacao miofascial|miofascial/i,'Adductor','Foam roller'],
+  [/panturrilha/i,'Standing_Calf_Raises','Panturrilha'],
+  [/alongamento.*posterior|cadeia posterior|isquio|hamstring/i,'Standing_Toe_Touches','Along. posterior'],
+  [/alongamento.*quadr|quadriceps|quadr[ií]ceps/i,'All_Fours_Quad_Stretch','Along. quadriceps'],
+  [/alongamento/i,'Standing_Toe_Touches','Alongamento'],
+  [/mobilidade.*quadril|mobilidade de quadril/i,'Iliotibial_Tract_SMR','Mobilidade de quadril'],
+  [/mobilidade|articular|rotacao/i,'All_Fours_Quad_Stretch','Mobilidade articular'],
 ];
+
 
 function _extractExercises(text){
   if(!text)return[];
   const found=[]; const seen=new Set();
-  const parts=String(text).split(/[\/,]/).map(x=>x.trim()).filter(Boolean);
+  const parts=String(text).split(/[\/,;]/).map(x=>x.trim()).filter(Boolean);
   parts.forEach(part=>{
-    for(const [rx,key,nome] of EXERCISE_MAP){
-      if(rx.test(part)&&!seen.has(key)){
+    for(const [rx,id,nome] of EXERCISE_MAP){
+      if(rx.test(part)&&!seen.has(id)){
         const rep=part.match(/\d+\s*x\s*\d+|\d+\s*s\b|\d+\s*seg/i);
-        found.push({key,nome,rep:rep?rep[0]:'',svg:EXERCISE_SVG[key]});
-        seen.add(key); break;
+        found.push({id,nome,rep:rep?rep[0]:'',img0:_exImg(id,0),img1:_exImg(id,1)});
+        seen.add(id); break;
       }
     }
   });
@@ -1630,20 +1621,32 @@ function openExerciseGuide(w,d,si){
   const struct=(sess._plan_sess&&sess._plan_sess.structure)||sess.structure||[];
   let allEx=[];
   struct.forEach(b=>{ allEx=allEx.concat(_extractExercises(b.desc||'')); });
-  const seen=new Set(); allEx=allEx.filter(e=>{ if(seen.has(e.key))return false; seen.add(e.key); return true; });
+  const seen=new Set(); allEx=allEx.filter(e=>{ if(seen.has(e.id))return false; seen.add(e.id); return true; });
 
   let m=document.getElementById('exguide-modal');
   if(!m){ m=document.createElement('div'); m.id='exguide-modal'; m.style.cssText='display:none;position:fixed;inset:0;z-index:360;background:rgba(0,0,0,0.6);align-items:flex-end'; document.body.appendChild(m); }
 
-  const cards = allEx.length ? allEx.map(e=>`
-    <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px;text-align:center">
-      <svg viewBox="0 0 100 80" style="width:100%;height:88px;display:block">${e.svg||''}</svg>
-      <div style="font-family:var(--font-body);font-size:12px;color:var(--text);margin-top:6px;line-height:1.2">${e.nome}</div>
-      ${e.rep?`<div style="font-family:var(--font-ui);font-size:10px;color:var(--accent);letter-spacing:.5px;margin-top:2px">${e.rep}</div>`:''}
-    </div>`).join('') : '<div style="grid-column:1/-1;text-align:center;color:var(--muted2);font-family:var(--font-body);font-size:13px;padding:20px">Sem ilustracoes para este treino.</div>';
+  // Placeholder elegante (SVG neutro) para quando a foto nao carregar
+  const ph="this.onerror=null;this.style.display='none';this.nextElementSibling.style.display='flex';";
+
+  const cards = allEx.length ? allEx.map((e,idx)=>`
+    <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;overflow:hidden">
+      <div style="position:relative;width:100%;aspect-ratio:1/1;background:#fff">
+        <img src="${e.img0}" data-f0="${e.img0}" data-f1="${e.img1}" class="exg-photo" id="exg-img-${idx}" loading="lazy"
+             style="width:100%;height:100%;object-fit:cover;display:block" onerror="${ph}">
+        <div style="display:none;position:absolute;inset:0;background:var(--surface);align-items:center;justify-content:center;flex-direction:column;gap:6px">
+          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5"><circle cx="12" cy="7" r="3.2"/><path d="M5 21c0-4 3.2-6.5 7-6.5s7 2.5 7 6.5"/></svg>
+          <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:1px">SEM FOTO</div>
+        </div>
+      </div>
+      <div style="padding:9px 10px">
+        <div style="font-family:var(--font-body);font-size:12px;color:var(--text);line-height:1.2">${e.nome}</div>
+        ${e.rep?`<div style="font-family:var(--font-ui);font-size:10px;color:var(--accent);letter-spacing:.5px;margin-top:2px">${e.rep}</div>`:''}
+      </div>
+    </div>`).join('') : '<div style="grid-column:1/-1;text-align:center;color:var(--muted2);font-family:var(--font-body);font-size:13px;padding:20px">Sem exercicios reconhecidos para este treino.</div>';
 
   m.innerHTML=`
-    <div style="background:var(--surface);border-top:1px solid var(--border);border-radius:16px 16px 0 0;width:100%;max-height:85vh;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 0 40px">
+    <div style="background:var(--surface);border-top:1px solid var(--border);border-radius:16px 16px 0 0;width:100%;max-height:88vh;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 0 40px">
       <div style="position:sticky;top:0;background:var(--surface);padding:18px 20px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;z-index:1">
         <div>
           <div style="font-family:var(--font-ui);font-size:9px;color:var(--accent);letter-spacing:2px;margin-bottom:3px">GUIA VISUAL</div>
@@ -1652,14 +1655,25 @@ function openExerciseGuide(w,d,si){
         <button onclick="closeExerciseGuide()" style="background:none;border:none;color:var(--muted2);font-size:26px;cursor:pointer;line-height:1;padding:0 4px">&times;</button>
       </div>
       <div style="padding:16px 18px">
-        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px">${cards}</div>
-        <div style="font-family:var(--font-body);font-size:11px;color:var(--muted2);text-align:center;margin-top:16px;line-height:1.5">Ilustracoes de referencia. Execute com controle e boa postura.</div>
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px">${cards}</div>
+        <div style="font-family:var(--font-body);font-size:11px;color:var(--muted2);text-align:center;margin-top:16px;line-height:1.5">Fotos de referencia de execucao. As imagens alternam entre inicio e fim do movimento. Execute com controle e boa postura.</div>
       </div>
     </div>`;
   m.style.display='flex';
   m.onclick=(e)=>{ if(e.target===m) closeExerciseGuide(); };
+
+  // Anima: alterna entre foto inicial e final a cada 1.2s (mini demonstracao do movimento)
+  if(window._exgTimer)clearInterval(window._exgTimer);
+  let toggle=false;
+  window._exgTimer=setInterval(()=>{
+    toggle=!toggle;
+    document.querySelectorAll('.exg-photo').forEach(img=>{
+      const f1=img.getAttribute('data-f1');const f0=img.getAttribute('data-f0');
+      if(f1&&f0)img.src=toggle?f1:f0;
+    });
+  },1200);
 }
-function closeExerciseGuide(){ const m=document.getElementById('exguide-modal'); if(m)m.style.display='none'; }
+function closeExerciseGuide(){ const m=document.getElementById('exguide-modal'); if(m)m.style.display='none'; if(window._exgTimer){clearInterval(window._exgTimer);window._exgTimer=null;} }
 
 // ── RECALIBRACAO SEMANAL DINAMICA ──
 // Analisa o que foi REALMENTE executado numa semana e ajusta o volume da proxima,
@@ -2775,6 +2789,7 @@ function openCompleteSession(w,d,si,key){
 
   // Campos por modalidade
   const isSwim=sess.type==='swim';
+  const isSupport=sess.type==='FORCE'||/Força|Forca|Core|Mobilidade|Alongamento/i.test(sess.text||'');
   const distLabel=isSwim?'Distancia (m)':'Distancia (km)';
   const paceLabel=sess.type==='bike'?'Velocidade media (km/h)':'Pace medio (min/km)';
 
@@ -2804,6 +2819,12 @@ function openCompleteSession(w,d,si,key){
       </div>
       <div style="padding:18px 22px 0">
         ${stravaBanner}
+        ${isSupport?`
+        <div style="display:flex;gap:10px;margin-bottom:14px">
+          <div style="flex:1"><div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:5px">TEMPO (min)</div><input id="cmp-time" type="number" inputmode="numeric" placeholder="45" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:11px;border-radius:6px"></div>
+          <div style="flex:1"><div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:5px">FC MEDIA (bpm) — opcional</div><input id="cmp-hr" type="number" inputmode="numeric" placeholder="120" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:11px;border-radius:6px"></div>
+        </div>
+        `:`
         <div style="display:flex;gap:10px;margin-bottom:14px">
           <div style="flex:1"><div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:5px">TEMPO (min)</div><input id="cmp-time" type="number" inputmode="numeric" placeholder="45" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:11px;border-radius:6px"></div>
           <div style="flex:1"><div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:5px">${distLabel.toUpperCase()}</div><input id="cmp-dist" type="number" inputmode="decimal" step="0.1" placeholder="${isSwim?'1000':'10'}" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:11px;border-radius:6px"></div>
@@ -2817,6 +2838,7 @@ function openCompleteSession(w,d,si,key){
           <div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:6px">ZONA FC PREDOMINANTE</div>
           <div style="display:flex;gap:8px">${zoneOpts}</div>
         </div>
+        `}
         <div style="margin-bottom:20px">
           <div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:6px">COMO FOI O ESFORCO?</div>
           <div style="display:flex;gap:8px">${senseOpts}</div>
@@ -2911,18 +2933,12 @@ function _commitComplete(key){
 }
 
 function _refreshAfterCheck(e,key,c){
-  if(currentTab==='hoje'){
-    _renderHoje(hojeWeek,hojeDay);
-    renderStats();
-  }else if(currentTab==='semana'){
-    const miniCheck=e&&e.target&&e.target.closest?e.target.closest('.mini-check')||e.target:null;
-    const sessionRow=miniCheck&&miniCheck.closest?miniCheck.closest('.mini-session'):null;
-    if(sessionRow){const isDone=!!c[key];miniCheck.className='mini-check'+(isDone?' done':'');miniCheck.textContent=isDone?'✓':'';sessionRow.className='mini-session'+(isDone?' done':'');}
-    updateDayBadges(semanaWeek);updateVolumeSummary(semanaWeek);
-    renderStats();
-  }else if(currentTab==='stats'){
-    renderStats();
-  }
+  // Re-renderiza a view ativa inteira para refletir o tick imediatamente
+  try{
+    if(currentTab==='hoje'){ _renderHoje(hojeWeek,hojeDay); }
+    else if(currentTab==='semana'){ _renderSemana(semanaWeek); }
+  }catch(err){}
+  try{ renderStats(); }catch(err){}
 }
 
 function updateDayBadges(w){
@@ -2946,8 +2962,8 @@ function updateVolumeSummary(w){
       <div class="week-summary-title">VOLUME DA SEMANA</div>
       <div class="summary-row">
         <div class="summary-pill"><div class="summary-pill-val" style="color:#1a6cf0">${swimKm.toFixed(1)}</div><div class="summary-pill-label">km natacao</div></div>
-        <div class="summary-pill"><div class="summary-pill-val" style="color:#e05c2a">${bikeKm}</div><div class="summary-pill-label">km bike</div></div>
-        <div class="summary-pill"><div class="summary-pill-val" style="color:#00e676">${runKm}</div><div class="summary-pill-label">km corrida</div></div>
+        <div class="summary-pill"><div class="summary-pill-val" style="color:#e05c2a">${bikeKm.toFixed(1)}</div><div class="summary-pill-label">km bike</div></div>
+        <div class="summary-pill"><div class="summary-pill-val" style="color:#00e676">${runKm.toFixed(1)}</div><div class="summary-pill-label">km corrida</div></div>
       </div>`;
   }
 }
@@ -3638,49 +3654,44 @@ function renderStats(){
     zbg.appendChild(zfill);zd.appendChild(zrow);zd.appendChild(zbg);zoneDiv.appendChild(zd);
   });
 
-  // ── MUSCULAÇÃO A/B/C/D ──
-  const muscCount={A:0,B:0,C:0,D:0};
-  // Contar de overrides (sessões do plano)
-  Object.values(ovAll).forEach(ov=>{
-    if(ov&&ov.text){const m=ov.text.match(/Musc\.\s*([ABCD])/i);if(m)muscCount[m[1].toUpperCase()]++;}
-  });
-  // Contar de extras
-  Object.values(extAll).forEach(dayExtras=>{
-    if(!Array.isArray(dayExtras))return;
-    dayExtras.forEach(ex=>{
-      const t=ex.text||ex.label||'';
-      const m=t.match(/Musc\.\s*([ABCD])/i);if(m)muscCount[m[1].toUpperCase()]++;
-    });
-  });
-  // Contar também de checks do plano (sessões não editadas)
+  // ── FORCA / CORE / MOBILIDADE ──
+  // Classifica um texto de treino de suporte em uma das 3 categorias
+  function _supportCat(t){
+    if(!t)return null;
+    if(/core|abdominal|abdomen|prancha|plank/i.test(t))return 'CORE';
+    if(/mobilidade|alongamento|along|foam|flexibilidade/i.test(t))return 'MOB';
+    if(/for\u00e7a|forca|funcional|musc|gym|agachamento|leg press|afundo/i.test(t))return 'FORCA';
+    return null;
+  }
+  const suppCount={FORCA:0,CORE:0,MOB:0};
+  const suppPlanned={FORCA:0,CORE:0,MOB:0};
   const checksAll=loadChecks();
-  const _twV=planWeekCount();for(let wk=1;wk<=_twV;wk++){for(let di=0;di<7;di++){getEffectiveSessions(wk,di).forEach(sess=>{
-    const key=sess._origin==='plan'?ck(wk,di,sess._si):`ex_w${wk}_d${di}_i${sess._idx}`;
-    if(!checksAll[key])return;
-    const t=sess.text||'';const m=t.match(/Musc\.\s*([ABCD])/i);
-    if(m){const letter=m[1].toUpperCase();muscCount[letter]=muscCount[letter]||0;}
-    // Já contamos acima, evitar duplicata — só contar se não tem override com text
-    const ov2=sess._origin==='plan'?getOverride(wk,di,sess._si):null;
-    if(!ov2?.text&&m)muscCount[m[1].toUpperCase()]++;
-  });}}
-  // Total planejado por série no plano completo
-  const muscPlanned={A:0,B:0,C:0,D:0};
-  const _twM=planWeekCount();for(let wk=1;wk<=_twM;wk++){const _wkA=getWeek(wk);if(_wkA&&_wkA.days){for(let di=0;di<7;di++){(_wkA.days[di]||[]).forEach(sess=>{const m2=(sess.text||'').match(/Musc\.\s*([ABCD])/i);if(m2)muscPlanned[m2[1].toUpperCase()]++;});}}}
-  const muscTotal=Math.max(...Object.values(muscPlanned))||1;
+  const _twV=planWeekCount();
+  for(let wk=1;wk<=_twV;wk++){
+    for(let di=0;di<7;di++){
+      getEffectiveSessions(wk,di).forEach(sess=>{
+        const cat=_supportCat(sess.text||'');
+        if(!cat)return;
+        suppPlanned[cat]++;
+        const key=sess._origin==='plan'?ck(wk,di,sess._si):`ex_w${wk}_d${di}_i${sess._idx}`;
+        if(checksAll[key])suppCount[cat]++;
+      });
+    }
+  }
   const muscDiv=document.createElement('div');
   muscDiv.style.cssText='background:var(--surface);border:1px solid var(--border);border-top:2px solid #9b6af0;padding:16px;margin-bottom:8px';
   const muscTitle=document.createElement('div');
   muscTitle.style.cssText='font-family:var(--font-ui);font-size:9px;font-weight:700;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:14px';
-  muscTitle.textContent='MUSCULACAO POR SERIE';
+  muscTitle.textContent='FORCA · CORE · MOBILIDADE';
   muscDiv.appendChild(muscTitle);
-  ['A','B','C','D'].forEach(letter=>{
-    const count=muscCount[letter]||0;
-    const planned=muscPlanned[letter]||1;
+  [['FORCA','Forca Funcional'],['CORE','Core e Abdominal'],['MOB','Mobilidade e Along.']].forEach(([cat,nome])=>{
+    const count=suppCount[cat]||0;
+    const planned=suppPlanned[cat]||1;
     const pct=Math.min(100,Math.round((count/planned)*100));
     const md=document.createElement('div');md.style.cssText='margin-bottom:10px';
     const mrow=document.createElement('div');mrow.style.cssText='display:flex;justify-content:space-between;align-items:center;margin-bottom:4px';
-    const mlabel=document.createElement('span');mlabel.style.cssText='font-family:var(--font-ui);font-size:10px;font-weight:700;color:#9b6af0;letter-spacing:1px';mlabel.textContent='MUSC. '+letter;
-    const mval=document.createElement('span');mval.style.cssText='font-family:var(--font-display);font-size:13px;color:var(--text)';mval.textContent=count>0?(count+'/'+muscPlanned[letter]):'0/'+muscPlanned[letter];
+    const mlabel=document.createElement('span');mlabel.style.cssText='font-family:var(--font-ui);font-size:10px;font-weight:700;color:#9b6af0;letter-spacing:1px';mlabel.textContent=nome;
+    const mval=document.createElement('span');mval.style.cssText='font-family:var(--font-display);font-size:13px;color:var(--text)';mval.textContent=count+'/'+(suppPlanned[cat]||0);
     mrow.appendChild(mlabel);mrow.appendChild(mval);
     const mbg=document.createElement('div');mbg.style.cssText='height:3px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden';
     const mfill=document.createElement('div');mfill.style.cssText='height:100%;width:'+pct+'%;background:#9b6af0;border-radius:2px';
@@ -5297,7 +5308,22 @@ function renderClubReal(){
 }
 
 function renderClubMyProfile(c){
-  const p=clubState.myProfile||{};
+  const _prof=getMytriProfile();
+  const _cs=clubState.myProfile||{};
+  // Mescla: usa dados do clube, e cai no perfil central do MyTri quando vazio
+  const p={
+    name:_cs.name||_prof.name||'',
+    age:_cs.age||_prof.age||'',
+    city:_cs.city||_prof.city||localStorage.getItem('mytri_gps_city')||'',
+    pace:_cs.pace||_prof.pace||'',
+    ftp:_cs.ftp||_prof.ftp||'',
+    swim:_cs.swim||_prof.swim||'',
+    bio:_cs.bio||'',
+    nextRace:_cs.nextRace||_prof.nextRace||_prof.raceName||'',
+    igHandle:_cs.igHandle||_prof.igHandle||'',
+    photo:_cs.photo||_prof.photo||'',
+    coverBg:_cs.coverBg,coverPhoto:_cs.coverPhoto
+  };
   const coverBg=p.coverBg||'linear-gradient(135deg,#1a3a6f,#0d1f40)';
   const coverStyle=p.coverPhoto?`url('${p.coverPhoto}') center/cover`:coverBg;
   c.innerHTML=`
@@ -5406,15 +5432,9 @@ function renderClubOnboard(c){
           <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;display:block;margin-bottom:6px">SEU NOME</label>
           <input id="cl-nome" type="text" value="${nome}" placeholder="Fernando Garcia" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:13px;border-radius:4px">
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-          <div>
-            <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;display:block;margin-bottom:6px">IDADE</label>
-            <input id="cl-idade" type="number" value="${idade}" placeholder="41" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:13px;border-radius:4px">
-          </div>
-          <div>
-            <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;display:block;margin-bottom:6px">CEP (opcional)</label>
-            <input id="cl-cep" type="text" inputmode="numeric" placeholder="00000-000" maxlength="9" oninput="clFormatCep(this)" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:13px;border-radius:4px">
-          </div>
+        <div>
+          <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;display:block;margin-bottom:6px">IDADE</label>
+          <input id="cl-idade" type="number" value="${idade}" placeholder="41" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:13px;border-radius:4px">
         </div>
         <div style="display:grid;grid-template-columns:1fr 1.5fr;gap:10px">
           <div>
