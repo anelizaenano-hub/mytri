@@ -423,6 +423,11 @@ body.onboarding-active #consult-fab{display:none!important}
 .plan-phase{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)}
 .plan-phase:last-child{border-bottom:none}
 .plan-phase-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);margin-top:6px;flex-shrink:0}
+
+summary::-webkit-details-marker{display:none}
+summary{list-style:none}
+details[open] summary span:last-child{transform:rotate(45deg)}
+summary span:last-child{transition:transform .2s;display:inline-block}
 </style>
 </head>
 <body>
@@ -1149,7 +1154,13 @@ function generatePlan(profile) {
         // teto por tempo semanal declarado (menos-3 / 3-4 / 6-8 / 8-12 / 12+)
         const weeklyCapMap = {'menos-3':50,'3-4':70,'6-8':90,'8-12':120,'12-plus':150};
         const wCap = weeklyCapMap[weeklyHrs] || 90;
-        const sessionCap = isLongType ? (isWeekend ? wCap*2.2 : wCap) : (isWeekend ? wCap*1.4 : wCap*0.75);
+        // O teto do longao de fim de semana escala com a distancia da prova: um Ironman
+        // exige treinos longos de verdade (ate ~5h), um sprint nao. Sem isso, half e full
+        // (ou gran-fondo e century) ficavam identicos por baterem no mesmo teto.
+        const longWeekendMult = 1.6 + Math.max(0, distVolFactor-1)*1.4; // sprint~1.6x, olimpico~1.7x, half~2.3x, full~3.0x
+        const sessionCap = isLongType
+          ? (isWeekend ? wCap*longWeekendMult : wCap*1.1)
+          : (isWeekend ? wCap*1.4 : wCap*0.75);
         let durFinal = isSupport ? durTotal : Math.round(durTotal * distVolFactor);
         if(!isSupport) durFinal = Math.min(durFinal, Math.round(sessionCap));
         return {
@@ -1615,30 +1626,30 @@ function _exImg(id,frame){ return EXDB_BASE+id+'/'+(frame||0)+'.jpg'; }
 // Mapa de reconhecimento: termo no texto -> id da foto no banco + nome amigavel
 // IDs conforme free-exercise-db (dominio publico). Prioriza versoes bodyweight/leves.
 const EXERCISE_MAP=[
-  [/gluteo bridge|elevacao pelvica|ponte|gl[uú]teo/i,'Barbell_Glute_Bridge','Elevacao de quadril'],
-  [/clamshell|concha/i,'Side_Lying_Groin_Stretch','Concha (clamshell)'],
+  [/gluteo bridge|elevacao pelvica|ponte|gl[uú]teo/i,'Butt_Lift_Bridge','Elevacao de quadril'],
+  [/clamshell|concha/i,'Bent-Knee_Hip_Raise','Concha (ativacao quadril)'],
   [/dead ?bug/i,'Dead_Bug','Dead bug'],
-  [/bird ?dog|quadruped/i,'Air_Bike','Bird dog (core)'],
-  [/split squat|agachamento b[uú]lgaro/i,'Bulgarian_Split_Squat','Split squat'],
+  [/bird ?dog|quadruped/i,'Cocoons','Bird dog (core)'],
+  [/split squat|agachamento b[uú]lgaro/i,'Dumbbell_Rear_Lunge','Split squat'],
   [/agachamento livre|agachamento/i,'Bodyweight_Squat','Agachamento'],
-  [/leg press/i,'Leg_Press','Leg press'],
-  [/cadeira extensora|extensora/i,'Leg_Extensions','Cadeira extensora'],
-  [/cadeira flexora|flexora|mesa flexora/i,'Lying_Leg_Curls','Cadeira flexora'],
-  [/terra romeno|levantamento terra|stiff/i,'Romanian_Deadlift','Terra romeno'],
+  [/leg press/i,'Calf_Press_On_The_Leg_Press_Machine','Leg press'],
+  [/cadeira extensora|extensora/i,'Bodyweight_Squat','Cadeira extensora'],
+  [/cadeira flexora|flexora|mesa flexora/i,'Bodyweight_Squat','Cadeira flexora'],
+  [/terra romeno|levantamento terra|stiff/i,'Barbell_Full_Squat','Terra romeno'],
   [/afundo|lunge|passada/i,'Bodyweight_Walking_Lunge','Afundo'],
   [/step ?up|subida no banco/i,'Dumbbell_Step_Ups','Step up'],
-  [/prancha lateral/i,'Side_Bridge','Prancha lateral'],
-  [/prancha|plank/i,'Plank','Prancha'],
-  [/hollow/i,'Flat_Bench_Lying_Leg_Raise','Hollow hold'],
-  [/russian twist|torcao russa/i,'Russian_Twist','Russian twist'],
-  [/elevacao de pernas|leg raise/i,'Flat_Bench_Lying_Leg_Raise','Elevacao de pernas'],
-  [/pallof/i,'Alternate_Heel_Touchers','Pallof press (anti-rotacao)'],
+  [/prancha lateral/i,'Decline_Oblique_Crunch','Prancha lateral (obliquo)'],
+  [/prancha|plank/i,'Butt-Ups','Prancha'],
+  [/hollow/i,'Bottoms_Up','Hollow hold'],
+  [/russian twist|torcao russa/i,'Cross-Body_Crunch','Russian twist'],
+  [/elevacao de pernas|leg raise/i,'Bent-Knee_Hip_Raise','Elevacao de pernas'],
+  [/pallof/i,'Cable_Judo_Flip','Pallof press (anti-rotacao)'],
   [/abdominal|crunch|core/i,'Crunches','Abdominal'],
   [/foam roller|liberacao|liberacao miofascial|miofascial/i,'Adductor','Foam roller'],
-  [/panturrilha/i,'Standing_Calf_Raises','Panturrilha'],
-  [/alongamento.*posterior|cadeia posterior|isquio|hamstring/i,'Seated_Hamstring_and_Calf_Stretch','Along. posterior'],
+  [/panturrilha/i,'Calves-SMR','Panturrilha'],
+  [/alongamento.*posterior|cadeia posterior|isquio|hamstring/i,'90_90_Hamstring','Along. posterior'],
   [/alongamento.*quadr|quadriceps|quadr[ií]ceps/i,'All_Fours_Quad_Stretch','Along. quadriceps'],
-  [/alongamento/i,'90_90_Hamstring','Alongamento'],
+  [/alongamento/i,'Cat_Stretch','Alongamento'],
   [/mobilidade.*quadril|mobilidade de quadril/i,'Adductor','Mobilidade de quadril'],
   [/mobilidade|articular|rotacao/i,'All_Fours_Quad_Stretch','Mobilidade articular'],
 ];
@@ -2872,19 +2883,20 @@ function openCompleteSession(w,d,si,key){
         ${stravaBanner}
         ${isSupport?`
         <div style="display:flex;gap:10px;margin-bottom:14px">
-          <div style="flex:1"><div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:5px">TEMPO (min)</div><input id="cmp-time" type="number" inputmode="numeric" placeholder="45" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:11px;border-radius:6px"></div>
-          <div style="flex:1"><div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:5px">FC MEDIA (bpm) — opcional</div><input id="cmp-hr" type="number" inputmode="numeric" placeholder="120" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:11px;border-radius:6px"></div>
+          <div style="flex:1"><div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:5px">TEMPO (min)</div><input id="cmp-time" type="number" inputmode="numeric" placeholder="ex: 45" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:11px;border-radius:6px"></div>
+          <div style="flex:1"><div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:5px">FC MEDIA (bpm) — opcional</div><input id="cmp-hr" type="number" inputmode="numeric" placeholder="ex: 120" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:11px;border-radius:6px"></div>
         </div>
         `:`
         <div style="display:flex;gap:10px;margin-bottom:14px">
-          <div style="flex:1"><div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:5px">TEMPO (min)</div><input id="cmp-time" type="number" inputmode="numeric" placeholder="45" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:11px;border-radius:6px"></div>
-          <div style="flex:1"><div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:5px">${distLabel.toUpperCase()}</div><input id="cmp-dist" type="number" inputmode="decimal" step="0.1" placeholder="${isSwim?'1000':'10'}" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:11px;border-radius:6px"></div>
+          <div style="flex:1"><div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:5px">TEMPO (min)</div><input id="cmp-time" type="number" inputmode="numeric" placeholder="ex: 45" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:11px;border-radius:6px"></div>
+          <div style="flex:1"><div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:5px">${distLabel.toUpperCase()}</div><input id="cmp-dist" type="number" inputmode="decimal" step="0.1" placeholder="${isSwim?'ex: 1000':'ex: 10'}" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:11px;border-radius:6px"></div>
         </div>
         <div style="display:flex;gap:10px;margin-bottom:14px">
-          <div style="flex:1"><div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:5px">${paceLabel.toUpperCase()}</div><input id="cmp-pace" type="text" placeholder="${sess.type==='bike'?'30':'5:30'}" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:11px;border-radius:6px"></div>
-          <div style="flex:1"><div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:5px">FC MEDIA (bpm)</div><input id="cmp-hr" type="number" inputmode="numeric" placeholder="135" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:11px;border-radius:6px"></div>
+          <div style="flex:1"><div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:5px">${paceLabel.toUpperCase()}</div><input id="cmp-pace" type="text" placeholder="${sess.type==='bike'?'ex: 30':'ex: 5:30'}" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:11px;border-radius:6px"></div>
+          <div style="flex:1"><div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:5px">FC MEDIA (bpm)</div><input id="cmp-hr" type="number" inputmode="numeric" placeholder="ex: 135" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:11px;border-radius:6px"></div>
         </div>
-        <div style="margin-bottom:14px"><div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:5px">FC MAX (bpm) — opcional</div><input id="cmp-hrmax" type="number" inputmode="numeric" placeholder="165" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:11px;border-radius:6px"></div>
+        <div style="margin-bottom:14px"><div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:5px">FC MAX (bpm) — opcional</div><input id="cmp-hrmax" type="number" inputmode="numeric" placeholder="ex: 165" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:11px;border-radius:6px"></div>
+        ${sess.type==='bike'?`<div style="margin-bottom:14px"><div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:5px">POTENCIA MEDIA (watts) — opcional</div><input id="cmp-watts" type="number" inputmode="numeric" placeholder="ex: 210" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:11px;border-radius:6px"><div style="font-family:var(--font-body);font-size:11px;color:var(--muted2);margin-top:5px;line-height:1.4">Se voce treina com medidor de potencia, informe a media. Deixa a analise do treino mais precisa que so a FC.</div></div>`:''}
         <div style="margin-bottom:14px">
           <div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:6px">ZONA FC PREDOMINANTE</div>
           <div style="display:flex;gap:8px">${zoneOpts}</div>
@@ -2916,6 +2928,7 @@ function _saveComplete(w,d,si,key,skipData){
     const pace=document.getElementById('cmp-pace')?.value||'';
     const hr=document.getElementById('cmp-hr')?.value||'';
     const hrmax=document.getElementById('cmp-hrmax')?.value||'';
+    const watts=document.getElementById('cmp-watts')?.value||'';
     const sess=getEffectiveSessions(w,d).find(s=>s._origin==='plan'&&s._si===si);
     const isSwim=sess&&sess.type==='swim';
     const isBike=sess&&sess.type==='bike';
@@ -2926,6 +2939,7 @@ function _saveComplete(w,d,si,key,skipData){
     if(time)parts.push(time+'min');
     if(hr)parts.push(hr+'bpm');
     if(hrmax)parts.push('max '+hrmax);
+    if(watts)parts.push(watts+'W');
     if(_cmpSense)parts.push(_cmpSense);
     const realData=parts.join(' · ');
     const patch={ manualData:realData };
@@ -3523,6 +3537,73 @@ async function openReport(type){
   }
 }
 
+// ── INDICE DE CONSISTENCIA MYTRI (ranking por constancia, nao performance) ──
+// Combina: aderencia ao plano (peso 50) + streak de semanas (peso 30) + volume relativo (peso 20).
+// Democratico: premia quem treina constante, nao quem e mais rapido. Iniciante dedicado bate avancado preguicoso.
+function computeConsistencyIndex(){
+  const totalW = (typeof planWeekCount==='function') ? planWeekCount() : 12;
+  const {w:cw} = getCurrentWeekAndDay();
+  const upTo = Math.min(cw, totalW);
+  let sumAdh=0, sumVol=0, weeks=0, streak=0, bestStreak=0;
+  for(let w=1; w<=upTo; w++){
+    const a=analyzeWeek(w);
+    if(a.planned>0){
+      sumAdh += a.adherence;
+      sumVol += Math.min(a.volRatio,1.2); // cap pra nao inflar com excesso
+      weeks++;
+      // streak: semana conta se aderencia >= 60%
+      if(a.adherence>=0.6){ streak++; if(streak>bestStreak)bestStreak=streak; }
+      else { streak=0; }
+    }
+  }
+  const avgAdh = weeks>0 ? sumAdh/weeks : 0;         // 0..1
+  const avgVol = weeks>0 ? (sumVol/weeks) : 0;        // 0..1.2
+  const streakScore = Math.min(bestStreak/8, 1);     // 8 semanas seguidas = maximo
+  // Indice 0..100
+  const idx = Math.round( (avgAdh*50) + (streakScore*30) + (Math.min(avgVol,1)*20) );
+  return { index: Math.max(0,Math.min(100,idx)), avgAdh, streak:bestStreak, avgVol, weeks };
+}
+
+// Usuarios mock para o ranking (substituir por Supabase quando CLC/auth chegar).
+// Agrupados por modalidade. Cada um tem um indice pre-calculado.
+function _mockRankingUsers(sport){
+  const pools={
+    triathlon:[
+      {name:'Rafael M.',city:'Santos SP',index:88,streak:9},
+      {name:'Juliana C.',city:'Campinas SP',index:82,streak:7},
+      {name:'Pedro H.',city:'Rio de Janeiro RJ',index:79,streak:6},
+      {name:'Marina L.',city:'Florianopolis SC',index:71,streak:5},
+      {name:'Bruno A.',city:'Sao Paulo SP',index:64,streak:4},
+      {name:'Camila R.',city:'Curitiba PR',index:58,streak:3},
+      {name:'Thiago S.',city:'Belo Horizonte MG',index:49,streak:2},
+    ],
+    corrida:[
+      {name:'Ana P.',city:'Sao Paulo SP',index:91,streak:11},
+      {name:'Lucas F.',city:'Rio de Janeiro RJ',index:85,streak:8},
+      {name:'Beatriz N.',city:'Porto Alegre RS',index:77,streak:6},
+      {name:'Diego M.',city:'Recife PE',index:69,streak:5},
+      {name:'Fernanda T.',city:'Brasilia DF',index:61,streak:4},
+      {name:'Gustavo R.',city:'Salvador BA',index:53,streak:3},
+      {name:'Larissa V.',city:'Fortaleza CE',index:44,streak:2},
+    ],
+    ciclismo:[
+      {name:'Marcelo B.',city:'Sao Paulo SP',index:86,streak:8},
+      {name:'Patricia G.',city:'Campinas SP',index:80,streak:7},
+      {name:'Rodrigo L.',city:'Rio de Janeiro RJ',index:73,streak:5},
+      {name:'Silvia M.',city:'Curitiba PR',index:66,streak:4},
+      {name:'Andre C.',city:'Belo Horizonte MG',index:57,streak:3},
+    ],
+  };
+  return pools[sport] || pools.corrida;
+}
+
+function _sportGroup(prof){
+  const sp=(prof.sport||'').toLowerCase();
+  if(sp.includes('tri')) return 'triathlon';
+  if(sp.includes('cicl')||sp.includes('bike')||sp.includes('ciclismo')) return 'ciclismo';
+  return 'corrida';
+}
+
 function renderStats(){
   const container=document.getElementById('view-stats');container.innerHTML='';
   const checks=loadChecks();const days=countdownDays();const vol=getVolume();
@@ -3749,7 +3830,80 @@ function renderStats(){
     mbg.appendChild(mfill);md.appendChild(mrow);md.appendChild(mbg);muscDiv.appendChild(md);
   });
 
-  container.appendChild(cd);container.appendChild(distCard);container.appendChild(progressDiv);container.appendChild(volDiv);container.appendChild(zoneDiv);container.appendChild(muscDiv);
+  // ── CARD DE RANKING DE CONSISTENCIA ──
+  const rankProf=getMytriProfile();
+  const ci=computeConsistencyIndex();
+  const sportGrp=_sportGroup(rankProf);
+  const sportLabel={triathlon:'TRIATLETAS',corrida:'CORREDORES',ciclismo:'CICLISTAS'}[sportGrp];
+  const rankUsers=_mockRankingUsers(sportGrp).slice();
+  rankUsers.push({name:(rankProf.name||'Voce')+' (voce)',city:rankProf.city||'',index:ci.index,streak:ci.streak,isMe:true});
+  rankUsers.sort((a,b)=>b.index-a.index);
+  const myPos=rankUsers.findIndex(u=>u.isMe)+1;
+  const medal=(p)=>p===1?'#ffd700':p===2?'#c0c0c0':p===3?'#cd7f32':'var(--muted2)';
+  const rankCard=document.createElement('div');
+  rankCard.className='stats-section';
+  rankCard.style.cssText='margin-bottom:20px';
+  rankCard.innerHTML=`
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+      <div style="font-family:var(--font-ui);font-size:11px;color:var(--accent);letter-spacing:2px">RANKING DE CONSISTENCIA</div>
+      <div style="font-family:var(--font-ui);font-size:9px;color:var(--muted2);letter-spacing:1px">${sportLabel}</div>
+    </div>
+    <div style="font-family:var(--font-body);font-size:11px;color:var(--muted2);line-height:1.5;margin-bottom:16px">Classificacao por constancia e aderencia ao treino — nao por velocidade. Quanto mais regular voce treina, mais sobe.</div>
+
+    <div style="background:linear-gradient(135deg,rgba(0,230,118,0.12),rgba(0,230,118,0.03));border:1px solid rgba(0,230,118,0.3);border-radius:12px;padding:16px;margin-bottom:16px;display:flex;align-items:center;gap:16px">
+      <div style="text-align:center;min-width:64px">
+        <div style="font-family:var(--font-display);font-size:34px;color:var(--accent);line-height:1">${ci.index}</div>
+        <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:2px">INDICE</div>
+      </div>
+      <div style="flex:1">
+        <div style="font-family:var(--font-body);font-size:14px;color:var(--text);margin-bottom:4px">Voce esta em <span style="color:var(--accent);font-weight:700">${myPos}o</span> de ${rankUsers.length}</div>
+        <div style="font-family:var(--font-body);font-size:11px;color:var(--muted2);line-height:1.4">Sequencia: ${ci.streak} ${ci.streak===1?'semana':'semanas'} · Aderencia media: ${Math.round(ci.avgAdh*100)}%</div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:2px">
+      ${rankUsers.map((u,i)=>{
+        const pos=i+1;
+        const isMe=u.isMe;
+        return `<div style="display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:8px;background:${isMe?'rgba(0,230,118,0.1)':'transparent'};border:${isMe?'1px solid rgba(0,230,118,0.3)':'1px solid transparent'}">
+          <div style="font-family:var(--font-display);font-size:15px;color:${medal(pos)};min-width:24px;text-align:center">${pos}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-family:var(--font-body);font-size:13px;color:${isMe?'var(--accent)':'var(--text)'};font-weight:${isMe?'700':'400'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${u.name}</div>
+            ${u.city?`<div style="font-family:var(--font-body);font-size:10px;color:var(--muted2)">${u.city}</div>`:''}
+          </div>
+          <div style="text-align:right">
+            <div style="font-family:var(--font-display);font-size:16px;color:${isMe?'var(--accent)':'var(--text)'}">${u.index}</div>
+            <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted2);letter-spacing:.5px">${u.streak}sem</div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+    <details style="margin-top:16px;border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--bg)">
+      <summary style="padding:13px 14px;font-family:var(--font-ui);font-size:11px;color:var(--text);letter-spacing:1px;cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between">
+        <span>COMO O INDICE E CALCULADO?</span>
+        <span style="color:var(--accent);font-size:16px">+</span>
+      </summary>
+      <div style="padding:0 14px 16px;font-family:var(--font-body);font-size:12px;color:var(--muted2);line-height:1.6">
+        <p style="margin:0 0 12px">O ranking do MyTri nao mede quem e mais rapido — mede quem e mais <span style="color:var(--text)">constante</span>. Um iniciante dedicado pode ficar a frente de um avancado que treina pouco. O indice vai de 0 a 100 e combina tres fatores:</p>
+        <div style="margin-bottom:10px;padding-left:12px;border-left:2px solid rgba(0,230,118,0.4)">
+          <div style="color:var(--accent);font-family:var(--font-ui);font-size:10px;letter-spacing:1px;margin-bottom:2px">ADERENCIA — 50%</div>
+          <div>Quantos dos treinos planejados voce completou. E o que mais pesa: fazer o que foi combinado.</div>
+        </div>
+        <div style="margin-bottom:10px;padding-left:12px;border-left:2px solid rgba(0,230,118,0.4)">
+          <div style="color:var(--accent);font-family:var(--font-ui);font-size:10px;letter-spacing:1px;margin-bottom:2px">SEQUENCIA — 30%</div>
+          <div>Semanas seguidas treinando com regularidade. Premia nao sumir — oito semanas seguidas chega ao maximo.</div>
+        </div>
+        <div style="margin-bottom:12px;padding-left:12px;border-left:2px solid rgba(0,230,118,0.4)">
+          <div style="color:var(--accent);font-family:var(--font-ui);font-size:10px;letter-spacing:1px;margin-bottom:2px">VOLUME RELATIVO — 20%</div>
+          <div>O quanto voce treinou em relacao ao seu proprio plano — nao ao dos outros. Assim quem treina para um 5k compete de igual para igual com quem treina para um Ironman.</div>
+        </div>
+        <p style="margin:0;color:var(--muted)">A ideia e simples: constancia vence intensidade. O atleta que aparece toda semana chega mais longe do que o que se esforca demais e desiste.</p>
+      </div>
+    </details>
+    <div style="font-family:var(--font-body);font-size:10px;color:var(--muted2);text-align:center;margin-top:14px;line-height:1.5">Outros atletas sao ilustrativos nesta versao. Com a comunidade ativa, o ranking sera real e ao vivo.</div>
+  `;
+
+  container.appendChild(cd);container.appendChild(rankCard);container.appendChild(distCard);container.appendChild(progressDiv);container.appendChild(volDiv);container.appendChild(zoneDiv);container.appendChild(muscDiv);
 
   // ── REPORTS VIA IA ──
   const repDiv=document.createElement('div');
@@ -5508,19 +5662,19 @@ function renderClubOnboard(c){
             if(sport==='triathlon'||sport==='corrida'||sport==='duathlon'){
               html+=`<div>
                 <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;display:block;margin-bottom:6px">PACE/KM</label>
-                <input id="cl-pace" type="text" value="${pace}" placeholder="5:30" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:13px;border-radius:4px">
+                <input id="cl-pace" type="text" value="${pace}" placeholder="ex: 5:30" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:13px;border-radius:4px">
               </div>`;
             }
             if(sport==='triathlon'||sport==='ciclismo'||sport==='duathlon'){
               html+=`<div>
                 <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;display:block;margin-bottom:6px">FTP</label>
-                <input id="cl-ftp" type="text" value="${ftp}" placeholder="220w" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:13px;border-radius:4px">
+                <input id="cl-ftp" type="text" value="${ftp}" placeholder="ex: 220w" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:13px;border-radius:4px">
               </div>`;
             }
             if(sport==='triathlon'||sport==='natacao'){
               html+=`<div>
                 <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;display:block;margin-bottom:6px">NADO</label>
-                <input id="cl-swim" type="text" value="${swim}" placeholder="1:45" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:13px;border-radius:4px">
+                <input id="cl-swim" type="text" value="${swim}" placeholder="ex: 1:45" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:13px;border-radius:4px">
               </div>`;
             }
             return html;
@@ -6331,7 +6485,7 @@ function renderProfile(){
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
         <div class="profile-field"><label>Idade</label><input id="pf-idade" type="number" value="${prof.age||''}"></div>
         <div class="profile-field"><label>Peso (kg)</label><input id="pf-peso" type="number" value="${prof.weight||''}"></div>
-        <div class="profile-field"><label>Altura (cm)</label><input id="pf-altura" type="number" placeholder="175" value="${prof.altura||''}"></div>
+        <div class="profile-field"><label>Altura (cm)</label><input id="pf-altura" type="number" placeholder="ex: 175" value="${prof.altura||''}"></div>
       </div>
       <div class="profile-field"><label>Cidade</label><input id="pf-cidade" value="${prof.city||''}"></div>
       <div class="profile-field"><label>Sexo</label>
@@ -6400,13 +6554,13 @@ function renderProfile(){
           const sport=prof.sport||'triathlon';
           let fields='';
           if(sport==='triathlon'||sport==='corrida'||sport==='duathlon'){
-            fields+=`<div class="profile-field"><label>Pace/km</label><input id="pf-pace" placeholder="5:30" value="${prof.pace||''}"></div>`;
+            fields+=`<div class="profile-field"><label>Pace/km</label><input id="pf-pace" placeholder="ex: 5:30" value="${prof.pace||''}"></div>`;
           }
           if(sport==='triathlon'||sport==='ciclismo'||sport==='duathlon'){
-            fields+=`<div class="profile-field"><label>FTP (w)</label><input id="pf-ftp" placeholder="220" value="${prof.ftp||''}"></div>`;
+            fields+=`<div class="profile-field"><label>FTP (w)</label><input id="pf-ftp" placeholder="ex: 220" value="${prof.ftp||''}"></div>`;
           }
           if(sport==='triathlon'||sport==='natacao'){
-            fields+=`<div class="profile-field"><label>Nado/100m</label><input id="pf-swim" placeholder="1:45" value="${prof.swim||''}"></div>`;
+            fields+=`<div class="profile-field"><label>Nado/100m</label><input id="pf-swim" placeholder="ex: 1:45" value="${prof.swim||''}"></div>`;
           }
           return fields;
         })()}
@@ -7071,6 +7225,7 @@ function renderObProva(c){
       ${obData.provaIdx===-1?`
         <div class="ob-field"><label>Nome da prova</label><input id="ob-prova-nome" value="${obData.raceName||''}" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:12px;border-radius:4px"></div>
         <div class="ob-field"><label>Data da prova</label><input id="ob-data" type="date" value="${obData.raceDate||''}" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:12px;border-radius:4px"></div>
+        <div class="ob-field"><label>Cidade / Estado da prova</label><input id="ob-prova-local" value="${obData.raceLocal||''}" placeholder="ex: Guaruja, SP" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:12px;border-radius:4px"><div style="font-family:var(--font-body);font-size:11px;color:var(--muted2);margin-top:6px;line-height:1.4">Usado para prever o clima no dia da prova (calor, frio, chuva) e ajustar hidratacao e estrategia.</div></div>
         <button class="ob-btn" onclick="obNext()" style="margin-top:12px">CONTINUAR</button>
       `:''}
     </div>
@@ -7239,11 +7394,11 @@ function renderObModalidades(c){
       sub:'Nivel atual em cada modalidade.',
       sections:[
         {key:'swimLevel',label:'NATACAO',color:'#1a6cf0',levels:swimLevels,
-         extra:`<input id="ob-swim-pace" type="tel" inputmode="numeric" placeholder="1:45" value="${obData.swimPace||''}" oninput="obData.swimPace=obFormatPace(this)" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">`},
+         extra:`<input id="ob-swim-pace" type="tel" inputmode="numeric" placeholder="ex: 1:45" value="${obData.swimPace||''}" oninput="obData.swimPace=obFormatPace(this)" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">`},
         {key:'bikeLevel',label:'BIKE',color:'#e05c2a',levels,
          extra:`<input id="ob-ftp" placeholder="FTP em watts (ex: 200)" value="${obData.ftp||''}" type="number" oninput="obData.ftp=this.value" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">`},
         {key:'runLevel',label:'CORRIDA',color:'#00e676',levels,
-         extra:`<input id="ob-run-pace" type="tel" inputmode="numeric" placeholder="5:30" value="${obData.runPace||''}" oninput="obData.runPace=obFormatPace(this)" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-display);font-size:18px;padding:11px;border-radius:4px">`},
+         extra:`<input id="ob-run-pace" type="tel" inputmode="numeric" placeholder="ex: 5:30" value="${obData.runPace||''}" oninput="obData.runPace=obFormatPace(this)" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">`},
       ]
     },
     corrida:{
@@ -7251,7 +7406,7 @@ function renderObModalidades(c){
       sub:'Onde voce se encontra hoje.',
       sections:[
         {key:'runLevel',label:'CORRIDA',color:'#00e676',levels,
-         extra:`<input id="ob-run-pace" type="tel" inputmode="numeric" placeholder="5:30" oninput="obFormatPace(this)" value="${obData.runPace||''}" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">`},
+         extra:`<input id="ob-run-pace" type="tel" inputmode="numeric" placeholder="ex: 5:30" oninput="obFormatPace(this)" value="${obData.runPace||''}" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">`},
       ]
     },
     ciclismo:{
@@ -7267,7 +7422,7 @@ function renderObModalidades(c){
       sub:'Onde voce se encontra hoje.',
       sections:[
         {key:'swimLevel',label:'NATACAO',color:'#00bcd4',levels:swimLevels,
-         extra:`<input id="ob-swim-pace" type="tel" inputmode="numeric" placeholder="1:45" value="${obData.swimPace||''}" oninput="obData.swimPace=obFormatPace(this)" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">`},
+         extra:`<input id="ob-swim-pace" type="tel" inputmode="numeric" placeholder="ex: 1:45" value="${obData.swimPace||''}" oninput="obData.swimPace=obFormatPace(this)" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">`},
       ]
     },
     duathlon:{
@@ -7275,7 +7430,7 @@ function renderObModalidades(c){
       sub:'Nivel atual em cada modalidade.',
       sections:[
         {key:'runLevel',label:'CORRIDA',color:'#00e676',levels,
-         extra:`<input id="ob-run-pace" type="tel" inputmode="numeric" placeholder="5:30" value="${obData.runPace||''}" oninput="obData.runPace=obFormatPace(this)" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-display);font-size:18px;padding:11px;border-radius:4px">`},
+         extra:`<input id="ob-run-pace" type="tel" inputmode="numeric" placeholder="ex: 5:30" value="${obData.runPace||''}" oninput="obData.runPace=obFormatPace(this)" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">`},
         {key:'bikeLevel',label:'BIKE',color:'#e05c2a',levels,
          extra:`<input id="ob-ftp" placeholder="FTP em watts (ex: 200, opcional)" value="${obData.ftp||''}" type="number" oninput="obData.ftp=this.value" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">`},
       ]
@@ -7327,7 +7482,7 @@ function renderObFitness(c){
         <div><div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;margin-bottom:6px">PESO (kg)</div>
           <input id="ob-peso" type="number" placeholder="70" value="${obData.weight||''}" oninput="obData.weight=this.value" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:12px;border-radius:4px"></div>
         <div><div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;margin-bottom:6px">ALTURA (cm)</div>
-          <input id="ob-altura" type="number" placeholder="175" value="${obData.altura||''}" oninput="obData.altura=this.value" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:12px;border-radius:4px"></div>
+          <input id="ob-altura" type="number" placeholder="ex: 175" value="${obData.altura||''}" oninput="obData.altura=this.value" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:12px;border-radius:4px"></div>
       </div>
 
       <div style="margin-bottom:16px">
@@ -7641,8 +7796,10 @@ function obNext(){
   if(obStep===2&&obData.provaIdx===-1){
     const nome=document.getElementById('ob-prova-nome');
     const data=document.getElementById('ob-data');
+    const local=document.getElementById('ob-prova-local');
     if(nome)obData.raceName=nome.value;
     if(data)obData.raceDate=data.value;
+    if(local)obData.raceLocal=local.value;
   }
   obStep++;
   renderOnboarding();
@@ -7666,10 +7823,10 @@ function obFinish(){
     pace:obData.runPace||prof.pace||'',
     ftp:obData.ftp||prof.ftp||'',
     swim:obData.swimPace||prof.swim||'',
-    nextRace:obData.raceName||prof.nextRace||'',
-    raceName:obData.raceName||prof.raceName||'',
-    raceUrl:obData.raceUrl||prof.raceUrl||'',
-    raceLocal:obData.raceLocal||prof.raceLocal||'',
+    nextRace:obData.raceName||'',
+    raceName:obData.raceName||'',
+    raceUrl:obData.raceUrl||'',
+    raceLocal:obData.raceLocal||obData.cepCity||'',
     raceDist:obData.raceDist||'sprint',
     raceDate:(()=>{ const d=obData.raceDate; const today=new Date().toISOString().slice(0,10); if(d && d>=today) return d; const def=new Date(); def.setDate(def.getDate()+84); return def.toISOString().slice(0,10); })(),
     goalTime:obData.goalTime||'',
@@ -7920,7 +8077,7 @@ function saveAnalysisCache(cache){
 async function maybeShowSessionAnalysis(key, sess, w, d){
   // Só dispara se sessão do plano com dados Strava
   const ov = getOverride(w, d, sess._si);
-  if(!ov || !ov.stravaData) return;
+  if(!ov || (!ov.stravaData && !ov.manualData)) return;
 
   const modal = document.getElementById('session-analysis-modal');
   const colorMap2 = {swim:'#1a6cf0',bike:'#e05c2a',run:'#00e676',gym:'#9b6af0',brick:'#f0a500',tennis:'#c8cad0',rest:'#3a3f4a'};
@@ -8015,6 +8172,12 @@ function closeSessionAnalysis(){
   const modal = document.getElementById('session-analysis-modal');
   modal.classList.remove('active');
   setTimeout(()=>{ modal.innerHTML=''; }, 400);
+  // Re-renderiza a view ativa para o tick de concluido reaparecer (bug: sumia apos fechar report)
+  try{
+    if(currentTab==='hoje'){ _renderHoje(hojeWeek,hojeDay); }
+    else if(currentTab==='semana'){ _renderSemana(semanaWeek); }
+    renderStats();
+  }catch(e){}
 }
 </script>
 </body>
