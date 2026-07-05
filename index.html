@@ -637,7 +637,7 @@ const VOLUME_BASE = {
 
 // ─── TEMPLATES DE SESSÃO POR MODALIDADE ───────────────────────────────────────
 
-function buildSession(type, fase, week, zones, paces, lesoes, level) {
+function buildSession(type, fase, week, zones, paces, lesoes, level, raceDist) {
   const lesaoSet = new Set(lesoes || []);
   const hasLesaoJoelho = lesaoSet.has('joelho') || lesaoSet.has('iliotibial');
   const hasLesaoLombar = lesaoSet.has('lombar') || lesaoSet.has('piriforme');
@@ -667,6 +667,39 @@ function buildSession(type, fase, week, zones, paces, lesoes, level) {
     bridge:  ['3x12','3x15','3x20'][lvl],
     clam:    ['3x12','3x15','3x20'][lvl],
   };
+
+  // ── CONDICIONAMENTO DOS TREINOS DE SUPORTE (forca/core/mobilidade) ──
+  // A distancia da prova muda o CARATER: provas curtas = forca/potencia; provas longas = resistencia de forca.
+  const _rd = raceDist || '';
+  const isEnduranceRace = /olimpico|half|full|meia|maratona|70\.3|140\.6|ironman|10k/i.test(_rd);
+  const isPowerRace = /super-sprint|sprint|5k|criterium/i.test(_rd);
+  const faseLow = (fase||'').toLowerCase();
+  const isBuildOrPeak = /build|constru|peak|pico/.test(faseLow);
+
+  // Reps ajustadas ao objetivo da prova (mesmo exercicio, dose diferente)
+  // Endurance: mais reps, menos carga. Potencia: menos reps, mais explosao.
+  function _rerep(base){
+    // base ex '3x10'. endurance -> +reps; power -> -reps + nota explosiva
+    const m=String(base).match(/(\d+)x(\d+)/);
+    if(!m)return base;
+    let series=+m[1], reps=+m[2];
+    if(isEnduranceRace){ reps=Math.round(reps*1.4); }
+    else if(isPowerRace){ reps=Math.max(4,Math.round(reps*0.6)); }
+    return series+'x'+reps;
+  }
+  const _powerNote = isPowerRace ? ' (explosivo na subida)' : (isEnduranceRace ? ' (cadencia controlada, foco resistencia)' : '');
+
+  // Pool de exercicios de forca que ROTACIONA por semana (nao repete sempre igual)
+  const _wIdx = ((week||1)-1);
+  function _rot(arr){ return arr[_wIdx % arr.length]; }
+
+  // Blocos acessorios que entram em BUILD/PEAK (mais exercicios quando a carga sobe)
+  const _forcaExtra = isBuildOrPeak
+    ? ` / ${_rot(['panturrilha em pe '+_rerep('3x15'),'ponte unilateral '+_rerep('3x12'),'agachamento isometrico 3x30s'])}`
+    : '';
+  const _coreExtra = isBuildOrPeak
+    ? ` / ${_rot(['prancha com elevacao de perna '+SET_CORE+'x'+R.plankL,'mountain climber 3x20','v-up '+_rerep('3x10')])}`
+    : '';
 
   const sessions = {
     // ── CORRIDA ────────────────────────────────────────────────────────────────
@@ -886,10 +919,10 @@ function buildSession(type, fase, week, zones, paces, lesoes, level) {
       fcAlvo: '',
       structure: [
         { part: 'Ativacao', dur: 10, zone: '', fc: '', desc: `Gluteo bridge ${R.bridge} / clamshell ${R.clam} / dead bug ${R.deadbug} — prepara quadril e core` },
-        { part: `Forca Principal (nivel ${LVL_LABEL})`, dur: lvl===0?20:25, zone: '', fc: '', desc: hasLesaoJoelho ? `Evite agachamento profundo. Leg press parcial ${R.legpress} / split squat suave ${R.lunge} / cadeira extensora leve ${R.stepup}` : (hasLesaoLombar ? `Sem carga axial. Leg press ${R.legpress} / cadeira flexora ${R.stepup} / elevacao pelvica ${R.bridge} / afundo com halteres ${R.lunge}` : `Agachamento ${R.squat} / Afundo ${R.lunge} / Terra romeno ${R.rdl} / Step up ${R.stepup}`) },
+        { part: `Forca Principal (nivel ${LVL_LABEL})`, dur: lvl===0?20:25, zone: '', fc: '', desc: hasLesaoJoelho ? `Evite agachamento profundo. Leg press parcial ${_rerep(R.legpress)} / split squat suave ${_rerep(R.lunge)} / cadeira extensora leve ${_rerep(R.stepup)}${_powerNote}` : (hasLesaoLombar ? `Sem carga axial. Leg press ${_rerep(R.legpress)} / cadeira flexora ${_rerep(R.stepup)} / elevacao pelvica ${_rerep(R.bridge)} / afundo com halteres ${_rerep(R.lunge)}${_powerNote}` : `${_rot(['Agachamento','Agachamento goblet','Agachamento sumo'])} ${_rerep(R.squat)} / ${_rot(['Afundo','Afundo reverso','Passada larga'])} ${_rerep(R.lunge)} / Terra romeno ${_rerep(R.rdl)} / Step up ${_rerep(R.stepup)}${_powerNote}${_forcaExtra}`) },
         { part: 'Mobilidade Final', dur: 10, zone: '', fc: '', desc: 'Piriforme, quadril, tornozelo — areas criticas para corrida e ciclismo' },
       ],
-      coach: `Forca e a base que protege de lesoes. Volume ajustado ao seu nivel (${LVL_LABEL}): ${SET} series por exercicio. Prioridade em gluteos, cadeia posterior e core. Carga moderada, execucao perfeita.`,
+      coach: `Forca e a base que protege de lesoes. Volume nivel ${LVL_LABEL}: ${SET} series.${isPowerRace?' Prova curta: foco em FORCA e POTENCIA, cargas maiores e menos reps explosivas.':''}${isEnduranceRace?' Prova longa: foco em RESISTENCIA de forca, mais reps com carga moderada.':''} Prioridade em gluteos, cadeia posterior e core.`,
     },
 
     core: {
@@ -899,8 +932,8 @@ function buildSession(type, fase, week, zones, paces, lesoes, level) {
       fcAlvo: '',
       structure: [
         { part: 'Ativacao', dur: 6, zone: '', fc: '', desc: `Dead bug ${R.deadbug} / bird dog ${R.birddog} cada lado — ativa o transverso do abdomen` },
-        { part: `Core Principal (nivel ${LVL_LABEL})`, dur: 18, zone: '', fc: '', desc: hasLesaoLombar ? `Prancha frontal ${SET_CORE}x${R.plank} / prancha lateral ${SET_CORE}x${R.plankL} cada lado / gluteo bridge ${R.bridge} (evite flexao de coluna sob carga)` : `Prancha ${SET_CORE}x${R.plank} / prancha lateral ${SET_CORE}x${R.plankL} / hollow hold ${SET_CORE}x${R.hollow} / russian twist ${R.twist} / elevacao de pernas ${R.legraise}` },
-        { part: 'Estabilidade', dur: 6, zone: '', fc: '', desc: `Pallof press ${R.pallof} cada lado / prancha com toque de ombro — anti-rotacao para postura de corrida` },
+        { part: `Core Principal (nivel ${LVL_LABEL})`, dur: 18, zone: '', fc: '', desc: hasLesaoLombar ? `Prancha frontal ${SET_CORE}x${R.plank} / prancha lateral ${SET_CORE}x${R.plankL} cada lado / gluteo bridge ${R.bridge} (evite flexao de coluna sob carga)${_coreExtra}` : `Prancha ${SET_CORE}x${R.plank} / prancha lateral ${SET_CORE}x${R.plankL} / hollow hold ${SET_CORE}x${R.hollow} / ${_rot(['russian twist '+R.twist,'bicicleta no ar '+R.twist,'toque no calcanhar '+R.twist])} / elevacao de pernas ${R.legraise}${_coreExtra}` },
+        { part: 'Estabilidade', dur: 6, zone: '', fc: '', desc: `Pallof press ${R.pallof} cada lado / ${_rot(['prancha com toque de ombro','prancha com saque','urso isometrico 3x20s'])} — anti-rotacao para postura de corrida` },
       ],
       coach: `Core forte = economia de movimento e protecao da lombar. Volume nivel ${LVL_LABEL}. E o elo que transfere forca entre pernas e tronco. Qualidade sobre quantidade.`,
     },
@@ -1086,7 +1119,7 @@ function generatePlan(profile) {
         if (!sessType) {
           return { d: di, sessions: [] };
         }
-        const sessData = buildSession(sessType, fase, w, zonesFC, paces, lesoes, runLevel);
+        const sessData = buildSession(sessType, fase, w, zonesFC, paces, lesoes, runLevel, profile.raceDist);
         // Calcular duração total
         const durTotal = sessData.structure ? sessData.structure.reduce((a,b) => a + (b.dur||0), 0) : 45;
         // Força/core/mobilidade têm duração fixa (não escalam com distância da prova);
@@ -1565,7 +1598,7 @@ function _exImg(id,frame){ return EXDB_BASE+id+'/'+(frame||0)+'.jpg'; }
 // Mapa de reconhecimento: termo no texto -> id da foto no banco + nome amigavel
 // IDs conforme free-exercise-db (dominio publico). Prioriza versoes bodyweight/leves.
 const EXERCISE_MAP=[
-  [/gluteo bridge|elevacao pelvica|ponte|gl[uú]teo/i,'Butt_Lift_Bridge_Raise','Elevacao de quadril'],
+  [/gluteo bridge|elevacao pelvica|ponte|gl[uú]teo/i,'Barbell_Glute_Bridge','Elevacao de quadril'],
   [/clamshell|concha/i,'Side_Lying_Groin_Stretch','Concha (clamshell)'],
   [/dead ?bug/i,'Dead_Bug','Dead bug'],
   [/bird ?dog|quadruped/i,'Bird_Dog','Bird dog'],
@@ -1624,7 +1657,7 @@ function openExerciseGuide(w,d,si){
   const seen=new Set(); allEx=allEx.filter(e=>{ if(seen.has(e.id))return false; seen.add(e.id); return true; });
 
   let m=document.getElementById('exguide-modal');
-  if(!m){ m=document.createElement('div'); m.id='exguide-modal'; m.style.cssText='display:none;position:fixed;inset:0;z-index:360;background:rgba(0,0,0,0.6);align-items:flex-end'; document.body.appendChild(m); }
+  if(!m){ m=document.createElement('div'); m.id='exguide-modal'; m.style.cssText='display:none;position:fixed;inset:0;z-index:520;background:rgba(0,0,0,0.6);align-items:flex-end'; document.body.appendChild(m); }
 
   // Placeholder elegante (SVG neutro) para quando a foto nao carregar
   const ph="this.onerror=null;this.style.display='none';this.nextElementSibling.style.display='flex';";
@@ -1657,6 +1690,7 @@ function openExerciseGuide(w,d,si){
       <div style="padding:16px 18px">
         <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px">${cards}</div>
         <div style="font-family:var(--font-body);font-size:11px;color:var(--muted2);text-align:center;margin-top:16px;line-height:1.5">Fotos de referencia de execucao. As imagens alternam entre inicio e fim do movimento. Execute com controle e boa postura.</div>
+        <button onclick="closeExerciseGuide()" style="width:100%;margin-top:18px;padding:15px;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-family:var(--font-ui);font-size:12px;font-weight:700;letter-spacing:2px;border-radius:8px;cursor:pointer">FECHAR</button>
       </div>
     </div>`;
   m.style.display='flex';
