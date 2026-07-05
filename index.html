@@ -7291,7 +7291,10 @@ async function obSearchRaces(){
         });
         const data2=await resp2.json();
         races=(Array.isArray(data2.races)?data2.races:[]).filter(r=>r&&r.date&&r.date>=today);
-      }catch(e){}
+        // Se o retry trouxe provas, limpa erro. Se ainda vazio e veio erro, mostra o do retry.
+        if(races.length>0){ obData._raceSearchError=null; }
+        else if(data2.error){ obData._raceSearchError=data2.error; }
+      }catch(e){ if(!obData._raceSearchError) obData._raceSearchError='Falha de conexao ao buscar provas. Tente de novo.'; }
     }
     obData.webRaces=races;
   }catch(e){ obData.webRaces=[]; }
