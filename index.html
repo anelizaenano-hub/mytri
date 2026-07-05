@@ -965,8 +965,8 @@ function buildSession(type, fase, week, zones, paces, lesoes, level, raceDist) {
 // provas longas = mais volume/endurance.
 function getSessionMix(sport, raceDist, fase){
   const d = raceDist || '';
-  const isShort = /5k|super-sprint|sprint|criterium|swim-1500/.test(d);
-  const isLong  = /maratona|full|half|century|mtb|trail|swim-3800|swim-open/.test(d);
+  const isShort = /5k|10k|super-sprint|sprint|criterium|swim-1500/.test(d);
+  const isLong  = /meia|maratona|half|full|olimpico|century|mtb|trail|swim-3800|swim-open/.test(d);
 
   // helper: monta lista priorizada [chave, secundária(s), força, longa, easy...]
   const MIX = {
@@ -1007,6 +1007,17 @@ function getSessionMix(sport, raceDist, fase){
 
 // classifica se uma sessão é "longa" (merece dia de fim de semana)
 function _isLongSession(t){ return /_long|_open_water|brick/.test(t); }
+// "Peso" da sessao: quanto maior, mais merece um dia bom (fim de semana). Mobilidade/alongamento sao leves.
+function _sessionWeight(t){
+  if(/_long|_open_water|brick/.test(t)) return 100;          // longos: fim de semana sagrado
+  if(/_intervals|_race_pace|_tempo/.test(t)) return 60;      // intensos
+  if(/_z2|_tech|swim_/.test(t)) return 40;                   // aerobico moderado
+  if(/strength|core/.test(t)) return 20;                     // forca/core
+  if(/mobility|rest/.test(t)) return 5;                      // mobilidade/alongamento: leve
+  return 30;
+}
+// E leve o suficiente para NUNCA tomar o lugar de um treino no fim de semana?
+function _isLightSession(t){ return /mobility|rest/.test(t); }
 
 function getWeekSessions(sport, fase, weekNum, totalWeeks, diasDisponiveis, lesoes, level, raceDist){
   const diaOrder = ['seg','ter','qua','qui','sex','sab','dom'];
@@ -1020,39 +1031,45 @@ function getWeekSessions(sport, fase, weekNum, totalWeeks, diasDisponiveis, leso
   const isRecovery = ((weekNum-1) % 3) === 2;
   if(isRecovery && mix.length>1) mix.shift(); // remove a chave (mais intensa) na semana leve
 
-  // Separar sessões longas das demais para alocar no fim de semana
-  const longs  = mix.filter(_isLongSession);
-  const others = mix.filter(t=>!_isLongSession(t));
-
   const sessionsByDia = {};
   diaOrder.forEach((d,i)=>{ sessionsByDia[d] = dias.includes(d) ? 'rest' : null; });
 
-  // dias de fim de semana disponíveis (sáb=5, dom=6) recebem as longas primeiro
-  const weekendIdx = availIdx.filter(i=>i>=5);
-  const weekdayIdx = availIdx.filter(i=>i<5);
-  const queue = [...longs, ...others];
+  const weekendIdx = availIdx.filter(i=>i>=5);   // sab=5, dom=6
+  const weekdayIdx = availIdx.filter(i=>i<5);    // seg..sex
 
-  // 1) alocar longas nos dias de fim de semana disponíveis
-  let wi=0;
-  longs.forEach(t=>{
-    if(wi<weekendIdx.length){ sessionsByDia[diaOrder[weekendIdx[wi]]]=t; wi++; }
-  });
-  // 2) alocar o restante nos dias úteis, espaçando (evita 2 intensos seguidos)
-  const rest = queue.filter(t=>!(longs.includes(t) && wi>longs.indexOf(t)));
-  const toPlace = others.slice();
-  // preencher dias úteis disponíveis
-  let placed=0;
+  // Ordena as sessoes por peso (mais pesado primeiro). Longos no topo, mobilidade no fim.
+  const sorted = mix.slice().sort((a,b)=>_sessionWeight(b)-_sessionWeight(a));
+  const longs  = sorted.filter(_isLongSession);
+  const heavies = sorted.filter(t=>!_isLongSession(t) && !_isLightSession(t)); // intensos, z2, forca, core
+  const lights  = sorted.filter(_isLightSession); // mobilidade/alongamento
+
+  const usedDays = new Set();
+  const place=(idx,t)=>{ sessionsByDia[diaOrder[idx]]=t; usedDays.add(idx); };
+
+  // 1) LONGOS ocupam o fim de semana PRIMEIRO (sagrado). Se sobrar longo, vai pra dia util.
+  let li=0;
+  weekendIdx.forEach(idx=>{ if(li<longs.length){ place(idx,longs[li]); li++; } });
+  const longsLeft = longs.slice(li);
+
+  // 2) Dias uteis recebem: longos que sobraram (raro) + sessoes pesadas (intensos/z2/forca/core)
+  const weekdayQueue = [...longsLeft, ...heavies];
+  let wq=0;
+  weekdayIdx.forEach(idx=>{ if(wq<weekdayQueue.length){ place(idx,weekdayQueue[wq]); wq++; } });
+  const heaviesLeft = weekdayQueue.slice(wq);
+
+  // 3) Sessoes LEVES (mobilidade/alongamento) preenchem dias uteis restantes.
+  //    So vao para o fim de semana se NAO houver mais nada pesado E o fds ainda estiver livre.
+  const lightQueue = [...heaviesLeft, ...lights]; // pesado que sobrou tem prioridade sobre leve
+  // 3a) dias uteis ainda livres
   weekdayIdx.forEach(idx=>{
-    if(placed<toPlace.length){ sessionsByDia[diaOrder[idx]]=toPlace[placed]; placed++; }
+    if(!lightQueue.length) return;
+    if(sessionsByDia[diaOrder[idx]]==='rest'){ place(idx,lightQueue.shift()); }
   });
-  // 3) sobra de sessões (mais sessões que dias) → dobra em dias de fim de semana livres
-  const remaining = toPlace.slice(placed).concat(longs.slice(wi));
-  if(remaining.length){
-    availIdx.forEach(idx=>{
-      if(!remaining.length) return;
-      if(sessionsByDia[diaOrder[idx]]==='rest'){ sessionsByDia[diaOrder[idx]]=remaining.shift(); }
-    });
-  }
+  // 3b) so agora, se ainda sobra, usa fim de semana livre (mas prioriza o pesado que sobrou)
+  weekendIdx.forEach(idx=>{
+    if(!lightQueue.length) return;
+    if(sessionsByDia[diaOrder[idx]]==='rest'){ place(idx,lightQueue.shift()); }
+  });
 
   return sessionsByDia;
 }
@@ -1601,7 +1618,7 @@ const EXERCISE_MAP=[
   [/gluteo bridge|elevacao pelvica|ponte|gl[uú]teo/i,'Barbell_Glute_Bridge','Elevacao de quadril'],
   [/clamshell|concha/i,'Side_Lying_Groin_Stretch','Concha (clamshell)'],
   [/dead ?bug/i,'Dead_Bug','Dead bug'],
-  [/bird ?dog|quadruped/i,'Bird_Dog','Bird dog'],
+  [/bird ?dog|quadruped/i,'Air_Bike','Bird dog (core)'],
   [/split squat|agachamento b[uú]lgaro/i,'Bulgarian_Split_Squat','Split squat'],
   [/agachamento livre|agachamento/i,'Bodyweight_Squat','Agachamento'],
   [/leg press/i,'Leg_Press','Leg press'],
@@ -1615,14 +1632,14 @@ const EXERCISE_MAP=[
   [/hollow/i,'Flat_Bench_Lying_Leg_Raise','Hollow hold'],
   [/russian twist|torcao russa/i,'Russian_Twist','Russian twist'],
   [/elevacao de pernas|leg raise/i,'Flat_Bench_Lying_Leg_Raise','Elevacao de pernas'],
-  [/pallof/i,'Cable_Wood_Chop','Pallof press'],
+  [/pallof/i,'Alternate_Heel_Touchers','Pallof press (anti-rotacao)'],
   [/abdominal|crunch|core/i,'Crunches','Abdominal'],
   [/foam roller|liberacao|liberacao miofascial|miofascial/i,'Adductor','Foam roller'],
   [/panturrilha/i,'Standing_Calf_Raises','Panturrilha'],
-  [/alongamento.*posterior|cadeia posterior|isquio|hamstring/i,'Standing_Toe_Touches','Along. posterior'],
+  [/alongamento.*posterior|cadeia posterior|isquio|hamstring/i,'Seated_Hamstring_and_Calf_Stretch','Along. posterior'],
   [/alongamento.*quadr|quadriceps|quadr[ií]ceps/i,'All_Fours_Quad_Stretch','Along. quadriceps'],
-  [/alongamento/i,'Standing_Toe_Touches','Alongamento'],
-  [/mobilidade.*quadril|mobilidade de quadril/i,'Iliotibial_Tract_SMR','Mobilidade de quadril'],
+  [/alongamento/i,'90_90_Hamstring','Alongamento'],
+  [/mobilidade.*quadril|mobilidade de quadril/i,'Adductor','Mobilidade de quadril'],
   [/mobilidade|articular|rotacao/i,'All_Fours_Quad_Stretch','Mobilidade articular'],
 ];
 
@@ -6850,10 +6867,7 @@ function renderObWelcome(c){
       </div>
       <div style="position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,0.2) 0%,rgba(0,0,0,0.5) 50%,rgba(0,0,0,0.85) 100%)"></div>
       <div style="position:relative;text-align:center;padding:0 28px;display:flex;flex-direction:column;align-items:center;gap:0;width:100%">
-        <div style="line-height:.9;margin-bottom:6px;white-space:nowrap">
-          <span class="ob-letter" style="font-family:var(--font-display);font-size:min(28vw,120px);color:#fff;letter-spacing:-4px;animation-delay:.1s">M</span><span class="ob-letter" style="font-family:var(--font-display);font-size:min(28vw,120px);color:#fff;letter-spacing:-4px;animation-delay:.22s">Y</span><span class="ob-letter" style="font-family:var(--font-display);font-size:min(28vw,120px);color:#1a6cf0;letter-spacing:-4px;animation-delay:.36s">T</span><span class="ob-letter" style="font-family:var(--font-display);font-size:min(28vw,120px);color:#e05c2a;letter-spacing:-4px;animation-delay:.50s">R</span><span class="ob-letter" style="font-family:var(--font-display);font-size:min(28vw,120px);color:#00e676;letter-spacing:-4px;animation-delay:.64s">I</span>
-        </div>
-        <div class="ob-sub-anim" style="font-family:var(--font-ui);font-size:11px;color:rgba(255,255,255,0.5);letter-spacing:5px;margin-bottom:32px;animation-delay:.9s">CUSTOMIZED TRAINING</div>
+        <img src="/logo.png" alt="MyTri" class="ob-sub-anim" style="width:min(72vw,320px);height:auto;display:block;margin-bottom:28px;animation-delay:.1s">
         <div class="ob-sub-anim" style="font-family:var(--font-body);font-size:16px;color:rgba(255,255,255,0.82);line-height:1.7;margin-bottom:40px;animation-delay:1.1s;max-width:300px">
           Seu co-piloto personalizado para chegar na linha de chegada pronto${nome}.
         </div>
@@ -7076,7 +7090,21 @@ async function obSearchRaces(){
     });
     const data=await resp.json();
     const today=new Date().toISOString().slice(0,10);
-    obData.webRaces=(Array.isArray(data.races)?data.races:[]).filter(r=>r&&r.date&&r.date>=today);
+    let races=(Array.isArray(data.races)?data.races:[]).filter(r=>r&&r.date&&r.date>=today);
+
+    // Se a 1a busca vier vazia, tenta 2a vez automaticamente com criterio mais amplo
+    // (janela maior + area mais ampla). Nao e plausivel nao existir prova alguma no ano.
+    if(races.length===0){
+      try{
+        const resp2=await fetch('/.netlify/functions/race-search',{
+          method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({sport:obData.sport||'triathlon',raceDist:obData.raceDist||'',distLabel,location:'Brasil',monthsAhead:14,broaden:true})
+        });
+        const data2=await resp2.json();
+        races=(Array.isArray(data2.races)?data2.races:[]).filter(r=>r&&r.date&&r.date>=today);
+      }catch(e){}
+    }
+    obData.webRaces=races;
   }catch(e){ obData.webRaces=[]; }
   obData._searchingRaces=false;
   renderOnboarding();
