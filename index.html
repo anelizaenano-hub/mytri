@@ -5211,6 +5211,9 @@ async function stravaGetValidToken(){
 async function stravaSyncActivities(){
   const token=await stravaGetValidToken();
   if(!token)return;
+  // Garante que o plano esta carregado ANTES de casar atividades (senao getEffectiveSessions
+  // nao acha as sessoes e nada casa, sem erro visivel).
+  try{ if(!plan||!plan[0]||!plan[0].weeks||!plan[0].weeks.length){ initPlan(); } }catch(e){}
   try{
     // Buscar atividades dos ultimos 45 dias (data dinamica, nao hardcoded).
     // Antes usava PLAN_START_ISO fixo (26/05) - se o plano comeca depois, perdia atividades recentes.
@@ -5371,7 +5374,7 @@ async function stravaSyncActivities(){
           ||(targetType===RUN&&sess.type===BRICK);
         if(!typeMatch)return;
         const key=sess._origin==='plan'?ck(wd.w,wd.d,sess._si):`ex_w${wd.w}_d${wd.d}_i${sess._idx}`;
-        if(!checks[key]){checks[key]=true;matched++;}
+        checks[key]=true;
         if(sess._origin==='plan'&&realData){
           const o=loadOverrides();
           const ok=ovKey(wd.w,wd.d,sess._si);
@@ -5380,6 +5383,7 @@ async function stravaSyncActivities(){
           o[ok]={...existing,type:sess.type,stravaData:realData,stravaDist:targetType===SWIM?actDistSwimFmt:actDistKmFmt,stravaTime:actTime,stravaHR:actHR,stravaCal:actCal,stravaZone:actZone};
           saveOverrides(o);
         }
+        matched++;      // conta sempre que casa e salva dados (nao so quando marca novo)
         foundMatch=true;
       });
 
@@ -5407,10 +5411,13 @@ async function stravaSyncActivities(){
       }
     }
 
+    // Salva os checks e overrides SEMPRE (nao so quando matched>0), para nao perder dados salvos.
+    saveChecks(checks);
+    try{ if(typeof refreshHoje==='function') refreshHoje(); }catch(e){}
+    try{ if(currentTab==='agenda'||currentTab==='semana'){ if(typeof renderAgenda==='function') renderAgenda(); } }catch(e){}
+    try{ renderStats(); }catch(e){}
+
     if(matched>0){
-      saveChecks(checks);
-      refreshHoje();
-      renderStats();
       showStravaStatus(`${matched} treino(s) sincronizado(s) do Strava!`);
     }else{
       const total=activities.length;
@@ -5422,16 +5429,15 @@ async function stravaSyncActivities(){
       }else if(deHoje.length===0){
         const ult=activities[0];
         const ultData=ult&&ult.start_date_local?ult.start_date_local.slice(0,10):'?';
-        showStravaStatus(`${total} atividade(s) no Strava, mas nenhuma de hoje (${hoje}). Mais recente: ${ultData}. O treino de hoje ja sincronizou no app do Strava?`);
+        showStravaStatus(`${total} atividade(s) no Strava, mas nenhuma de hoje (${hoje}). Mais recente: ${ultData}.`);
       }else{
         const tipos=deHoje.map(a=>a.sport_type||a.type).join(', ');
-        showStravaStatus(`${deHoje.length} atividade(s) de hoje encontrada(s) [${tipos}], mas nao consegui encaixar no plano. Me avise esse tipo.`);
+        showStravaStatus(`${deHoje.length} atividade(s) de hoje [${tipos}] encontrada(s), mas nao encaixaram. Me avise esse tipo.`);
       }
     }
     // Salvar timestamp do último sync e atualizar display
     localStorage.setItem('strava_last_sync',Date.now().toString());
-    renderStats();
-  }catch(e){console.error('Strava sync error',e);}
+  }catch(e){console.error('Strava sync error',e); try{showStravaStatus('Erro no sync: '+(e.message||e));}catch(_){}}
 }
 
 function showStravaStatus(msg){
