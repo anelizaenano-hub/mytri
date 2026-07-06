@@ -5212,8 +5212,9 @@ async function stravaSyncActivities(){
   const token=await stravaGetValidToken();
   if(!token)return;
   try{
-    // Buscar atividades desde 26/05/2026
-    const after=Math.floor(new Date(PLAN_START_ISO).getTime()/1000);
+    // Buscar atividades dos ultimos 45 dias (data dinamica, nao hardcoded).
+    // Antes usava PLAN_START_ISO fixo (26/05) - se o plano comeca depois, perdia atividades recentes.
+    const after=Math.floor((Date.now()-45*24*60*60*1000)/1000);
     const r=await fetch(`https://www.strava.com/api/v3/athlete/activities?after=${after}&per_page=100`,{
       headers:{Authorization:'Bearer '+token}
     });
@@ -5310,8 +5311,10 @@ async function stravaSyncActivities(){
       else if(actType.includes('tennis'))targetType=TENNIS;
       else if(actType==='pickleball')targetType=TENNIS;
       else if(actType==='walk'||actType.includes('walk')||actType.includes('hike'))targetType=RUN;
-else if(actType.includes('ski')||actType.includes('snow')||actType.includes('surf')||actType.includes('yoga'))targetType=GYM;
-      if(!targetType)continue;
+      else if(actType.includes('ski')||actType.includes('snow')||actType.includes('surf')||actType.includes('yoga'))targetType=GYM;
+      // Tipo desconhecido: nao descarta silenciosamente. Vira atividade generica (GYM) para
+      // aparecer como treino extra no dia, com o nome real do Strava.
+      if(!targetType) targetType=GYM;
 
       // Identificar se é indoor e calcular dados
       const actDistKmFmt=actDistKm>0.1?actDistKm+'km':null;
@@ -5411,7 +5414,19 @@ else if(actType.includes('ski')||actType.includes('snow')||actType.includes('sur
       showStravaStatus(`${matched} treino(s) sincronizado(s) do Strava!`);
     }else{
       const total=activities.length;
-      showStravaStatus(`Strava conectado. ${total} atividade(s) encontrada(s) mas nenhuma bateu com o plano de hoje.`);
+      // Diagnostico detalhado: por que nada casou? Mostra o que veio pra facilitar o debug.
+      const hoje=_localDateStr();
+      const deHoje=activities.filter(a=>(a.start_date_local||'').slice(0,10)===hoje);
+      if(total===0){
+        showStravaStatus('Strava conectado, mas nenhuma atividade nos ultimos 45 dias. Verifique se o treino saiu do relogio para o Strava.');
+      }else if(deHoje.length===0){
+        const ult=activities[0];
+        const ultData=ult&&ult.start_date_local?ult.start_date_local.slice(0,10):'?';
+        showStravaStatus(`${total} atividade(s) no Strava, mas nenhuma de hoje (${hoje}). Mais recente: ${ultData}. O treino de hoje ja sincronizou no app do Strava?`);
+      }else{
+        const tipos=deHoje.map(a=>a.sport_type||a.type).join(', ');
+        showStravaStatus(`${deHoje.length} atividade(s) de hoje encontrada(s) [${tipos}], mas nao consegui encaixar no plano. Me avise esse tipo.`);
+      }
     }
     // Salvar timestamp do último sync e atualizar display
     localStorage.setItem('strava_last_sync',Date.now().toString());
