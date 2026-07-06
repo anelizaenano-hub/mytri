@@ -7244,9 +7244,13 @@ function renderObProva(c){
         })():''}
         ${obData._raceSearchError?`<div style="font-family:var(--font-body);font-size:12px;color:#e05c2a;padding:8px 2px;text-align:center;line-height:1.5">${obData._raceSearchError}</div>`:(webRaces&&webRaces.length===0?`<div style="font-family:var(--font-body);font-size:12px;color:var(--muted2);padding:8px 2px;text-align:center">Nenhuma prova encontrada agora. Tente buscar de novo ou cadastre manualmente abaixo.</div>`:'')}
         ${!webRaces&&!searching?`<div style="font-family:var(--font-body);font-size:12px;color:var(--muted2);padding:8px 2px;text-align:center">Buscando provas reais para voce...</div>`:''}
-        <div onclick="obSelectProvaAuto(-1)" style="padding:14px 16px;background:${obData.provaIdx===-1?'rgba(0,230,118,.08)':'var(--surface)'};border:2px solid ${obData.provaIdx===-1?'var(--accent)':'var(--border)'};border-radius:8px;cursor:pointer;text-align:center;font-family:var(--font-ui);font-size:12px;color:var(--muted);letter-spacing:1px">
-          + OUTRA PROVA (cadastrar manualmente)
-        </div>
+        ${(()=>{const err=!!obData._raceSearchError;const sel=obData.provaIdx===-1;
+          const bg=sel?'rgba(0,230,118,.08)':(err?'rgba(0,230,118,.06)':'var(--surface)');
+          const bd=(sel||err)?'var(--accent)':'var(--border)';
+          const col=(sel||err)?'var(--accent)':'var(--muted)';
+          return `<div onclick="obSelectProvaAuto(-1)" style="padding:14px 16px;background:${bg};border:2px solid ${bd};border-radius:8px;cursor:pointer;text-align:center;font-family:var(--font-ui);font-size:12px;color:${col};letter-spacing:1px">
+          + CADASTRAR MINHA PROVA MANUALMENTE
+        </div>`;})()}
       </div>
       ${obData.provaIdx===-1?`
         <div class="ob-field"><label>Nome da prova</label><input id="ob-prova-nome" value="${obData.raceName||''}" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:12px;border-radius:4px"></div>
@@ -7260,6 +7264,26 @@ function renderObProva(c){
     </div>`;
 }
 
+function friendlyRaceError(raw){
+  const e=String(raw||'').toLowerCase();
+  // Saldo/credito da API esgotado
+  if(e.includes('credit balance')||e.includes('too low')||e.includes('billing')||e.includes('quota'))
+    return 'Busca automatica indisponivel no momento. Cadastre sua prova manualmente abaixo em poucos segundos.';
+  // Rate limit
+  if(e.includes('rate limit')||e.includes('429')||e.includes('overloaded'))
+    return 'Muitas buscas em pouco tempo. Aguarde alguns segundos e tente de novo, ou cadastre manualmente abaixo.';
+  // Chave invalida / auth
+  if(e.includes('authentication')||e.includes('api key')||e.includes('401')||e.includes('invalid x-api-key'))
+    return 'Servico de busca temporariamente indisponivel. Cadastre sua prova manualmente abaixo.';
+  // Resposta cortada / parse
+  if(e.includes('cortada')||e.includes('extrair')||e.includes('longa demais'))
+    return 'A busca demorou demais desta vez. Tente de novo, ou cadastre sua prova manualmente abaixo.';
+  // Rede
+  if(e.includes('rede')||e.includes('conexao')||e.includes('network')||e.includes('failed to fetch'))
+    return 'Sem conexao para buscar provas agora. Verifique a internet ou cadastre manualmente abaixo.';
+  // Generico: nao vaza texto tecnico em ingles
+  return 'Nao consegui buscar provas automaticamente agora. Cadastre sua prova manualmente abaixo.';
+}
 async function obSearchRaces(){
   if(obData._searchingRaces) return;
   obData._searchingRaces=true;
@@ -7276,7 +7300,7 @@ async function obSearchRaces(){
     try{ data=await resp.json(); }catch(e){ data={}; }
     // Diagnostico: se a function retornou erro, guarda o motivo para exibir
     if(!resp.ok || data.error){
-      obData._raceSearchError = data.error || ('Erro '+resp.status+' na busca (verifique a Function race-search ou os creditos da API).');
+      obData._raceSearchError = friendlyRaceError(data.error || ('erro '+resp.status));
     }
     const today=new Date().toISOString().slice(0,10);
     let races=(Array.isArray(data.races)?data.races:[]).filter(r=>r&&r.date&&r.date>=today);
@@ -7293,8 +7317,8 @@ async function obSearchRaces(){
         races=(Array.isArray(data2.races)?data2.races:[]).filter(r=>r&&r.date&&r.date>=today);
         // Se o retry trouxe provas, limpa erro. Se ainda vazio e veio erro, mostra o do retry.
         if(races.length>0){ obData._raceSearchError=null; }
-        else if(data2.error){ obData._raceSearchError=data2.error; }
-      }catch(e){ if(!obData._raceSearchError) obData._raceSearchError='Falha de conexao ao buscar provas. Tente de novo.'; }
+        else if(data2.error){ obData._raceSearchError=friendlyRaceError(data2.error); }
+      }catch(e){ if(!obData._raceSearchError) obData._raceSearchError=friendlyRaceError('conexao'); }
     }
     obData.webRaces=races;
   }catch(e){ obData.webRaces=[]; }
