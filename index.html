@@ -1511,6 +1511,52 @@ function getVolume(){
   return{swim,bike,run,done,total,gym};
 }
 
+// Volume REAL executado dentro de um intervalo de datas [ini, fim] (inclusive).
+// Usado para stats de "esta semana", "este mes" e comparativos. So conta treinos marcados
+// como concluidos, usando o volume real (Strava/manual) via sessionVolume(sess,ov).
+function getVolumeRange(ini, fim){
+  const checks=loadChecks();
+  let swim=0,bike=0,run=0,done=0,gym=0;
+  const _tw=planWeekCount();
+  const PS=getPlanStart();
+  for(let w=1;w<=_tw;w++){
+    for(let d=0;d<7;d++){
+      // data do dia w,d
+      const cell=new Date(PS); cell.setDate(PS.getDate()+(w-1)*7+d); cell.setHours(12,0,0,0);
+      if(cell<ini||cell>fim) continue;
+      getEffectiveSessions(w,d).forEach(sess=>{
+        if(sess.type===REST)return;
+        const key=sess._origin==='plan'?ck(w,d,sess._si):`ex_w${w}_d${d}_i${sess._idx}`;
+        if(checks[key]){
+          done++;
+          const _ov=sess._origin==='plan'?getOverride(w,d,sess._si):null;
+          const v=sessionVolume(sess,_ov);
+          swim+=v.swim;bike+=v.bike;run+=v.run;
+          if(sess.type===GYM)gym++;
+        }
+      });
+    }
+  }
+  return{swim,bike,run,done,gym,km:swim+bike+run};
+}
+
+// Retorna os limites da semana atual (seg-dom) e do mes atual, mais os periodos anteriores.
+function getStatsPeriods(){
+  const now=new Date();
+  // Semana atual: segunda a domingo
+  const dow=(now.getDay()+6)%7; // 0=seg
+  const wkIni=new Date(now); wkIni.setDate(now.getDate()-dow); wkIni.setHours(0,0,0,0);
+  const wkFim=new Date(wkIni); wkFim.setDate(wkIni.getDate()+6); wkFim.setHours(23,59,59,999);
+  const wkPrevIni=new Date(wkIni); wkPrevIni.setDate(wkIni.getDate()-7);
+  const wkPrevFim=new Date(wkIni); wkPrevFim.setDate(wkIni.getDate()-1); wkPrevFim.setHours(23,59,59,999);
+  // Mes atual
+  const moIni=new Date(now.getFullYear(),now.getMonth(),1,0,0,0,0);
+  const moFim=new Date(now.getFullYear(),now.getMonth()+1,0,23,59,59,999);
+  const moPrevIni=new Date(now.getFullYear(),now.getMonth()-1,1,0,0,0,0);
+  const moPrevFim=new Date(now.getFullYear(),now.getMonth(),0,23,59,59,999);
+  return {wkIni,wkFim,wkPrevIni,wkPrevFim,moIni,moFim,moPrevIni,moPrevFim};
+}
+
 // ── TAB SWITCHING ──
 let currentTab='hoje';
 const TAB_ORDER=['perfil','agenda','stats','conquistas','bikefit','club'];
@@ -1636,7 +1682,13 @@ function applyOverride(sess,w,d,si){
   const ov=getOverride(w,d,si);
   if(!ov)return sess;
   if(ov.deleted)return null;
-  return{type:ov.type||sess.type,text:ov.text||sess.text,dist:ov.dist!==undefined?ov.dist:sess.dist,note:ov.note!==undefined?ov.note:sess.note};
+  // Prioridade da distancia exibida: (1) edicao manual do plano (ov.dist), (2) dado REAL
+  // executado (ov.stravaDist, vindo do Strava ou da conclusao manual), (3) planejado (sess.dist).
+  // Sem isso, completar um treino em distancia diferente da sugerida nao atualizava o card.
+  let distFinal = sess.dist;
+  if(ov.stravaDist!==undefined && ov.stravaDist!=='') distFinal = ov.stravaDist;
+  if(ov.dist!==undefined) distFinal = ov.dist;
+  return{type:ov.type||sess.type,text:ov.text||sess.text,dist:distFinal,note:ov.note!==undefined?ov.note:sess.note,_realExecuted:!!(ov.stravaDist||ov.manualData||ov.stravaData)};
 }
 
 // ── EFFECTIVE SESSIONS ──
@@ -1884,9 +1936,114 @@ function computeAdjustment(a, fase, lesoes){
     factor = 1.0; reason='Mantido'; detail='Volume mantido para a proxima semana.';
   }
 
+  // ── AJUSTE POR VOLUME REAL EXECUTADO (Strava/manual) ──
+  // Decisao do usuario: so conta se a diferenca for CONSISTENTE (>=3 treinos na semana),
+  // nunca um dia isolado. E sempre modulado pela sensacao, para nao empurrar a lesao.
+  // volRatio = volume real feito / volume planejado. >1.15 = fez bem mais; <0.85 = fez bem menos.
+  if(a.done>=3 && a.volPlanned>0 && a.volRatio>0 && !isTaper){
+    const muitoAcima = a.volRatio>=1.15;
+    const muitoAbaixo = a.volRatio<=0.85;
+    const senseControlada = a.avgSense>0 && a.avgSense<=2.5; // facil/moderado
+    const senseAlta = a.avgSense>=3.3;                        // forte/maximo
+
+    if(muitoAcima && senseControlada){
+      // Fez consistentemente mais e aguentou bem -> reforca a subida (com teto pela lesao)
+      const bump = hasLesao ? 0.03 : 0.05;
+      factor += bump;
+      reason = 'Progressao (volume real)';
+      const pct=Math.round((a.volRatio-1)*100);
+      detail = `Voce executou ~${pct}% acima do volume sugerido em ${a.done} treinos, com esforco controlado. O coach acompanhou e subiu o plano${hasLesao?' com cautela pela sua lesao':''}.`;
+    } else if(muitoAcima && senseAlta){
+      // Fez mais, mas o corpo reclamou -> NAO sobe por causa do volume; segura
+      factor = Math.min(factor, 1.0);
+      reason = 'Cautela (esforco alto)';
+      detail = `Voce fez volume acima do sugerido, mas a percepcao de esforco foi alta. O coach segurou o volume para proteger sua recuperacao e evitar lesao.`;
+    } else if(muitoAbaixo){
+      // Fez consistentemente menos que o planejado (mesmo "completando") -> nao insiste em subir
+      factor = Math.min(factor, hasLesao ? 0.95 : 0.98);
+      reason = 'Ajuste ao real';
+      const pct=Math.round((1-a.volRatio)*100);
+      detail = `Seu volume executado ficou ~${pct}% abaixo do sugerido em ${a.done} treinos. O coach aproximou o plano do que voce esta realmente fazendo, para ele ser sustentavel.`;
+    }
+  }
+
   // Trava de seguranca: nunca ajustar mais que +15% ou -20%
   factor = Math.max(0.8, Math.min(1.15, factor));
   return { factor:+factor.toFixed(3), reason, detail };
+}
+
+// ── POP-UP DE RECALIBRACAO NO FECHAMENTO DA SEMANA ──
+// Mostra automaticamente (1x por semana) quando uma semana fecha e o coach recalibrou a proxima.
+// Fecha o loop emocional: "voce evoluiu, seu plano subiu" ou "vamos ajustar, sem culpa".
+function checkRecalPopup(){
+  try{
+    if(!hasRace && !getAllWeeks().length) return;
+    const {w:cw}=getCurrentWeekAndDay();
+    if(cw<=1) return; // sem semana anterior fechada
+    // garante que a recalibracao da semana atual (baseada na anterior) exista
+    const prevAnalysis=analyzeWeek(cw-1);
+    if(prevAnalysis.done<=0) return; // semana anterior sem execucao, nada a comunicar
+    let recal=loadRecal()[cw];
+    if(!recal){ recalibrateWeek(cw-1); recal=loadRecal()[cw]; }
+    if(!recal || !recal.factor) return;
+    // ja mostrou o popup desta semana?
+    const shownKey='mytri_recal_popup_shown';
+    let shown={}; try{ shown=JSON.parse(localStorage.getItem(shownKey)||'{}'); }catch(e){}
+    if(shown[cw]) return;
+    // marca como mostrado e exibe
+    shown[cw]=Date.now();
+    try{ localStorage.setItem(shownKey,JSON.stringify(shown)); }catch(e){}
+    setTimeout(()=>showRecalPopup(cw,recal,prevAnalysis),1200);
+  }catch(e){}
+}
+
+function showRecalPopup(week,recal,analysis){
+  const up=recal.factor>1;
+  const same=recal.factor===1;
+  const pct=Math.round(Math.abs(recal.factor-1)*100);
+  const col=up?'#00e676':(recal.factor<1?'#f0a500':'#8a90a0');
+  const adherPct=Math.round((analysis.adherence||0)*100);
+  const titulo = up?'VOCE EVOLUIU':(same?'PLANO MANTIDO':'AJUSTE INTELIGENTE');
+  const bigLine = up?`+${pct}%`:(same?'=':`-${pct}%`);
+  const sub = up
+    ? 'O coach analisou sua semana e subiu seu volume. Continue firme.'
+    : (same?'Volume mantido para consolidar antes do proximo passo.'
+           :'O coach ajustou seu volume para manter tudo sustentavel, sem culpa.');
+  let modal=document.getElementById('recal-popup');
+  if(!modal){
+    modal=document.createElement('div');
+    modal.id='recal-popup';
+    modal.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;padding:24px;opacity:0;transition:opacity .3s';
+    document.body.appendChild(modal);
+  }
+  modal.innerHTML=`
+    <div style="background:var(--surface);border:1px solid var(--border);border-top:3px solid ${col};border-radius:14px;max-width:360px;width:100%;padding:28px 24px;text-align:center;transform:scale(.94);transition:transform .3s">
+      <div style="font-family:var(--font-ui);font-size:10px;color:${col};letter-spacing:2px;margin-bottom:14px">${titulo}</div>
+      <div style="font-family:var(--font-display);font-size:64px;color:${col};line-height:1;margin-bottom:6px">${bigLine}</div>
+      <div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1.5px;margin-bottom:18px">AJUSTE PARA A SEMANA ${week}</div>
+      <div style="font-family:var(--font-body);font-size:14px;color:var(--text);line-height:1.6;margin-bottom:8px">${sub}</div>
+      <div style="font-family:var(--font-body);font-size:12px;color:var(--muted2);line-height:1.5;margin-bottom:22px">${recal.detail||''}</div>
+      <div style="display:flex;gap:8px;justify-content:center;margin-bottom:20px">
+        <div style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px">
+          <div style="font-family:var(--font-display);font-size:22px;color:var(--text)">${adherPct}%</div>
+          <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:.5px">ADERENCIA</div>
+        </div>
+        <div style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px">
+          <div style="font-family:var(--font-display);font-size:22px;color:var(--text)">${analysis.done||0}</div>
+          <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:.5px">TREINOS</div>
+        </div>
+      </div>
+      <button onclick="closeRecalPopup()" style="width:100%;padding:15px;background:${col};color:#000;font-family:var(--font-ui);font-size:12px;font-weight:700;letter-spacing:1.5px;border:none;border-radius:8px;cursor:pointer">ENTENDI, BORA</button>
+    </div>`;
+  modal.style.display='flex';
+  requestAnimationFrame(()=>{ modal.style.opacity='1'; const box=modal.firstElementChild; if(box)box.style.transform='scale(1)'; });
+  modal.onclick=(e)=>{ if(e.target===modal) closeRecalPopup(); };
+}
+function closeRecalPopup(){
+  const m=document.getElementById('recal-popup');
+  if(!m)return;
+  m.style.opacity='0';
+  setTimeout(()=>{ m.style.display='none'; },300);
 }
 
 // Recalibra a semana alvo (proxima) com base na analise da semana fonte (anterior)
@@ -1951,9 +2108,14 @@ const activityTypes=[
 
 function showWorkoutDetail(w,d,key){
   const sessions=getEffectiveSessions(w,d);
-  // achar a sessão pelo key
+  // achar a sessão pelo key. O card gera o key com ck() (formato "wN_dN_sN") para sessoes de
+  // plano e "ex_wN_dN_iN" para extras. Antes comparavamos com ovKey() (prefixo "o_"), que NUNCA
+  // batia -> caia no fallback e abria SEMPRE a 1a sessao do dia (bug: forca abria disclaimer da corrida).
   let sess=null;
-  sessions.forEach(s=>{ const k=ovKey(w,d,s._si!=null?s._si:('x'+s._idx)); if(k===key||s._key===key) sess=s; });
+  sessions.forEach(s=>{
+    const k = s._origin==='plan' ? ck(w,d,s._si) : `ex_w${w}_d${d}_i${s._idx}`;
+    if(k===key || s._key===key) sess=s;
+  });
   if(!sess) sess=sessions.find(s=>s.text)||sessions[0];
   if(!sess){ return; }
   const modal=document.getElementById('workout-detail-modal');
@@ -3020,6 +3182,15 @@ function _saveComplete(w,d,si,key,skipData){
   _cmpZone=null;_cmpSense=null;
   closeCompleteSession();
   _commitComplete(key);
+  // Garante que o tick apareca na mesma tela (o modal de conclusao fecha com animacao de
+  // ~400ms; sem este refresh atrasado, a re-renderizacao rodava no meio da animacao e o
+  // tick so aparecia ao trocar de aba e voltar).
+  setTimeout(()=>{
+    try{
+      if(currentTab==='hoje'){ _renderHoje(hojeWeek,hojeDay); }
+      else if(currentTab==='semana'){ _renderSemana(semanaWeek); }
+    }catch(e){}
+  }, 450);
   // Report pos-execucao automatico se houver dados
   const ov=getOverride(w,d,si);
   if(ov && (ov.stravaData||ov.manualData)){
@@ -3758,6 +3929,46 @@ function renderStats(){
       </div>
     </div>`;
 
+  // ── ACUMULO SEMANA / MES (com comparativo ao periodo anterior) ──
+  const periodDiv=document.createElement('div');
+  periodDiv.className='stats-section';
+  periodDiv.style.cssText='margin-top:4px';
+  (function(){
+    const P=getStatsPeriods();
+    const wkNow=getVolumeRange(P.wkIni,P.wkFim);
+    const wkPrev=getVolumeRange(P.wkPrevIni,P.wkPrevFim);
+    const moNow=getVolumeRange(P.moIni,P.moFim);
+    const moPrev=getVolumeRange(P.moPrevIni,P.moPrevFim);
+    // helper de badge comparativo
+    const cmp=(now,prev)=>{
+      if(prev<=0){ return now>0?`<span style="color:#00e676">novo</span>`:''; }
+      const diff=Math.round((now/prev-1)*100);
+      if(diff>0) return `<span style="color:#00e676">&#9650; ${diff}%</span>`;
+      if(diff<0) return `<span style="color:#f0a500">&#9660; ${Math.abs(diff)}%</span>`;
+      return `<span style="color:var(--muted)">=</span>`;
+    };
+    const monthName=new Date().toLocaleDateString('pt-BR',{month:'long'});
+    const card=(titulo,sub,data,prevKm)=>`
+      <div style="flex:1;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1.5px">${titulo}</div>
+          <div style="font-family:var(--font-ui);font-size:10px">${cmp(data.km,prevKm)}</div>
+        </div>
+        <div style="display:flex;align-items:baseline;gap:3px">
+          <div style="font-family:var(--font-display);font-size:30px;color:var(--accent);line-height:1">${data.km.toFixed(0)}</div>
+          <div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);font-weight:700">km</div>
+        </div>
+        <div style="font-family:var(--font-ui);font-size:9px;color:var(--muted2);margin-top:6px;letter-spacing:.3px">${data.done} treino${data.done!==1?'s':''} · ${data.swim.toFixed(1)}n ${data.bike.toFixed(0)}b ${data.run.toFixed(0)}r</div>
+        <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);margin-top:3px">${sub}</div>
+      </div>`;
+    periodDiv.innerHTML=`
+      <div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:2px;margin-bottom:10px">ACUMULO POR PERIODO</div>
+      <div style="display:flex;gap:8px">
+        ${card('ESTA SEMANA','vs. semana passada',wkNow,wkPrev.km)}
+        ${card(monthName.toUpperCase(),'vs. mes passado',moNow,moPrev.km)}
+      </div>`;
+  })();
+
   const progressDiv=document.createElement('div');progressDiv.className='progress-section';progressDiv.innerHTML='<div class="progress-title">PROGRESSO POR FASE</div>';
   const FASE_LABELS={base:'BASE',build:'CONSTRUCAO',peak:'PICO',taper:'AFUNILAMENTO',race:'PROVA'};
   const faseStats={};
@@ -3984,7 +4195,7 @@ function renderStats(){
     <div style="font-family:var(--font-body);font-size:10px;color:var(--muted2);text-align:center;margin-top:14px;line-height:1.5">Outros atletas sao ilustrativos nesta versao. Com a comunidade ativa, o ranking sera real e ao vivo.</div>
   `;
 
-  container.appendChild(cd);container.appendChild(rankCard);container.appendChild(distCard);container.appendChild(progressDiv);container.appendChild(volDiv);container.appendChild(zoneDiv);container.appendChild(muscDiv);
+  container.appendChild(cd);container.appendChild(periodDiv);container.appendChild(rankCard);container.appendChild(distCard);container.appendChild(progressDiv);container.appendChild(volDiv);container.appendChild(zoneDiv);container.appendChild(muscDiv);
 
   // ── REPORTS VIA IA ──
   const repDiv=document.createElement('div');
@@ -4082,19 +4293,9 @@ function renderStats(){
   generateCoaching();
 
   // ── NOTIFICAÇÕES ──
-  const notifDiv=document.createElement('div');
-  notifDiv.style.cssText='background:var(--surface);border:1px solid var(--border);padding:16px;margin-bottom:8px';
-  const notifEnabled=localStorage.getItem('nano_notif')==='true';
-  notifDiv.innerHTML=`
-    <div style="font-family:var(--font-ui);font-size:9px;font-weight:700;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px">NOTIFICACOES</div>
-    <div style="display:flex;align-items:center;justify-content:space-between">
-      <div>
-        <div style="font-family:var(--font-ui);font-size:12px;color:var(--text);font-weight:600">Lembrete diario 7h</div>
-        <div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);margin-top:2px">Resumo do treino do dia toda manha</div>
-      </div>
-      <button id="notif-btn" onclick="toggleNotifications()" style="background:${notifEnabled?'var(--accent)':'transparent'};border:1px solid ${notifEnabled?'var(--accent)':'var(--border)'};color:${notifEnabled?'#000':'var(--muted)'};font-family:var(--font-ui);font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:7px 14px;cursor:pointer;border-radius:2px">${notifEnabled?'ATIVO':'ATIVAR'}</button>
-    </div>`;
-  container.appendChild(notifDiv);
+  // Removido o "Lembrete diario 7h": notificacao push nao funciona em PWA web de forma
+  // confiavel (precisa de service worker + permissao + app instalado). Reservado para quando
+  // for app nativo de verdade.
 }
 
 // ── SISTEMA DE CICLOS E CONQUISTAS ──
@@ -4694,52 +4895,14 @@ function checkWeeklySummary(){
 }
 
 // ── NOTIFICAÇÕES ──
-function toggleNotifications(){
-  const enabled=localStorage.getItem('nano_notif')==='true';
-  if(!enabled){
-    if(!('Notification' in window)){alert('Seu browser nao suporta notificacoes.');return;}
-    Notification.requestPermission().then(perm=>{
-      if(perm==='granted'){
-        localStorage.setItem('nano_notif','true');
-        scheduleNotification();
-        renderStats();
-        alert('Notificacoes ativas! Voce recebera o resumo do treino todos os dias as 7h.');
-      }else{
-        alert('Permissao negada. Ative nas configuracoes do browser.');
-      }
-    });
-  }else{
-    localStorage.setItem('nano_notif','false');
-    renderStats();
-  }
-}
+// Notificacoes push desativadas (nao funcionam de forma confiavel em PWA web).
+// Funcoes mantidas como no-op para nao quebrar chamadas antigas; reativar quando for app nativo.
+function toggleNotifications(){ /* desativado */ }
 
-function scheduleNotification(){
-  if(localStorage.getItem('nano_notif')!=='true')return;
-  if(!('Notification' in window)||Notification.permission!=='granted')return;
-  const now=new Date();
-  const next7h=new Date();
-  next7h.setHours(7,0,0,0);
-  if(now>=next7h)next7h.setDate(next7h.getDate()+1);
-  const ms=next7h-now;
-  setTimeout(()=>{
-    // Montar resumo do dia
-    const {w,d}=getCurrentWeekAndDay();
-    const sessions=getEffectiveSessions(w,d);
-    const resumo=sessions.filter(s=>s.type!==REST).map(s=>s.text+(s.dist?' '+s.dist:'')).join(' · ');
-    new Notification('MYTRI — Treino de hoje',{
-      body:resumo||'Dia de descanso. Recupere bem!',
-      icon:'/favicon.ico'
-    });
-    // Reagendar para amanhã
-    scheduleNotification();
-  },ms);
-}
+function scheduleNotification(){ /* desativado: push nao confiavel em PWA web */ }
 
-// Iniciar scheduler se notificações ativas
-if(localStorage.getItem('nano_notif')==='true'){
-  setTimeout(scheduleNotification,1000);
-}
+// Limpa flag antiga para nao tentar agendar notificacao quebrada
+try{ if(localStorage.getItem('nano_notif')==='true'){ localStorage.setItem('nano_notif','false'); } }catch(e){}
 
 // ── CALENDARIO ──
 let calYear=new Date().getFullYear(), calMonth=new Date().getMonth();
@@ -4747,7 +4910,10 @@ let calYear=new Date().getFullYear(), calMonth=new Date().getMonth();
 // Dado um Date, retorna {w, d} do plano ou null se fora do plano
 function getWDFromDate(date){
   const diff=Math.floor((date-PLAN_START)/(1000*60*60*24));
-  if(diff<0||diff>=16*7)return null;
+  // Usa a contagem REAL de semanas do plano (nao fixo 16). Em plano curto ou modo livre,
+  // o limite 16*7 podia rejeitar/errar o casamento de atividades do Strava.
+  let _tw=16; try{ _tw=planWeekCount()||16; }catch(e){}
+  if(diff<0||diff>=_tw*7)return null;
   const w=Math.floor(diff/7)+1;
   const d=diff%7; // SEG=0...DOM=6
   return{w,d};
@@ -5602,7 +5768,10 @@ function renderClubMyProfile(c){
   const p={
     name:_cs.name||_prof.name||'',
     age:_cs.age||_prof.age||'',
+    weight:_cs.weight||_prof.weight||'',
+    altura:_cs.altura||_prof.altura||'',
     city:_cs.city||_prof.city||localStorage.getItem('mytri_gps_city')||'',
+    location:_cs.location||_prof.location||_cs.city||_prof.city||localStorage.getItem('mytri_gps_city')||'',
     pace:_cs.pace||_prof.pace||'',
     ftp:_cs.ftp||_prof.ftp||'',
     swim:_cs.swim||_prof.swim||'',
@@ -5635,13 +5804,21 @@ function renderClubMyProfile(c){
 
     <div style="padding:48px 20px 24px">
       <div style="font-family:var(--font-display);font-size:24px;letter-spacing:.5px;margin-bottom:2px">${p.name||'—'}, ${p.age||'—'}</div>
-      <div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1px;margin-bottom:16px">${p.city||'—'}</div>
+      <div style="display:flex;align-items:center;gap:5px;font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1px;margin-bottom:16px">
+        ${(p.location||p.city)?`<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><span>${p.location||p.city}</span>`:'<span>—</span>'}
+      </div>
 
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
         ${p.pace?`<div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:10px;text-align:center"><div style="font-family:var(--font-display);font-size:15px;color:#00e676">${p.pace}</div><div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:.5px">PACE</div></div>`:''}
         ${p.ftp?`<div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:10px;text-align:center"><div style="font-family:var(--font-display);font-size:15px;color:#e05c2a">${p.ftp}</div><div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:.5px">FTP</div></div>`:''}
         ${p.swim?`<div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:10px;text-align:center"><div style="font-family:var(--font-display);font-size:15px;color:#1a6cf0">${p.swim}</div><div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:.5px">NADO</div></div>`:''}
       </div>
+
+      ${(p.weight||p.altura||p.age)?`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
+        ${p.weight?`<div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:10px;text-align:center"><div style="font-family:var(--font-display);font-size:15px;color:var(--text)">${p.weight}<span style="font-size:9px;color:var(--muted)">kg</span></div><div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:.5px">PESO</div></div>`:''}
+        ${p.altura?`<div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:10px;text-align:center"><div style="font-family:var(--font-display);font-size:15px;color:var(--text)">${p.altura}<span style="font-size:9px;color:var(--muted)">cm</span></div><div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:.5px">ALTURA</div></div>`:''}
+        ${p.age?`<div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:10px;text-align:center"><div style="font-family:var(--font-display);font-size:15px;color:var(--text)">${p.age}</div><div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:.5px">IDADE</div></div>`:''}
+      </div>`:''}
 
       ${p.bio?`<div style="font-family:var(--font-body);font-size:13px;color:var(--muted2);line-height:1.6;margin-bottom:12px">${p.bio}</div>`:''}
       ${p.nextRace?`<div style="background:rgba(26,108,240,0.1);border:1px solid rgba(26,108,240,0.25);border-radius:8px;padding:10px 14px;margin-bottom:12px"><div style="font-family:var(--font-ui);font-size:8px;color:#1a6cf0;letter-spacing:1px">PROXIMA PROVA</div><div style="font-family:var(--font-body);font-size:13px;color:var(--text);margin-top:2px">${p.nextRace}</div></div>`:''}
@@ -7090,12 +7267,7 @@ function renderObWelcome(c){
       .ob-letter{display:inline-block;opacity:0;animation:ob-letter-in .6s cubic-bezier(.34,1.56,.64,1) forwards}
       .ob-sub-anim{opacity:0;animation:ob-fade-up .8s ease forwards}
       @keyframes ob-logo-in{0%{opacity:0;transform:scale(.92)}100%{opacity:1;transform:scale(1)}}
-      /* Fade-in inicial e, ao terminar, glow verde pulsante suave (identidade do app) */
-      @keyframes ob-logo-glow{
-        0%,100%{filter:drop-shadow(0 2px 10px rgba(0,0,0,0.55)) drop-shadow(0 0 10px rgba(0,230,118,0.35))}
-        50%{filter:drop-shadow(0 2px 10px rgba(0,0,0,0.55)) drop-shadow(0 0 26px rgba(0,230,118,0.75))}
-      }
-      .ob-logo-fade{opacity:0;transform:scale(.92);animation:ob-logo-in 1s ease forwards .15s, ob-logo-glow 3.2s ease-in-out infinite 1.15s}
+      .ob-logo-fade{opacity:0;transform:scale(.92);animation:ob-logo-in 1s ease forwards .15s}
     </style>
     <div style="position:relative;display:flex;flex-direction:column;justify-content:center;align-items:center;min-height:100vh;overflow:hidden;background:#000">
       <div id="ob-vid-wrap" style="position:absolute;inset:0;overflow:hidden;background:#000">
@@ -8229,6 +8401,8 @@ syncProfileFromSupabase().finally(()=>detectGPSLocation());
 checkOnboarding();
 // Inicializa aba AGENDA
 renderAgenda();
+// Pop-up automatico de recalibracao no fechamento da semana (1x por semana)
+try{ checkRecalPopup(); }catch(e){}
 
 // ── SESSION ANALYSIS ──
 const SA_CACHE_KEY = 'mytri_session_analysis';
@@ -8292,12 +8466,33 @@ async function maybeShowSessionAnalysis(key, sess, w, d){
   const raceDate = profile.raceDate || '2026-09-13';
   const daysToRace = Math.max(0, Math.round((new Date(raceDate+'T12:00:00') - new Date()) / (1000*60*60*24)));
 
+  // Distancia PLANEJADA original (antes do override real), para o report comparar planejado vs feito.
+  // sess.dist ja pode estar refletindo o real (item 5), entao pegamos o planejado da fonte crua.
+  let plannedDist = '';
+  try{
+    const rawWeek = getWeek(w);
+    const rawDay = rawWeek && rawWeek.days ? rawWeek.days[d] : null;
+    if(rawDay && rawDay[sess._si]) plannedDist = rawDay[sess._si].dist || '';
+  }catch(e){}
+  // Sinaliza se o real ficou acima/abaixo do planejado (para o coach comentar coerentemente)
+  let volComparison = '';
+  try{
+    const pKm = parseFloat(plannedDist)||0;
+    const rKm = parseFloat(ov.stravaDist||'')||0;
+    if(pKm>0 && rKm>0){
+      const diff = Math.round((rKm/pKm - 1)*100);
+      if(diff>=10) volComparison = `O atleta fez ${diff}% ACIMA do volume planejado (planejado ${plannedDist}, feito ${ov.stravaDist}). Comente essa carga extra e o impacto na recuperacao/semana.`;
+      else if(diff<=-10) volComparison = `O atleta fez ${Math.abs(diff)}% ABAIXO do volume planejado (planejado ${plannedDist}, feito ${ov.stravaDist}). Comente de forma construtiva, sem culpa.`;
+      else volComparison = `Volume proximo do planejado (planejado ${plannedDist}, feito ${ov.stravaDist}).`;
+    }
+  }catch(e){}
+
   try{
     const resp = await fetch('/.netlify/functions/session-analysis', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({
-        session: {type: sess.type, text: sess.text, dist: sess.dist},
+        session: {type: sess.type, text: sess.text, dist: sess.dist, plannedDist, volComparison},
         strava: stravaStr,
         profile: {name: profile.name || 'Nano'},
         daysToRace,
