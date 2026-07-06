@@ -1187,6 +1187,50 @@ function generatePlan(profile) {
         };
       });
 
+      // ── MESCLA DE FORCA NO MESMO DIA (decisao do usuario: sempre que fizer sentido) ──
+      // Modelo antigo: 1 dia = 1 sessao, forca ocupava um dia inteiro. Agora a forca
+      // ACOMPANHA um treino aerobico no mesmo dia, em ordem funcional. Isso adensa a
+      // semana e libera dias. So mescla quando ha um dia de treino aerobico compativel.
+      (function mergeStrength(){
+        const isForceDay = (day)=> day.sessions.length===1 && day.sessions[0]._type==='FORCE';
+        const isCore = (s)=> /core/i.test(s.label||s.title||'') || /core/i.test(s._sessType||'');
+        const isAerobic = (day)=>{
+          if(day.sessions.length!==1) return false;
+          const t=day.sessions[0]._type;
+          return t==='SWIM'||t==='BIKE'||t==='RUN';
+        };
+        const isLongDay = (day)=> day.sessions.some(s=>/_long|_open_water|brick/.test(s._sessType||''));
+        // treino de QUALIDADE: aerobico primeiro, forca depois (nao sabota a qualidade)
+        const isQuality = (day)=> day.sessions.some(s=>/_intervals|_tempo|_race_pace/.test(s._sessType||''));
+
+        const forceDays = days.filter(isForceDay);
+        if(!forceDays.length) return;
+
+        forceDays.forEach(fd=>{
+          const forceSess = fd.sessions[0];
+          const core = isCore(forceSess);
+          let candidates = days.filter(d=> d!==fd && isAerobic(d) && !isLongDay(d));
+          if(!core){
+            // forca de pernas: prioriza dia BASE (nao-qualidade); se nao houver, aceita qualidade
+            const base = candidates.filter(d=>!isQuality(d));
+            candidates = base.length? base : candidates;
+          }
+          if(!candidates.length) return; // sem dia bom: forca fica no proprio dia
+          // escolhe o candidato com menor carga (menos _durMin) pra equilibrar
+          candidates.sort((a,b)=>{
+            const da=a.sessions.reduce((s,x)=>s+(x._durMin||0),0);
+            const db=b.sessions.reduce((s,x)=>s+(x._durMin||0),0);
+            return da-db;
+          });
+          const target = candidates[0];
+          // marca a forca como secundaria e anexa NA ORDEM: aerobico -> forca/core
+          forceSess._secondary = true;
+          forceSess._pairedWith = target.sessions[0]._type;
+          target.sessions.push(forceSess);
+          fd.sessions = []; // o dia que era so forca vira descanso
+        });
+      })();
+
       planWeeks.push({
         w,
         fase,
@@ -1535,6 +1579,19 @@ function renderAgenda(){
 }
 
 function updateCountdown(){
+  // Atualiza tambem o subtitulo do header (prova real ou modo livre) - nunca deixa Guaruja fixo
+  try{
+    const sub=document.getElementById('race-subtitle');
+    if(sub){
+      const p=(getMytriProfile&&getMytriProfile())||{};
+      if(hasRace()){
+        const loc=p.raceLocal||p.city||'';
+        sub.textContent=(p.raceName+(loc?' \u00b7 '+loc:'')).toUpperCase();
+      }else{
+        sub.textContent='TREINO LIVRE \u00b7 SEM PROVA DEFINIDA';
+      }
+    }
+  }catch(e){}
   const el=document.getElementById('countdown-header');
   if(!el)return;
   if(!hasRace()){ el.textContent='LIVRE'; return; }
@@ -2668,7 +2725,7 @@ function _buildDaySlide(w,d){
   // Botão restaurar — só aparece se houver sessões deletadas
   const overrides=loadOverrides();
 
-  const addBtn=document.createElement('div');addBtn.className='add-btn';addBtn.innerHTML='+ REGISTRAR ATIVIDADE';
+  const addBtn=document.createElement('div');addBtn.className='add-btn';addBtn.innerHTML='+ ADICIONAR TREINO EXTRA';
   addBtn.addEventListener('click',()=>showAddModal(w,d));slide.appendChild(addBtn);
   if(reorderMode)slide.classList.add('reordering');
   const nav=document.createElement('div');nav.className='hoje-nav';
@@ -7033,7 +7090,12 @@ function renderObWelcome(c){
       .ob-letter{display:inline-block;opacity:0;animation:ob-letter-in .6s cubic-bezier(.34,1.56,.64,1) forwards}
       .ob-sub-anim{opacity:0;animation:ob-fade-up .8s ease forwards}
       @keyframes ob-logo-in{0%{opacity:0;transform:scale(.92)}100%{opacity:1;transform:scale(1)}}
-      .ob-logo-fade{opacity:0;animation:ob-logo-in 1s ease forwards .15s}
+      /* Fade-in inicial e, ao terminar, glow verde pulsante suave (identidade do app) */
+      @keyframes ob-logo-glow{
+        0%,100%{filter:drop-shadow(0 2px 10px rgba(0,0,0,0.55)) drop-shadow(0 0 10px rgba(0,230,118,0.35))}
+        50%{filter:drop-shadow(0 2px 10px rgba(0,0,0,0.55)) drop-shadow(0 0 26px rgba(0,230,118,0.75))}
+      }
+      .ob-logo-fade{opacity:0;transform:scale(.92);animation:ob-logo-in 1s ease forwards .15s, ob-logo-glow 3.2s ease-in-out infinite 1.15s}
     </style>
     <div style="position:relative;display:flex;flex-direction:column;justify-content:center;align-items:center;min-height:100vh;overflow:hidden;background:#000">
       <div id="ob-vid-wrap" style="position:absolute;inset:0;overflow:hidden;background:#000">
@@ -7049,7 +7111,7 @@ function renderObWelcome(c){
       </div>
       <div style="position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,0.15) 0%,rgba(0,0,0,0.35) 50%,rgba(0,0,0,0.7) 100%)"></div>
       <div style="position:relative;text-align:center;padding:0 28px;display:flex;flex-direction:column;align-items:center;gap:0;width:100%">
-        <img src="/logo.png" alt="MyTri" class="ob-logo-fade" style="width:min(80vw,360px);height:auto;display:block;margin-bottom:30px;filter:drop-shadow(0 2px 12px rgba(0,0,0,0.6))">
+        <img src="/logo.png" alt="MyTri" class="ob-logo-fade" style="width:min(80vw,360px);height:auto;display:block;margin-bottom:30px">
         <div class="ob-sub-anim" style="font-family:var(--font-body);font-size:16px;color:rgba(255,255,255,0.82);line-height:1.7;margin-bottom:40px;animation-delay:1.1s;max-width:300px">
           Seu co-piloto personalizado para chegar na linha de chegada pronto${nome}.
         </div>
@@ -7963,6 +8025,13 @@ async function showPlanSummary(profile){
   const el=document.getElementById('view-plan-summary');
   el.classList.add('active');
 
+  // Modo treino livre (sem prova): nao chama a API. Mostra resumo local positivo.
+  const _hasRaceSum=!!(profile.raceName&&String(profile.raceName).trim()&&profile.raceDate);
+  if(!_hasRaceSum){
+    renderPlanSummary(el,profile,'');
+    return;
+  }
+
   // Show loading
   el.innerHTML=`
     <div class="plan-loading">
@@ -8003,9 +8072,10 @@ function renderPlanSummary(el,profile,text,debugMsg){
     'olimpico':'Olimpico',
     'half':'Half Ironman 70.3',
     'full':'Ironman Full'
-  }[profile.raceDist||profile.distancia]||'Sprint';
+  }[profile.raceDist||profile.distancia]||(profile.raceName?'Sprint':'Treino Livre');
 
-  const daysToRace=profile.raceDate?Math.max(0,Math.round((new Date(profile.raceDate+'T12:00:00')-new Date())/(1000*60*60*24))):'?';
+  const _hasRace=!!(profile.raceName&&String(profile.raceName).trim()&&profile.raceDate);
+  const daysToRace=_hasRace?Math.max(0,Math.round((new Date(profile.raceDate+'T12:00:00')-new Date())/(1000*60*60*24))):null;
 
   // Strip markdown completamente
   function stripMd(s){
@@ -8052,18 +8122,18 @@ function renderPlanSummary(el,profile,text,debugMsg){
   el.innerHTML=`
     <div style="padding:52px 20px 16px;border-bottom:1px solid var(--border);background:var(--surface)">
       <div style="font-family:var(--font-ui);font-size:10px;color:var(--accent);letter-spacing:2px;margin-bottom:8px">SEU PLANO MYTRI</div>
-      <div style="font-family:var(--font-display);font-size:28px;letter-spacing:1px;line-height:1.1;margin-bottom:8px">${profile.raceName||dist}</div>
+      <div style="font-family:var(--font-display);font-size:28px;letter-spacing:1px;line-height:1.1;margin-bottom:8px">${_hasRace?(profile.raceName||dist):'Treino Livre'}</div>
       <div style="display:flex;gap:16px;margin-top:12px">
-        <div style="text-align:center">
+        ${_hasRace?`<div style="text-align:center">
           <div style="font-family:var(--font-display);font-size:32px;color:var(--accent)">${daysToRace}</div>
           <div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px">DIAS</div>
         </div>
-        <div style="width:1px;background:var(--border)"></div>
+        <div style="width:1px;background:var(--border)"></div>`:''}
         <div style="text-align:center">
-          <div style="font-family:var(--font-display);font-size:32px;color:var(--text)">${dist}</div>
-          <div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px">DISTANCIA</div>
+          <div style="font-family:var(--font-display);font-size:32px;color:var(--text)">${_hasRace?dist:'BASE'}</div>
+          <div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px">${_hasRace?'DISTANCIA':'MODO'}</div>
         </div>
-        ${profile.goalTime?`<div style="width:1px;background:var(--border)"></div>
+        ${_hasRace&&profile.goalTime?`<div style="width:1px;background:var(--border)"></div>
         <div style="text-align:center">
           <div style="font-family:var(--font-display);font-size:32px;color:var(--text)">${profile.goalTime}</div>
           <div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px">META</div>
@@ -8101,7 +8171,18 @@ function renderPlanSummary(el,profile,text,debugMsg){
       </div>
     </div>`:''}
     `:fallbackText?`<div class="plan-section"><div class="plan-section-body">${fallbackText.split('\n').filter(l=>l.trim()).join('</div><div class="plan-section-body" style="margin-top:10px">')}</div></div>`
-    :`<div class="plan-section"><div class="plan-section-body">Nao foi possivel gerar o resumo detalhado do plano agora. Isso pode acontecer por instabilidade temporaria. Seu plano de treino ja esta ativo na Agenda.${debugMsg?`<br><br><span style="color:#e05c2a;font-size:11px">[debug: ${String(debugMsg).slice(0,250).replace(/</g,'')}]</span>`:''}</div></div>`}
+    :(!_hasRace?`<div class="plan-section">
+      <div class="plan-section-title">MODO TREINO LIVRE</div>
+      <div class="plan-section-body">Voce comecou sem uma prova especifica, entao montei um plano de BASE focado em consistencia e evolucao geral nas suas modalidades.</div>
+      <div class="plan-section-body" style="margin-top:10px">Os treinos ja estao na Agenda, ajustados aos seus dias disponiveis, nivel e lesoes. Quando quiser mirar uma prova, e so definir no Perfil que o plano se reorganiza em periodizacao (base, build, pico, taper) ate a data.</div>
+    </div>
+    <div class="plan-section" style="padding-bottom:16px">
+      <div style="background:rgba(0,230,118,.08);border:1px solid rgba(0,230,118,.2);border-radius:6px;padding:16px;margin-top:8px">
+        <div style="font-family:var(--font-ui);font-size:9px;color:var(--accent);letter-spacing:2px;margin-bottom:8px">MENSAGEM DO COACH</div>
+        <div style="font-family:var(--font-body);font-size:14px;color:var(--text);line-height:1.7">Constancia vence intensidade. Sem a pressao de uma data, o foco e criar o habito e ganhar base aerobica. Cada treino conta.</div>
+      </div>
+    </div>`
+    :`<div class="plan-section"><div class="plan-section-body">Nao foi possivel gerar o resumo detalhado do plano agora. Isso pode acontecer por instabilidade temporaria. Seu plano de treino ja esta ativo na Agenda.${debugMsg?`<br><br><span style="color:#e05c2a;font-size:11px">[debug: ${String(debugMsg).slice(0,250).replace(/</g,'')}]</span>`:''}</div></div>`)}
 
     <div style="padding:20px 20px 40px">
       <button onclick="closePlanSummary()" style="width:100%;padding:18px;background:var(--accent);color:#000;font-family:var(--font-ui);font-size:14px;font-weight:700;letter-spacing:2px;border:none;border-radius:4px;cursor:pointer">ENTRAR NO MYTRI</button>
