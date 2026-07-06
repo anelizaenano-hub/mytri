@@ -5215,10 +5215,11 @@ async function stravaSyncActivities(){
   // nao acha as sessoes e nada casa, sem erro visivel).
   try{ if(!plan||!plan[0]||!plan[0].weeks||!plan[0].weeks.length){ initPlan(); } }catch(e){}
   try{
-    // Buscar atividades dos ultimos 45 dias (data dinamica, nao hardcoded).
-    // Antes usava PLAN_START_ISO fixo (26/05) - se o plano comeca depois, perdia atividades recentes.
-    const after=Math.floor((Date.now()-45*24*60*60*1000)/1000);
-    const r=await fetch(`https://www.strava.com/api/v3/athlete/activities?after=${after}&per_page=100`,{
+    // A API do Strava, SEM 'after', retorna as atividades mais RECENTES primeiro (ordem decrescente).
+    // Com 'after', ela inverte e traz as mais antigas primeiro - por isso o treino de hoje ficava
+    // fora das 100 primeiras quando havia muitas atividades no periodo. Buscamos as 50 mais recentes,
+    // que sempre incluem as de hoje, e filtramos por data no proprio codigo.
+    const r=await fetch(`https://www.strava.com/api/v3/athlete/activities?per_page=50`,{
       headers:{Authorization:'Bearer '+token}
     });
     const activities=await r.json();
@@ -5427,9 +5428,11 @@ async function stravaSyncActivities(){
       if(total===0){
         showStravaStatus('Strava conectado, mas nenhuma atividade nos ultimos 45 dias. Verifique se o treino saiu do relogio para o Strava.');
       }else if(deHoje.length===0){
-        const ult=activities[0];
+        // ordena por data desc para achar a real mais recente
+        const ord=[...activities].sort((a,b)=>(b.start_date_local||'').localeCompare(a.start_date_local||''));
+        const ult=ord[0];
         const ultData=ult&&ult.start_date_local?ult.start_date_local.slice(0,10):'?';
-        showStravaStatus(`${total} atividade(s) no Strava, mas nenhuma de hoje (${hoje}). Mais recente: ${ultData}.`);
+        showStravaStatus(`${total} atividade(s) no Strava. Nenhuma de hoje (${hoje}). Mais recente: ${ultData}. Confira se a corrida de hoje aparece no app do Strava (nao so no Garmin).`);
       }else{
         const tipos=deHoje.map(a=>a.sport_type||a.type).join(', ');
         showStravaStatus(`${deHoje.length} atividade(s) de hoje [${tipos}] encontrada(s), mas nao encaixaram. Me avise esse tipo.`);
