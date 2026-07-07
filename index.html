@@ -972,6 +972,11 @@ function buildSession(type, fase, week, zones, paces, lesoes, level, raceDist) {
 // ja que eles nao tem distancia.
 function forceDurationMin(sess){
   if(!sess) return 0;
+  // Se ja foi executado (dado real do Strava), usa o tempo REAL em vez do planejado.
+  if(sess._stravaTime){
+    const m=String(sess._stravaTime).match(/(\d+)h\s*(\d+)?min?|(\d+)min/);
+    if(m) return m[1]?parseInt(m[1])*60+(parseInt(m[2])||0):parseInt(m[3]);
+  }
   const st=sess.structure||(sess._plan_sess&&sess._plan_sess.structure)||null;
   if(st&&st.length){ return st.reduce((a,b)=>a+(b.dur||0),0); }
   return sess._durMin||0;
@@ -1704,7 +1709,12 @@ function applyOverride(sess,w,d,si){
   let distFinal = sess.dist;
   if(ov.stravaDist!==undefined && ov.stravaDist!=='') distFinal = ov.stravaDist;
   if(ov.dist!==undefined) distFinal = ov.dist;
-  return{type:ov.type||sess.type,text:ov.text||sess.text,dist:distFinal,note:ov.note!==undefined?ov.note:sess.note,_realExecuted:!!(ov.stravaDist||ov.manualData||ov.stravaData)};
+  // Preserva os campos originais da sessao (structure, coach etc) via spread — antes essa funcao
+  // devolvia um objeto novo so com {type,text,dist,note}, entao QUALQUER sessao com override
+  // (ex: forca sincronizada do Strava) perdia a "structure". Isso quebrava o tempo exibido nas
+  // abas Semana/Fases/Cal (forceDurationMin dependia de sess.structure, que sumia) e tambem o
+  // bloco "RACIONAL DO COACH" no detalhe do treino depois de executado.
+  return{...sess,type:ov.type||sess.type,text:ov.text||sess.text,dist:distFinal,note:ov.note!==undefined?ov.note:sess.note,_realExecuted:!!(ov.stravaDist||ov.manualData||ov.stravaData),_stravaTime:ov.stravaTime||null};
 }
 
 // ── EFFECTIVE SESSIONS ──
@@ -2081,8 +2091,12 @@ function recalibrateWeek(sourceWeek){
 // ── VOLUME PARSER ──
 function sessionVolume(sess,ov){
   const out={swim:0,bike:0,run:0};
-  // Usar stravaDist se disponível (dado real), senão dist do plano
-  const dist=(ov&&ov.stravaDist)||sess.dist||'';
+  // Usar stravaDist se disponível (dado real), senão dist do plano.
+  // Extras podem ter sess.dist guardando TEMPO (ex "43min") quando o Strava nao reportou
+  // distancia (rolo sem sensor, GPS perdido) — se contar isso como km, "43min" vira "43km"
+  // no volume acumulado e distorce as proporcoes das barras por modalidade.
+  let dist=(ov&&ov.stravaDist)||sess.dist||'';
+  if(sess._origin==='extra'&&/min/i.test(dist))dist='';
   const parts=dist.split('+').map(s=>s.trim()).filter(Boolean);
   if(sess.type===BRICK&&parts.length>1){
     if(parts.length===2){out.bike=parseFloat(parts[0])||0;out.run=parseFloat(parts[1])||0;}
@@ -2206,19 +2220,31 @@ function showWorkoutDetail(w,d,key){
         })()}
         ${(()=>{
           // Bloco de EXECUÇÃO REAL: aparece quando a atividade foi concluida com dados do Strava/manual.
+          // Cobre tanto sessoes do PLANO (override) quanto EXTRAS (atividade do Strava sem sessao
+          // planejada correspondente) — antes, extras nunca mostravam esse bloco nem o botao de report,
+          // mesmo tendo dado real salvo (bug: bike aparecia como se nao tivesse sido feita).
           const _ov=sess._origin==='plan'?getOverride(w,d,sess._si):null;
-          const _real=(_ov&&(_ov.stravaData||_ov.stravaDist||_ov.stravaTime))||null;
+          const _isExtra=sess._origin==='extra';
+          const _extraReal=_isExtra&&(sess.dist||sess.note||sess.cal);
+          const _real=(_ov&&(_ov.stravaData||_ov.stravaDist||_ov.stravaTime))||_extraReal||null;
           if(!_real)return '';
           const linhas=[];
-          if(_ov.stravaDist)linhas.push(['DISTANCIA',_ov.stravaDist]);
-          if(_ov.stravaTime)linhas.push(['TEMPO',_ov.stravaTime]);
-          if(_ov.stravaHR)linhas.push(['FC MEDIA',_ov.stravaHR]);
-          if(_ov.stravaCal)linhas.push(['CALORIAS',_ov.stravaCal]);
+          if(_ov){
+            if(_ov.stravaDist)linhas.push(['DISTANCIA',_ov.stravaDist]);
+            if(_ov.stravaTime)linhas.push(['TEMPO',_ov.stravaTime]);
+            if(_ov.stravaHR)linhas.push(['FC MEDIA',_ov.stravaHR]);
+            if(_ov.stravaCal)linhas.push(['CALORIAS',_ov.stravaCal]);
+          } else if(_isExtra){
+            // Extras guardam o dado real compactado em "note" (ex: "15km · 42.1km/h · 43min · 105bpm · 273kcal").
+            // Quebra em cards individuais, igual ao formato das sessoes do plano.
+            (sess.note||'').split('·').map(p=>p.trim()).filter(Boolean).forEach(p=>linhas.push(['STRAVA',p]));
+            if(!linhas.length&&sess.cal)linhas.push(['CALORIAS',sess.cal]);
+          }
           const cards=linhas.map(([l,v])=>`<div style="flex:1;min-width:70px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center"><div style="font-family:var(--font-display);font-size:16px;color:${color}">${v}</div><div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:.5px">${l}</div></div>`).join('');
           return `<div style="margin-top:18px">
             <div style="font-family:var(--font-ui);font-size:10px;color:${color};letter-spacing:1.5px;margin-bottom:8px">EXECUCAO REAL (STRAVA)</div>
             <div style="display:flex;gap:6px;flex-wrap:wrap">${cards}</div>
-            <button onclick="genSessionReport(${w},${d},${sess._origin==='plan'?sess._si:-1})" id="wd-report-btn" style="width:100%;margin-top:14px;padding:14px;background:${color}14;border:1px solid ${color}44;color:${color};font-family:var(--font-ui);font-size:12px;font-weight:700;letter-spacing:1.5px;border-radius:8px;cursor:pointer">VER ANALISE DO TREINO (IA)</button>
+            <button onclick="genSessionReport(${w},${d},${sess._origin==='plan'?sess._si:-1},${sess._origin==='extra'?sess._idx:-1})" id="wd-report-btn" style="width:100%;margin-top:14px;padding:14px;background:${color}14;border:1px solid ${color}44;color:${color};font-family:var(--font-ui);font-size:12px;font-weight:700;letter-spacing:1.5px;border-radius:8px;cursor:pointer">VER ANALISE DO TREINO (IA)</button>
             <div id="wd-report-out" style="margin-top:12px"></div>
           </div>`;
         })()}
@@ -2229,12 +2255,18 @@ function showWorkoutDetail(w,d,key){
 }
 
 // Gera a analise pos-treino sob demanda ao abrir a atividade concluida (foto: report nao aparecia).
-async function genSessionReport(w,d,si){
+// si>=0 = sessao do plano; extraIdx>=0 = atividade extra (Strava sem sessao planejada correspondente).
+async function genSessionReport(w,d,si,extraIdx){
   const btn=document.getElementById('wd-report-btn');
-  if(si<0)return;
-  const sess=getEffectiveSessions(w,d).find(s=>s._origin==='plan'&&s._si===si);
-  if(!sess)return;
-  const key=ck(w,d,si);
+  let sess=null,key=null;
+  if(si>=0){
+    sess=getEffectiveSessions(w,d).find(s=>s._origin==='plan'&&s._si===si);
+    key=ck(w,d,si);
+  }else if(extraIdx!==undefined&&extraIdx>=0){
+    sess=getEffectiveSessions(w,d).find(s=>s._origin==='extra'&&s._idx===extraIdx);
+    key=`ex_w${w}_d${d}_i${extraIdx}`;
+  }
+  if(!sess||!key)return;
   if(btn){ btn.disabled=true; btn.textContent='ANALISANDO...'; btn.style.opacity='0.6'; }
   try{
     closeWorkoutDetail();
@@ -6099,6 +6131,12 @@ function renderClubOnboard(c){
         <button onclick="submitClubOnboard()" style="width:100%;margin-top:8px;padding:18px;background:var(--accent);color:#000;font-family:var(--font-ui);font-size:14px;font-weight:700;letter-spacing:2px;border:none;cursor:pointer;border-radius:4px">ENTRAR NA TURMA</button>
       </div>
     </div>`;
+  // Pre-seleciona o estado com o que ja temos salvo no perfil (GPS/CEP do onboarding/Perfil).
+  // Antes o select sempre abria vazio ("UF"), mesmo com o estado ja detectado em outro lugar do app.
+  if(prof.state){
+    const estadoSel=document.getElementById('cl-estado');
+    if(estadoSel)estadoSel.value=prof.state;
+  }
 }
 
 async function clFormatCep(el){
@@ -6611,11 +6649,16 @@ function detectGPSLocation(force){
       const adm=d.localityInfo?.administrative||[];
       const bairro=adm.find(a=>a.order===11)?.name||adm.find(a=>a.order===10)?.name||d.locality||'';
       const cidade=adm.find(a=>a.order===10)?.name||d.city||'';
+      // Estado (UF): o BigDataCloud sempre traz isso no campo dedicado principalSubdivisionCode
+      // (ex "BR-SP"), independente do array "administrative" usado acima pra cidade/bairro.
+      // Antes esse campo nunca era lido -> profile.state ficava sempre vazio ("UF" no Clube).
+      const uf=(d.principalSubdivisionCode||'').split('-').pop()||'';
       const loc=bairro&&cidade&&bairro!==cidade?`${bairro}, ${cidade}`:cidade||bairro||'';
       if(loc){
         localStorage.setItem('mytri_gps_city',loc);
         const saved=JSON.parse(localStorage.getItem('mytri_profile')||'{}');
         saved.city=loc;
+        if(uf)saved.state=uf;
         localStorage.setItem('mytri_profile',JSON.stringify(saved));
         sbSet('mytri_profile',saved).catch(()=>{});
         if(el)el.textContent=loc;
@@ -6956,7 +6999,7 @@ function resetOnboarding(){
 function regeneratePlanClean(){
   if(!confirm('Isso vai gerar seu plano do zero e apagar o progresso/execucoes atuais (treinos marcados, dados do Strava ja sincronizados). Seu perfil e dados pessoais permanecem. Continuar?'))return;
   try{
-    ['nano_tri_v2','nano_extras_v1','nano_overrides_v1','nano_order_v1','nano_cal_cache','mytri_plan_cache','nano_coach_cache','nano_recal_v1','mytri_recal_popup_shown','strava_last_sync'].forEach(k=>localStorage.removeItem(k));
+    ['nano_tri_v2','nano_extras_v1','nano_overrides_v1','nano_order_v1','nano_cal_cache','mytri_plan_cache','nano_coach_cache','nano_recal_v1','mytri_recal_popup_shown','strava_last_sync','mytri_session_analysis'].forEach(k=>localStorage.removeItem(k));
     // limpar tambem no supabase (nao bloqueia se falhar)
     try{ sbSet('nano_extras',{}).catch(()=>{}); sbSet('nano_overrides',{}).catch(()=>{}); sbSet('nano_checks',{}).catch(()=>{}); }catch(e){}
     plan=null;
@@ -7177,12 +7220,16 @@ function loadAllStravaData(){
   const extras=loadExtras();
   const all=[];
   Object.values(ovs).forEach(o=>{if(o.stravaData)all.push(o);});
+  // e.dist pode guardar TEMPO (ex "43min") quando o Strava nao reportou distancia para a atividade
+  // (rolo sem sensor, GPS perdido) — usado so pra exibir algo no card. Nao pode virar "distancia"
+  // aqui, senao "43min" vira "43km" nos recordes/stats (bug: bike de 43min virava 43km).
+  const _looksLikeDistance=s=>!!s&&!/min/i.test(s);
   Object.values(extras).forEach(arr=>{
     (arr||[]).forEach(e=>{if(e.stravaDist||e.dist)all.push({
       type:e.type,
       stravaData:e.note||e.text||'extra',
-      stravaDist:e.stravaDist||e.dist||'',
-      stravaTime:e.stravaTime||'',
+      stravaDist:e.stravaDist||(_looksLikeDistance(e.dist)?e.dist:'')||'',
+      stravaTime:e.stravaTime||(!_looksLikeDistance(e.dist)?e.dist:'')||'',
       stravaHR:e.stravaHR||'',
       stravaCal:e.stravaCal||e.cal||'',
     });});
@@ -7978,7 +8025,7 @@ function obFormatCep(input){
         if(d.erro){ if(status)status.textContent='CEP nao encontrado'; return; }
         const bairroP=d.bairro?d.bairro+', ':'';
         const cidade=d.localidade&&d.uf?(bairroP+d.localidade+', '+d.uf):(bairroP+(d.localidade||''));
-        obData.cepCity=cidade; obData.cepBairro=d.bairro||''; obData.cepCidadeBase=d.localidade||'';
+        obData.cepCity=cidade; obData.cepBairro=d.bairro||''; obData.cepCidadeBase=d.localidade||''; obData.state=d.uf||'';
         // Limpa lat/lon do GPS: o CEP tem prioridade quando digitado depois
         obData.gpsLat=null; obData.gpsLon=null;
         if(status){ status.style.color='var(--accent)'; status.textContent='Local: '+cidade; }
@@ -7991,6 +8038,8 @@ function obFormatCep(input){
   }
 }
 
+// Nome completo do estado (como a Nominatim devolve) -> sigla UF
+const BR_STATE_TO_UF={'Acre':'AC','Alagoas':'AL','Amapá':'AP','Amazonas':'AM','Bahia':'BA','Ceará':'CE','Distrito Federal':'DF','Espírito Santo':'ES','Goiás':'GO','Maranhão':'MA','Mato Grosso':'MT','Mato Grosso do Sul':'MS','Minas Gerais':'MG','Pará':'PA','Paraíba':'PB','Paraná':'PR','Pernambuco':'PE','Piauí':'PI','Rio de Janeiro':'RJ','Rio Grande do Norte':'RN','Rio Grande do Sul':'RS','Rondônia':'RO','Roraima':'RR','Santa Catarina':'SC','São Paulo':'SP','Sergipe':'SE','Tocantins':'TO'};
 function obUseGPS(){
   const st=document.getElementById('ob-gps-status');
   if(!navigator.geolocation){ if(st){st.style.color='var(--danger,#e05c2a)';st.textContent='GPS nao disponivel neste dispositivo. Digite o CEP.';} return; }
@@ -8002,12 +8051,16 @@ function obUseGPS(){
       const d=await r.json();
       const a=d.address||{};
       const cidade=a.city||a.town||a.village||a.municipality||a.county||'';
-      const uf=a.state||'';
+      // Nominatim devolve o NOME COMPLETO do estado (ex "São Paulo"), nao a sigla. O select de
+      // estado no Clube espera a sigla (UF) — antes isso nunca era convertido nem salvo em
+      // obData, entao o campo ESTADO ficava sempre vazio depois do onboarding.
+      const ufNome=a.state||'';
+      const uf=BR_STATE_TO_UF[ufNome]||'';
       const bairro=a.suburb||a.neighbourhood||a.quarter||a.residential||a.city_district||'';
       const label=[bairro,cidade,uf].filter(Boolean).join(', ');
       if(!cidade){ if(st){st.style.color='var(--danger,#e05c2a)';st.textContent='Nao consegui identificar a cidade. Confira ou digite o CEP.';} return; }
       // Preenche para o usuario CONFIRMAR/corrigir (nao trava)
-      obData.cepCity=label; obData.cepBairro=bairro; obData.cepCidadeBase=cidade; obData.gpsLat=lat; obData.gpsLon=lon;
+      obData.cepCity=label; obData.cepBairro=bairro; obData.cepCidadeBase=cidade; obData.gpsLat=lat; obData.gpsLon=lon; obData.state=uf;
       try{ localStorage.setItem('mytri_gps_city',label); }catch(e){}
       if(st){ st.style.color='var(--accent)'; st.innerHTML='Detectado: <b>'+label+'</b><br><span style="color:var(--muted2)">Confira acima. Se estiver errado, digite o CEP para sobrescrever.</span>'; }
       const status=document.getElementById('ob-cep-status');
@@ -8300,6 +8353,7 @@ function obFinish(){
     altura:obData.altura||prof.altura||'',
     sexo:obData.sexo||prof.sexo||'',
     city:obData.cepCity||prof.city||localStorage.getItem('mytri_gps_city')||'',
+    state:obData.state||prof.state||'',
     cep:obData.cep||prof.cep||'',
     cityLocked:!!obData.cepCity,
     photo:prof.photo||athlete.profile||athlete.profile_medium||'',
@@ -8331,7 +8385,7 @@ function obFinish(){
   setTimeout(()=>localStorage.removeItem('mytri_ob_just_saved'),60000);
   // LIMPEZA TOTAL de estado antigo — novo plano começa do zero, sem treinos "concluídos"
   // ou edições de um plano anterior vazando pra este.
-  ['nano_tri_v2','nano_extras_v1','nano_overrides_v1','nano_order_v1','nano_cal_cache','mytri_plan_cache','mytri_club','nano_coach_cache','nano_recal_v1'].forEach(k=>localStorage.removeItem(k));
+  ['nano_tri_v2','nano_extras_v1','nano_overrides_v1','nano_order_v1','nano_cal_cache','mytri_plan_cache','mytri_club','nano_coach_cache','nano_recal_v1','mytri_session_analysis'].forEach(k=>localStorage.removeItem(k));
   _memChecks={};
   // Zera também no Supabase (chaves reais usadas por syncFromCloud) pra não voltar no próximo load
   sbSet('nano_checks',{}).catch(()=>{});
@@ -8590,9 +8644,16 @@ function saveAnalysisCache(cache){
 }
 
 async function maybeShowSessionAnalysis(key, sess, w, d){
-  // Só dispara se sessão do plano com dados Strava
-  const ov = getOverride(w, d, sess._si);
-  if(!ov || (!ov.stravaData && !ov.manualData)) return;
+  // Sessao do plano: usa o override. Extra: monta um objeto equivalente a partir dos campos
+  // que o sync do Strava ja salvou na propria sessao (dist/note/cal), ja que extras nao tem override.
+  let ov;
+  if(sess._origin==='plan'){
+    ov = getOverride(w, d, sess._si);
+    if(!ov || (!ov.stravaData && !ov.manualData)) return;
+  }else{
+    if(!sess.dist && !sess.note && !sess.cal) return;
+    ov = {stravaDist: sess.dist||'', stravaData: sess.note||'', stravaCal: sess.cal||'', stravaZone: sess.stravaZone||''};
+  }
 
   const modal = document.getElementById('session-analysis-modal');
   const colorMap2 = {swim:'#1a6cf0',bike:'#e05c2a',run:'#00e676',gym:'#9b6af0',brick:'#f0a500',tennis:'#c8cad0',rest:'#3a3f4a'};
