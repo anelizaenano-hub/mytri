@@ -967,7 +967,23 @@ function buildSession(type, fase, week, zones, paces, lesoes, level, raceDist) {
   return sessions[type] || sessions.rest;
 }
 
-// ─── LÓGICA DE DISTRIBUIÇÃO SEMANAL ───────────────────────────────────────────
+// Duracao total (min) de uma sessao de forca/mobilidade, somando os blocos da structure.
+// Usado para exibir o tempo dos treinos de "forca funcional" nas abas (Semana/Fases/Cal),
+// ja que eles nao tem distancia.
+function forceDurationMin(sess){
+  if(!sess) return 0;
+  const st=sess.structure||(sess._plan_sess&&sess._plan_sess.structure)||null;
+  if(st&&st.length){ return st.reduce((a,b)=>a+(b.dur||0),0); }
+  return sess._durMin||0;
+}
+// Rotulo de metrica para exibir ao lado da sessao: distancia (aerobico) ou tempo (forca).
+function sessionMetricLabel(sess){
+  if(!sess) return '';
+  if(sess.dist) return sess.dist;
+  const t=(sess.type||sess._type||'').toUpperCase();
+  if(t==='FORCE'||t==='GYM'){ const d=forceDurationMin(sess); return d?d+'min':''; }
+  return '';
+}
 // Ordena as sessões de uma fase por PRIORIDADE (chave→secundária→força→easy) e
 // encaixa nos dias REALMENTE disponíveis do atleta, priorizando dias longos
 // (sáb/dom) para sessões longas. Nada "some" por cair num dia de descanso.
@@ -2097,12 +2113,6 @@ const activityTypes=[
   {type:BRICK, label:'Tijolo',     fields:[{key:'bike',label:'BIKE',unit:'km'},{key:'run',label:'CORRIDA',unit:'km'}]},
   {type:BRICK, label:'Triathlon',  fields:[{key:'swim',label:'NATACAO',unit:'m'},{key:'bike',label:'BIKE',unit:'km'},{key:'run',label:'CORRIDA',unit:'km'}]},
   {type:BRICK, label:'Simulado',   fields:[{key:'swim',label:'NATACAO',unit:'m'},{key:'bike',label:'BIKE',unit:'km'},{key:'run',label:'CORRIDA',unit:'km'}]},
-  {type:GYM,   label:'Musc. A',    fields:[]},
-  {type:GYM,   label:'Musc. B',    fields:[]},
-  {type:GYM,   label:'Musc. C',    fields:[]},
-  {type:GYM,   label:'Musc. D',    fields:[]},
-  {type:TENNIS,label:'Tenis',      fields:[{key:'time',label:'DURACAO',unit:'min'}]},
-  {type:TENNIS,label:'Pickleball', fields:[{key:'time',label:'DURACAO',unit:'min'}]},
   {type:REST,  label:'Descanso',   fields:[]},
 ];
 
@@ -2183,14 +2193,53 @@ function showWorkoutDetail(w,d,key){
           <div style="font-family:var(--font-ui);font-size:10px;color:${color};letter-spacing:1.5px;margin-bottom:6px">RACIONAL DO COACH</div>
           <div style="font-family:var(--font-body);font-size:13px;color:var(--text);line-height:1.55">${coach}</div>
         </div>`:''}
-        ${_isSupportSession(sess)?`<button onclick="closeWorkoutDetail();openExerciseGuide(${w},${d},${sess._si})" style="width:100%;margin-top:16px;padding:14px;background:rgba(0,230,118,0.08);border:1px solid rgba(0,230,118,0.35);color:var(--accent);font-family:var(--font-ui);font-size:12px;font-weight:700;letter-spacing:1.5px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
+        ${(()=>{
+          // Guia visual de exercicios: so faz sentido para treino de forca/core do PLANO ainda
+          // nao executado. Se ja foi feito com dados reais (Strava), nao mostra guia vazio.
+          const _ovg=sess._origin==='plan'?getOverride(w,d,sess._si):null;
+          const _temReal=(_ovg&&(_ovg.stravaData||_ovg.stravaDist||_ovg.stravaTime));
+          if(!_isSupportSession(sess)||_temReal) return '';
+          return `<button onclick="closeWorkoutDetail();openExerciseGuide(${w},${d},${sess._si})" style="width:100%;margin-top:16px;padding:14px;background:rgba(0,230,118,0.08);border:1px solid rgba(0,230,118,0.35);color:var(--accent);font-family:var(--font-ui);font-size:12px;font-weight:700;letter-spacing:1.5px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-3.5-3.5L9 20"/></svg>
           VER GUIA VISUAL DOS EXERCICIOS
-        </button>`:''}
+        </button>`;
+        })()}
+        ${(()=>{
+          // Bloco de EXECUÇÃO REAL: aparece quando a atividade foi concluida com dados do Strava/manual.
+          const _ov=sess._origin==='plan'?getOverride(w,d,sess._si):null;
+          const _real=(_ov&&(_ov.stravaData||_ov.stravaDist||_ov.stravaTime))||null;
+          if(!_real)return '';
+          const linhas=[];
+          if(_ov.stravaDist)linhas.push(['DISTANCIA',_ov.stravaDist]);
+          if(_ov.stravaTime)linhas.push(['TEMPO',_ov.stravaTime]);
+          if(_ov.stravaHR)linhas.push(['FC MEDIA',_ov.stravaHR]);
+          if(_ov.stravaCal)linhas.push(['CALORIAS',_ov.stravaCal]);
+          const cards=linhas.map(([l,v])=>`<div style="flex:1;min-width:70px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center"><div style="font-family:var(--font-display);font-size:16px;color:${color}">${v}</div><div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:.5px">${l}</div></div>`).join('');
+          return `<div style="margin-top:18px">
+            <div style="font-family:var(--font-ui);font-size:10px;color:${color};letter-spacing:1.5px;margin-bottom:8px">EXECUCAO REAL (STRAVA)</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">${cards}</div>
+            <button onclick="genSessionReport(${w},${d},${sess._origin==='plan'?sess._si:-1})" id="wd-report-btn" style="width:100%;margin-top:14px;padding:14px;background:${color}14;border:1px solid ${color}44;color:${color};font-family:var(--font-ui);font-size:12px;font-weight:700;letter-spacing:1.5px;border-radius:8px;cursor:pointer">VER ANALISE DO TREINO (IA)</button>
+            <div id="wd-report-out" style="margin-top:12px"></div>
+          </div>`;
+        })()}
       </div>
     </div>`;
   modal.style.display='flex';
   modal.onclick=(e)=>{ if(e.target===modal) closeWorkoutDetail(); };
+}
+
+// Gera a analise pos-treino sob demanda ao abrir a atividade concluida (foto: report nao aparecia).
+async function genSessionReport(w,d,si){
+  const btn=document.getElementById('wd-report-btn');
+  if(si<0)return;
+  const sess=getEffectiveSessions(w,d).find(s=>s._origin==='plan'&&s._si===si);
+  if(!sess)return;
+  const key=ck(w,d,si);
+  if(btn){ btn.disabled=true; btn.textContent='ANALISANDO...'; btn.style.opacity='0.6'; }
+  try{
+    closeWorkoutDetail();
+    await maybeShowSessionAnalysis(key,sess,w,d);
+  }catch(e){}
 }
 function closeWorkoutDetail(){ const m=document.getElementById('workout-detail-modal'); if(m) m.style.display='none'; }
 
@@ -3410,7 +3459,7 @@ function _renderSemana(w){
         row.innerHTML=`
           <div class="mini-dot" style="background:${colorMap[sess.type]}"></div>
           <span class="mini-text">${sess.text}</span>
-          ${sess.dist?`<span class="mini-dist">${(()=>{let d=sess.dist;if(sess.type===SWIM&&d&&d.endsWith('km')){const km=parseFloat(d);if(!isNaN(km))d=Math.round(km*1000)+'m';}return d;})()}</span>`:''}
+          ${(()=>{const _m=sessionMetricLabel(sess);if(!_m)return '';let d=_m;if(sess.type===SWIM&&d&&d.endsWith('km')){const km=parseFloat(d);if(!isNaN(km))d=Math.round(km*1000)+'m';}return `<span class="mini-dist">${d}</span>`;})()}
           <div class="mini-check ${isDone?'done':''}" onclick="toggleCheck(event,'${key}')">${isDone?'&#10003;':''}</div>`;
         // Botão delete atrás
         const delBtn=document.createElement('div');
@@ -3485,14 +3534,16 @@ function renderFases(){
       label.textContent=FASE_LABELS[fase]||fase.toUpperCase();
       container.appendChild(label);
     }
-    // contar total/done da semana
+    // contar total/done da semana (via getEffectiveSessions para incluir extras)
     let total=0,done=0;
-    Object.keys(week.days).forEach(di=>{
-      (week.days[di]||[]).forEach((s,si)=>{
+    for(let _di=0;_di<7;_di++){
+      getEffectiveSessions(rawWeek.w,_di).forEach(s=>{
         if(s.type===REST)return;
-        total++; if(checks[ck(rawWeek.w,di,si)])done++;
+        total++;
+        const _k=s._origin==='plan'?ck(rawWeek.w,_di,s._si):`ex_w${rawWeek.w}_d${_di}_i${s._idx}`;
+        if(checks[_k])done++;
       });
-    });
+    }
     const wDiv=document.createElement('div');wDiv.className='phase-week';
     let badge='';
     if(fase==='race')badge='<span class="badge">PROVA</span>';
@@ -3507,21 +3558,25 @@ function renderFases(){
       <div class="phase-week-body" id="pw${rawWeek.w}"></div>`;
     const body=wDiv.querySelector(`#pw${rawWeek.w}`);
     for(let di=0;di<7;di++){
-      const daySessions=week.days[di]||[];
+      // Usa getEffectiveSessions: aplica distancia real (Strava/manual) E inclui treinos extras
+      // (ex: pedal sincronizado sem sessao correspondente). Antes usava week.days[di] cru, que
+      // mostrava a distancia planejada e ignorava os extras.
+      const daySessions=getEffectiveSessions(rawWeek.w,di).filter(s=>s.type!==REST);
       const row=document.createElement('div');row.className='phase-day-row';
       const _dayDate=new Date(getPlanStart());_dayDate.setDate(_dayDate.getDate()+(rawWeek.w-1)*7+di);
       const _dayNum=_dayDate.getDate();const _dayMon=_dayDate.toLocaleString('pt-BR',{month:'short'}).replace('.','').toUpperCase();
       const dl=document.createElement('span');dl.className='phase-day-label';dl.textContent=DAY_NAMES[di];row.appendChild(dl);
       const dr=document.createElement('span');dr.style.cssText='font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:.5px;margin-left:auto;padding-right:8px';dr.textContent=_dayNum+' '+_dayMon;row.appendChild(dr);
       const ps=document.createElement('div');ps.className='phase-sessions';
-      if(!daySessions.length||daySessions.every(s=>s.type===REST)){
+      if(!daySessions.length){
         const r=document.createElement('span');r.style.cssText='font-size:10px;color:var(--rest);font-family:var(--font-ui);letter-spacing:.5px;text-transform:uppercase';r.textContent='Descanso';ps.appendChild(r);
       }else{
-        daySessions.forEach((sess,si)=>{
-          if(sess.type===REST)return;
-          const key=ck(rawWeek.w,di,si);const isDone=!!checks[key];
+        daySessions.forEach((sess)=>{
+          const key=sess._origin==='plan'?ck(rawWeek.w,di,sess._si):`ex_w${rawWeek.w}_d${di}_i${sess._idx}`;
+          const isDone=!!checks[key];
           const sessEl=document.createElement('div');sessEl.className='phase-session';sessEl.style.cursor='pointer';
-          sessEl.innerHTML=`<div class="phase-dot" style="background:${colorMap[sess.type]}"></div><span style="${isDone?'text-decoration:line-through;opacity:.35':''}font-family:var(--font-ui);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.3px">${sess.text}${sess.dist?` <span style="color:var(--accent);font-family:var(--font-display);font-size:11px">${sess.dist}</span>`:''}</span>`;
+          const _metric=sessionMetricLabel(sess);
+          sessEl.innerHTML=`<div class="phase-dot" style="background:${colorMap[sess.type]}"></div><span style="${isDone?'text-decoration:line-through;opacity:.35':''}font-family:var(--font-ui);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.3px">${sess.text}${_metric?` <span style="color:var(--accent);font-family:var(--font-display);font-size:11px">${_metric}</span>`:''}</span>`;
           sessEl.onclick=()=>{hojeWeek=rawWeek.w;hojeDay=di;switchTabHoje();};
           ps.appendChild(sessEl);
         });
@@ -3941,14 +3996,16 @@ function renderStats(){
     const moPrev=getVolumeRange(P.moPrevIni,P.moPrevFim);
     // helper de badge comparativo
     const cmp=(now,prev)=>{
-      if(prev<=0){ return now>0?`<span style="color:#00e676">novo</span>`:''; }
+      if(prev<=0){ return ''; } // sem periodo anterior: nao mostra badge (evita "novo" confuso)
       const diff=Math.round((now/prev-1)*100);
       if(diff>0) return `<span style="color:#00e676">&#9650; ${diff}%</span>`;
       if(diff<0) return `<span style="color:#f0a500">&#9660; ${Math.abs(diff)}%</span>`;
       return `<span style="color:var(--muted)">=</span>`;
     };
     const monthName=new Date().toLocaleDateString('pt-BR',{month:'long'});
-    const card=(titulo,sub,data,prevKm)=>`
+    const card=(titulo,sub,data,prevKm)=>{
+      const temComparativo=prevKm>0;
+      return `
       <div style="flex:1;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
           <div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1.5px">${titulo}</div>
@@ -3959,8 +4016,9 @@ function renderStats(){
           <div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);font-weight:700">km</div>
         </div>
         <div style="font-family:var(--font-ui);font-size:9px;color:var(--muted2);margin-top:6px;letter-spacing:.3px">${data.done} treino${data.done!==1?'s':''} · ${data.swim.toFixed(1)}n ${data.bike.toFixed(0)}b ${data.run.toFixed(0)}r</div>
-        <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);margin-top:3px">${sub}</div>
+        <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);margin-top:3px">${temComparativo?sub:'primeiro periodo registrado'}</div>
       </div>`;
+    };
     periodDiv.innerHTML=`
       <div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:2px;margin-bottom:10px">ACUMULO POR PERIODO</div>
       <div style="display:flex;gap:8px">
@@ -3999,28 +4057,31 @@ function renderStats(){
   container.appendChild(progressDiv);
 
   const volDiv=document.createElement('div');volDiv.className='vol-breakdown';
+  const _pctSwim=Math.min(100,Math.round((vol.swim/Math.max(totalSwim,0.1))*100));
+  const _pctBike=Math.min(100,Math.round((vol.bike/Math.max(totalBike,0.1))*100));
+  const _pctRun=Math.min(100,Math.round((vol.run/Math.max(totalRun,0.1))*100));
   volDiv.innerHTML=`
-    <div class="vol-title">VOLUME ACUMULADO</div>
+    <div class="vol-title">VOLUME ACUMULADO <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0">(% do plano completo por modalidade)</span></div>
     <div class="vol-row">
       <div class="vol-dot" style="background:#1a6cf0"></div>
       <span class="vol-label">NATACAO</span>
-      <div class="vol-bar-bg"><div class="vol-bar-fill" style="width:${Math.round((vol.swim/Math.max(totalSwim,1))*100)}%;background:#1a6cf0"></div></div>
-      <span class="vol-val">${vol.swim.toFixed(1)}km</span>
+      <div class="vol-bar-bg"><div class="vol-bar-fill" style="width:${_pctSwim}%;background:#1a6cf0"></div></div>
+      <span class="vol-val">${vol.swim.toFixed(1)}km <span style="color:var(--muted);font-size:9px">${_pctSwim}%</span></span>
     </div>
     <div class="vol-row">
       <div class="vol-dot" style="background:#e05c2a"></div>
       <span class="vol-label">BIKE</span>
-      <div class="vol-bar-bg"><div class="vol-bar-fill" style="width:${Math.round((vol.bike/Math.max(totalBike,1))*100)}%;background:#e05c2a"></div></div>
-      <span class="vol-val">${vol.bike.toFixed(0)}km</span>
+      <div class="vol-bar-bg"><div class="vol-bar-fill" style="width:${_pctBike}%;background:#e05c2a"></div></div>
+      <span class="vol-val">${vol.bike.toFixed(0)}km <span style="color:var(--muted);font-size:9px">${_pctBike}%</span></span>
     </div>
     <div class="vol-row">
       <div class="vol-dot" style="background:#00e676"></div>
       <span class="vol-label">CORRIDA</span>
-      <div class="vol-bar-bg"><div class="vol-bar-fill" style="width:${Math.round((vol.run/Math.max(totalRun,1))*100)}%;background:#00e676"></div></div>
-      <span class="vol-val">${vol.run.toFixed(0)}km</span>
+      <div class="vol-bar-bg"><div class="vol-bar-fill" style="width:${_pctRun}%;background:#00e676"></div></div>
+      <span class="vol-val">${vol.run.toFixed(0)}km <span style="color:var(--muted);font-size:9px">${_pctRun}%</span></span>
     </div>
     <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1px">
-      PLANEJADO: ${totalSwim.toFixed(1)}km nat &middot; ${totalBike.toFixed(0)}km bike &middot; ${totalRun.toFixed(0)}km corrida
+      PLANEJADO TOTAL: ${totalSwim.toFixed(1)}km nat &middot; ${totalBike.toFixed(0)}km bike &middot; ${totalRun.toFixed(0)}km corrida
     </div>`;
 
   const distCard=document.createElement('div');
@@ -5098,7 +5159,7 @@ function showCalDayModal(date,wd,checks){
 
       const distHtml=sess.type===GYM&&sess.note&&/^\d+$/.test(sess.note.trim())
         ?`<div class="cal-sess-dist">${sess.note.trim()} series</div>`
-        :sess.dist?`<div class="cal-sess-dist">${sess.dist}</div>`:'';
+        :(()=>{const _m=sessionMetricLabel(sess);return _m?`<div class="cal-sess-dist">${_m}</div>`:'';})();
 
       row.innerHTML=`
         <div class="cal-sess-bar" style="background:${color}"></div>
@@ -6870,6 +6931,7 @@ function renderProfile(){
     </div>
     <div class="profile-section" style="margin-top:8px">
       <div class="profile-section-title" style="color:var(--muted)">Zona de desenvolvimento</div>
+      <button onclick="regeneratePlanClean()" style="width:100%;padding:14px;background:rgba(0,230,118,0.08);border:1px solid rgba(0,230,118,0.35);color:var(--accent);font-family:var(--font-ui);font-size:11px;letter-spacing:1.5px;border-radius:4px;cursor:pointer;margin-bottom:8px">REGENERAR PLANO (LIMPAR DADOS ANTIGOS)</button>
       <button onclick="resetOnboarding()" style="width:100%;padding:14px;background:none;border:1px solid var(--border);color:var(--muted);font-family:var(--font-ui);font-size:11px;letter-spacing:1.5px;border-radius:4px;cursor:pointer;margin-bottom:8px">RESETAR ONBOARDING</button>
       <button onclick="resetClubTerms()" style="width:100%;padding:14px;background:none;border:1px solid var(--border);color:var(--muted);font-family:var(--font-ui);font-size:11px;letter-spacing:1.5px;border-radius:4px;cursor:pointer;margin-bottom:8px">RESETAR CLUBE DA MEIA AZUL</button>
       <button onclick="resetFitTerms()" style="width:100%;padding:14px;background:none;border:1px solid var(--border);color:var(--muted);font-family:var(--font-ui);font-size:11px;letter-spacing:1.5px;border-radius:4px;cursor:pointer">RESETAR BIKE FIT AVISO</button>
@@ -6885,6 +6947,26 @@ function resetOnboarding(){
   obData={};
   closeProfile();
   showOnboarding();
+}
+
+// Regenera o plano do zero e LIMPA todo o estado de execucao corrompido (overrides, extras,
+// checks, recalibracao, ordem). Mantem o perfil - nao precisa refazer onboarding. Resolve o
+// "problema circular": planos gerados por versoes antigas ficavam com dados impossiveis
+// (ex: 706km planejado) que batiam com o codigo novo e geravam comportamento estranho.
+function regeneratePlanClean(){
+  if(!confirm('Isso vai gerar seu plano do zero e apagar o progresso/execucoes atuais (treinos marcados, dados do Strava ja sincronizados). Seu perfil e dados pessoais permanecem. Continuar?'))return;
+  try{
+    ['nano_tri_v2','nano_extras_v1','nano_overrides_v1','nano_order_v1','nano_cal_cache','mytri_plan_cache','nano_coach_cache','nano_recal_v1','mytri_recal_popup_shown','strava_last_sync'].forEach(k=>localStorage.removeItem(k));
+    // limpar tambem no supabase (nao bloqueia se falhar)
+    try{ sbSet('nano_extras',{}).catch(()=>{}); sbSet('nano_overrides',{}).catch(()=>{}); sbSet('nano_checks',{}).catch(()=>{}); }catch(e){}
+    plan=null;
+    loadPlanFromProfile();
+    closeProfile&&closeProfile();
+    // re-render tudo
+    try{ switchTab('agenda'); }catch(e){}
+    try{ renderStats(); }catch(e){}
+    alert('Plano regenerado! Faca o SYNC do Strava novamente para reimportar suas atividades reais.');
+  }catch(e){ alert('Erro ao regenerar: '+(e.message||e)); }
 }
 
 function resetClubTerms(){
@@ -7509,7 +7591,12 @@ function renderObProva(c){
           return `<div onclick="obSelectProvaAuto(-1)" style="padding:14px 16px;background:${bg};border:2px solid ${bd};border-radius:8px;cursor:pointer;text-align:center;font-family:var(--font-ui);font-size:12px;color:${col};letter-spacing:1px">
           + CADASTRAR MINHA PROVA MANUALMENTE
         </div>`;})()}
+        <div onclick="obSelectFreePlan()" style="margin-top:10px;padding:14px 16px;background:${obData._freePlan?'rgba(26,108,240,.1)':'var(--surface)'};border:2px solid ${obData._freePlan?'#1a6cf0':'var(--border)'};border-radius:8px;cursor:pointer;text-align:center;font-family:var(--font-ui);font-size:12px;color:${obData._freePlan?'#1a6cf0':'var(--muted)'};letter-spacing:1px">
+          TREINAR SEM PROVA (PLANO LIVRE)
+          <div style="font-family:var(--font-body);font-size:10px;color:var(--muted2);letter-spacing:0;margin-top:5px;line-height:1.4;text-transform:none">Voce treina com um plano estruturado de base e evolucao continua, sem uma prova alvo. Pode definir uma prova depois.</div>
+        </div>
       </div>
+      ${obData._freePlan?`<button class="ob-btn" onclick="obNext()" style="margin-top:16px">CONTINUAR COM PLANO LIVRE</button>`:''}
       ${obData.provaIdx===-1?`
         <div class="ob-field"><label>Nome da prova</label><input id="ob-prova-nome" value="${obData.raceName||''}" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:12px;border-radius:4px"></div>
         <div class="ob-field"><label>Data da prova</label><input id="ob-data" type="date" value="${obData.raceDate||''}" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:12px;border-radius:4px"></div>
@@ -7597,6 +7684,7 @@ function obSelectWebRace(i){
 }
 
 function obSelectProvaAuto(i){
+  obData._freePlan=false;
   obData.provaIdx=i;
   if(i>=0&&i<PROVAS_BR_2026.length){
     const p=PROVAS_BR_2026[i];
@@ -7609,6 +7697,17 @@ function obSelectProvaAuto(i){
   } else {
     renderOnboarding();
   }
+}
+
+// Plano livre: sem prova alvo, mas com plano estruturado de base + evolucao (planejamento subliminar).
+function obSelectFreePlan(){
+  obData._freePlan=true;
+  obData.provaIdx=null;
+  obData.raceName='';
+  obData.raceDate='';
+  obData.raceLocal='';
+  obData.raceUrl='';
+  renderOnboarding();
 }
 
 // Estima tempo-alvo aproximado pela distância selecionada + pace/nível do atleta.
@@ -7671,6 +7770,42 @@ function renderObMeta(c){
           </div>
         </div>
       </div>
+
+      ${(()=>{
+        // Box de PACE EQUIVALENTE: converte o tempo-alvo escolhido no pace/km (corrida) ou
+        // ritmo por modalidade, para o atleta ter referencia concreta de execucao.
+        const totalSec=(hr*3600)+(min*60);
+        if(totalSec<=0) return '';
+        const D={
+          'super-sprint':{s:0.4,b:10,r:2.5},'sprint':{s:0.75,b:20,r:5},'olimpico':{s:1.5,b:40,r:10},
+          'half':{s:1.9,b:90,r:21.1},'full':{s:3.8,b:180,r:42.2},
+          'corrida-5k':{r:5},'corrida-10k':{r:10},'corrida-15k':{r:15},'corrida-meia':{r:21.1},'corrida-maratona':{r:42.2},'corrida-trail':{r:21},
+          'bike-gran-fondo':{b:100},'bike-criterium':{b:40},'bike-mtb':{b:50},'bike-century':{b:160},
+          'swim-1500':{s:1.5},'swim-3800':{s:3.8},'swim-open':{s:2},
+          'du-sprint':{r:5,b:20},'du-standard':{r:10,b:40},
+        };
+        const d=D[obData.raceDist]; if(!d) return '';
+        const fmtPace=(secPerKm)=>{const m=Math.floor(secPerKm/60);const s=Math.round(secPerKm%60);return `${m}:${String(s).padStart(2,'0')}/km`;};
+        const chips=[];
+        const soCorrida=d.r&&!d.s&&!d.b;
+        const soBike=d.b&&!d.s&&!d.r;
+        const soNado=d.s&&!d.b&&!d.r;
+        if(soCorrida){ chips.push(['PACE ALVO',fmtPace(totalSec/d.r),'#00e676']); }
+        else if(soBike){ const kmh=Math.round(d.b/(totalSec/3600)*10)/10; chips.push(['VELOCIDADE ALVO',kmh+' km/h','#e05c2a']); }
+        else if(soNado){ const per100=totalSec/(d.s*10); const mm=Math.floor(per100/60);const sc=Math.round(per100%60); chips.push(['RITMO ALVO',`${mm}:${String(sc).padStart(2,'0')}/100m`,'#1a6cf0']); }
+        else {
+          // Triathlon/duatlo: estima divisao aproximada e mostra pace de corrida como referencia principal
+          if(d.r){ const runShare=totalSec*0.42; chips.push(['PACE CORRIDA (aprox)',fmtPace(runShare/d.r),'#00e676']); }
+          if(d.b){ const bikeShare=totalSec*0.5; const kmh=Math.round(d.b/(bikeShare/3600)*10)/10; chips.push(['BIKE (aprox)',kmh+' km/h','#e05c2a']); }
+        }
+        if(!chips.length) return '';
+        return `<div style="margin:0 0 8px;padding:14px 16px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
+          <div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1.5px;margin-bottom:10px">EQUIVALE A</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            ${chips.map(([l,v,c])=>`<div style="flex:1;min-width:90px;text-align:center;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px"><div style="font-family:var(--font-display);font-size:18px;color:${c}">${v}</div><div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:.5px;margin-top:2px">${l}</div></div>`).join('')}
+          </div>
+        </div>`;
+      })()}
     </div>
     <div style="padding:24px">
       <button class="ob-btn" onclick="obSaveMeta();obNext()">CONTINUAR</button>
@@ -7844,7 +7979,13 @@ function obFormatCep(input){
         const bairroP=d.bairro?d.bairro+', ':'';
         const cidade=d.localidade&&d.uf?(bairroP+d.localidade+', '+d.uf):(bairroP+(d.localidade||''));
         obData.cepCity=cidade; obData.cepBairro=d.bairro||''; obData.cepCidadeBase=d.localidade||'';
-        if(status)status.textContent='Local: '+cidade;
+        // Limpa lat/lon do GPS: o CEP tem prioridade quando digitado depois
+        obData.gpsLat=null; obData.gpsLon=null;
+        if(status){ status.style.color='var(--accent)'; status.textContent='Local: '+cidade; }
+        // Limpa a mensagem verde do GPS para nao confundir (o CEP sobrescreveu)
+        const gpsSt=document.getElementById('ob-gps-status');
+        if(gpsSt){ gpsSt.style.color='var(--muted)'; gpsSt.innerHTML='Usando o CEP informado acima: <b>'+cidade+'</b>'; }
+        try{ localStorage.setItem('mytri_gps_city',cidade); }catch(e){}
       })
       .catch(()=>{ if(status)status.textContent='Erro ao buscar CEP'; });
   }
@@ -7860,9 +8001,9 @@ function obUseGPS(){
       const r=await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&accept-language=pt-BR`);
       const d=await r.json();
       const a=d.address||{};
-      const cidade=a.city||a.town||a.village||a.municipality||'';
+      const cidade=a.city||a.town||a.village||a.municipality||a.county||'';
       const uf=a.state||'';
-      const bairro=a.suburb||a.neighbourhood||'';
+      const bairro=a.suburb||a.neighbourhood||a.quarter||a.residential||a.city_district||'';
       const label=[bairro,cidade,uf].filter(Boolean).join(', ');
       if(!cidade){ if(st){st.style.color='var(--danger,#e05c2a)';st.textContent='Nao consegui identificar a cidade. Confira ou digite o CEP.';} return; }
       // Preenche para o usuario CONFIRMAR/corrigir (nao trava)
@@ -7874,7 +8015,7 @@ function obUseGPS(){
     }catch(e){ if(st){st.style.color='var(--danger,#e05c2a)';st.textContent='Erro ao buscar localizacao. Digite o CEP.';} }
   }, err=>{
     if(st){ st.style.color='var(--danger,#e05c2a)'; st.textContent = err.code===1 ? 'Permissao de localizacao negada. Digite o CEP.' : 'Nao foi possivel obter a localizacao. Digite o CEP.'; }
-  }, {enableHighAccuracy:false,timeout:10000,maximumAge:60000});
+  }, {enableHighAccuracy:true,timeout:15000,maximumAge:0});
 }
 function obSaveFitness(){
   obData.age=document.getElementById('ob-idade')?.value||'';
@@ -8058,6 +8199,8 @@ function renderObStrava(c){
         `}
 
         <button class="ob-btn" onclick="obNext()" style="margin-top:8px">CONTINUAR</button>
+        <button class="ob-btn-skip" onclick="obNext()" style="margin-top:4px">Nao uso Strava nem Instagram &middot; seguir sem conectar</button>
+        <div style="font-family:var(--font-body);font-size:11px;color:var(--muted2);text-align:center;line-height:1.5;margin-top:8px">Conectar e opcional. Sem Strava, voce marca e registra os treinos manualmente. Da para conectar depois no seu perfil.</div>
       </div>
     </div>`;
 }
@@ -8389,6 +8532,14 @@ function closePlanSummary(){
   document.getElementById('view-plan-summary').classList.remove('active');
   document.getElementById('view-onboard').classList.remove('active');
   switchTab('agenda');
+  // Sync automatico do Strava logo apos o onboarding, se conectado. Assim o atleta ja entra
+  // com as atividades reais importadas, sem precisar acionar o sync manualmente.
+  try{
+    const hasStrava=localStorage.getItem('strava_tokens')||localStorage.getItem('strava_athlete');
+    if(hasStrava && typeof stravaSyncActivities==='function'){
+      setTimeout(()=>{ stravaSyncActivities().catch(()=>{}); }, 1200);
+    }
+  }catch(e){}
 }
 
 
