@@ -22,6 +22,10 @@ exports.handler = async (event) => {
   const s = body.session || {};
   const strava = (body.strava || '').toString().slice(0, 500);
   const nome = ((body.profile && body.profile.name) || 'o atleta').toString().slice(0, 40);
+  // Lesoes/restricoes ATUAIS (vem sempre do perfil corrente, nunca de cache) — garante que o
+  // coach nunca comente sobre uma restricao antiga que o atleta ja atualizou no onboarding.
+  const injuries = (body.profile && Array.isArray(body.profile.injuries)) ? body.profile.injuries.filter(i=>i&&i!=='nenhuma') : [];
+  const injuryDetail = ((body.profile && body.profile.injuryDetail) || '').toString().slice(0, 200);
   const daysToRace = body.daysToRace;
   const phase = (body.phase || 'Base').toString().slice(0, 40);
   const week = body.week;
@@ -38,6 +42,8 @@ exports.handler = async (event) => {
   if (phase) ctx.push(`Fase do plano: ${phase}`);
   if (week) ctx.push(`Semana ${week}`);
   if (daysToRace != null) ctx.push(`Faltam ${daysToRace} dias para a prova`);
+  if (injuries.length) ctx.push(`Lesoes/restricoes ATUAIS do atleta: ${injuries.join(', ')}${injuryDetail ? ' — ' + injuryDetail : ''}`);
+  else ctx.push(`Sem lesoes ou restricoes reportadas no momento.`);
 
   const systemPrompt = `Voce e o coach do MyTri, um app brasileiro de treino para triathlon e endurance. Analise a sessao de treino que ${nome} acabou de executar e escreva um comentario CURTO e util, em portugues do Brasil, tom direto e motivador (nunca bajulador).
 
@@ -47,6 +53,7 @@ REGRAS:
 - Se fez ABAIXO: comente de forma construtiva, sem culpa, focando em consistencia.
 - Se fez proximo do planejado: reforce a execucao consistente.
 - Considere a fase do plano e a proximidade da prova.
+- So mencione lesao/restricao se ela estiver EXPLICITAMENTE listada no contexto como atual — nunca cite uma lesao que nao esteja la, mesmo que pareca familiar.
 - Fale com o atleta na segunda pessoa (voce).
 - Nunca invente dados que nao estao no contexto.`;
 
