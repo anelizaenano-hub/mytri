@@ -1,7 +1,7 @@
 const https = require('https');
 
 // Busca provas REAIS via web search da API Anthropic.
-// Recebe: { sport, raceDist, distLabel, location, monthsAhead, broaden }
+// Recebe: { sport, raceDist, distLabel, location, state, monthsAhead, broaden }
 // Retorna: { races: [ {name, date, local, url, dist, scope} ], note?, error? }
 
 const SPORT_PT = {
@@ -57,38 +57,40 @@ exports.handler = async (event) => {
   const sportName = SPORT_PT[sport] || sport;
   const distLabel = body.distLabel || body.raceDist || '';
   const location = body.location || 'Brasil';
+  const state = body.state || '';
   const monthsAhead = body.monthsAhead || 8;
   const today = new Date().toISOString().slice(0, 10);
+  const regionStr = state ? `${location} (estado: ${state})` : location;
 
   const prompt = `Busque na web provas REAIS e confirmadas de ${sportName}${distLabel ? ` na distância/categoria "${distLabel}"` : ''} que acontecerão a partir de hoje (${today}) nos próximos ${monthsAhead} meses.
 
-O atleta está atualmente perto de "${location}", mas NÃO necessariamente mora lá. Traga um panorama COMPLETO em camadas, nesta ordem de prioridade:
-1. Algumas provas próximas de "${location}" e da mesma região/estado (se existirem).
-2. As principais provas NACIONAIS (Brasil inteiro) dessa modalidade e distância.
+O atleta está atualmente perto de "${regionStr}", mas NÃO necessariamente mora lá. Traga um panorama COMPLETO em camadas, nesta ordem de prioridade:
+1. Provas REGIONAIS pequenas/médias, perto de "${regionStr}" — isso inclui provas organizadas por ASSESSORIAS ESPORTIVAS e CIRCUITOS locais com múltiplas etapas em cidades diferentes do mesmo estado ou região (ex: "Circuito X de Triathlon", "Etapa 2 — [assessoria] Triathlon", provas de prefeituras ou clubes locais). Essas provas raramente aparecem no calendário oficial da federação nacional, então busque especificamente por termos como "circuito triathlon [estado]", "assessoria triathlon [cidade/regiao] calendário 2026", "etapa triathlon [regiao]" — não só "calendário CBTri" ou "provas nacionais de triathlon".
+2. As principais provas NACIONAIS (Brasil inteiro) dessa modalidade e distância, incluindo o calendário oficial da federação (CBTri ou equivalente).
 3. As principais provas INTERNACIONAIS relevantes dessa modalidade e distância (majors, mundiais, etc).
 
-Não limite a busca só à cidade atual do atleta — a maioria das opções deve ser nacional e internacional.
+Não limite a busca só a provas grandes/famosas — provas pequenas de circuito/assessoria contam tanto quanto as grandes, e são frequentemente as mais relevantes pro atleta por serem mais perto. Não limite também só à cidade exata do atleta — cubra o estado inteiro e a região.
 
-Para cada prova, encontre: nome oficial, data (formato AAAA-MM-DD), cidade/país, e o link OFICIAL de inscrição.
+Para cada prova, encontre: nome oficial (incluindo o nome da etapa/circuito se aplicável), data (formato AAAA-MM-DD), cidade/país, e o link OFICIAL de inscrição.
 
-IMPORTANTE: faça no máximo 3 ou 4 buscas web e depois RESPONDA. Não continue buscando indefinidamente — é melhor responder com as provas que já encontrou do que estourar o tempo.
+IMPORTANTE: faça ATE 6 buscas web diferentes, variando os termos (não repita a mesma busca) — pelo menos 2 delas devem ser especificamente atrás de circuitos/assessorias regionais, não só provas nacionais grandes. Depois RESPONDA. Não continue buscando indefinidamente — é melhor responder com as provas que já encontrou do que estourar o tempo.
 
 Sua ÚLTIMA mensagem deve conter APENAS um JSON válido (sem markdown, sem crases, sem texto antes ou depois) neste formato exato:
 {"races":[{"name":"...","date":"AAAA-MM-DD","local":"Cidade, UF/País","url":"https://...","scope":"nacional"}]}
 
 Regras:
 - CRÍTICO: só inclua provas com data IGUAL OU POSTERIOR a ${today}. Nunca provas que já aconteceram.
-- Retorne NO MÍNIMO 6 provas (idealmente 8 a 12), cobrindo local + nacional + internacional.
-- Se souber que uma prova tradicional acontece todo ano mas não achou a página de inscrição, inclua mesmo assim com o site oficial do evento no campo url (ou url vazia).
+- Retorne NO MÍNIMO 6 provas (idealmente 8 a 12), cobrindo regional/circuito + nacional + internacional. Provas regionais/de circuito pequenas contam pra esse total — não descarte por serem pequenas.
+- Se souber que uma prova tradicional (grande ou de circuito local) acontece todo ano mas não achou a página de inscrição exata, inclua mesmo assim com o site oficial do evento/assessoria no campo url (ou url vazia).
 - Ordene da mais próxima para a mais distante no tempo.
-- "scope" deve ser "nacional" ou "internacional".
+- "scope" deve ser "nacional" ou "internacional" (provas regionais/de circuito também usam "nacional").
 - Só retorne {"races":[]} se realmente não existir nenhuma prova futura dessa modalidade.`;
 
   const requestBody = JSON.stringify({
     model: 'claude-haiku-4-5',
     max_tokens: 8000,
     messages: [{ role: 'user', content: prompt }],
-    tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 5 }],
+    tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 8 }],
   });
 
   return new Promise((resolve) => {
