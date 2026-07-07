@@ -154,6 +154,7 @@ button,.mini-check,.mini-dot{touch-action:manipulation}
 .bottom-nav{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);display:flex;z-index:500;padding-bottom:env(safe-area-inset-bottom)}
 #view-onboard.active ~ #consult-fab{display:none!important}
 body.onboarding-active #consult-fab{display:none!important}
+body.onboarding-active .bottom-nav,body.onboarding-active .app-header{display:none!important}
 .bnav-item{flex:1;padding:12px 6px 10px;text-align:center;cursor:pointer;font-size:10px;font-family:var(--font-ui);font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);transition:color .2s}
 .bnav-item.active{color:var(--accent)}
 
@@ -370,7 +371,7 @@ body.onboarding-active #consult-fab{display:none!important}
 .pr-meta{font-family:var(--font-body);font-size:11px;color:var(--muted2);margin-top:2px}
 
 /* ── ONBOARDING ── */
-#view-onboard{display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:300;background:var(--bg);overflow:hidden;flex-direction:column}
+#view-onboard{display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:600;background:var(--bg);overflow:hidden;flex-direction:column}
 #view-onboard.active{display:flex}
 .ob-progress{display:flex;gap:4px;padding:52px 24px 0}
 .ob-progress-bar{flex:1;height:3px;border-radius:2px;background:var(--border);transition:background .3s}
@@ -3227,6 +3228,9 @@ function openCompleteSession(w,d,si,key){
     </div>`;
   m.style.display='flex';
   m.onclick=(e)=>{ if(e.target===m) closeCompleteSession(); };
+  // Reseta o scroll do conteudo do modal — reaproveita o mesmo elemento a cada abertura, e sem
+  // isso podia reabrir ja rolado pra onde ficou da ultima vez, cortando o topo do card.
+  const _cmpInner=m.firstElementChild; if(_cmpInner)_cmpInner.scrollTop=0;
 
   // Pre-selecionar zona do strava
   if(strava&&strava.stravaZone){ setTimeout(()=>{ const b=m.querySelector(`.cmp-zone[data-zone="${strava.stravaZone}"]`); if(b)_cmpSelZone(b,strava.stravaZone); },50); }
@@ -5667,6 +5671,17 @@ function renderBikeFitReal(){
     form.appendChild(wrap);
   });
 
+  // Guia de como medir — evita que o atleta chute os numeros de selim/guidao.
+  const medirGuide=document.createElement('div');
+  medirGuide.style.cssText='background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 16px';
+  medirGuide.innerHTML=`
+    <div style="font-family:var(--font-ui);font-size:10px;color:var(--bike);letter-spacing:1.5px;margin-bottom:8px">COMO MEDIR</div>
+    <div style="font-family:var(--font-body);font-size:12px;color:var(--muted2);line-height:1.6">
+      Selim: com uma fita metrica, meca do chao ate o topo do selim, com o pedal alinhado na posicao mais baixa (as 6 horas).<br>
+      Guidao: meca do chao ate o centro do guidao (ou do centro do aerobar, se usar), na mesma posicao de pedal.
+    </div>`;
+  form.appendChild(medirGuide);
+
   // Foto
   const photoWrap=document.createElement('div');
   photoWrap.innerHTML=`
@@ -5674,6 +5689,7 @@ function renderBikeFitReal(){
     <div id="bf-photo-preview" style="width:100%;height:160px;background:var(--surface);border:1px dashed var(--border2);border-radius:4px;display:flex;align-items:center;justify-content:center;cursor:pointer;margin-bottom:0" onclick="document.getElementById('bf-photo-input').click()">
       <span style="font-family:var(--font-ui);font-size:11px;color:var(--muted);letter-spacing:1px">TOQUE PARA ADICIONAR FOTO</span>
     </div>
+    <div style="font-family:var(--font-body);font-size:11px;color:var(--muted);margin-top:6px;line-height:1.5">Tire a foto montado na bike, de lado (perfil), pedalando ou parado na posicao normal — e o que da pra IA analisar angulo de joelho, quadril e tronco.</div>
     <input type="file" id="bf-photo-input" accept="image/*" style="display:none">`;
   form.appendChild(photoWrap);
 
@@ -5713,6 +5729,23 @@ function renderBikeFitReal(){
   });
 }
 
+// RESETAR: limpa o report atual e pre-preenche selim/guidao ATUAL com os valores que foram
+// RECOMENDADOS na ultima analise — util pra double-check depois de aplicar o ajuste na bike.
+function resetBikeFit(){
+  const result=document.getElementById('bf-result');
+  if(result){ result.style.display='none'; result.innerHTML=''; }
+  let lastRec=null;
+  try{ lastRec=JSON.parse(localStorage.getItem('mytri_bikefit_last')||'null'); }catch(e){}
+  if(lastRec){
+    const selimEl=document.getElementById('bf-selim-atual');
+    const guidaoEl=document.getElementById('bf-guidao-atual');
+    if(selimEl&&lastRec.selim_ideal)selimEl.value=lastRec.selim_ideal;
+    if(guidaoEl&&lastRec.guidao_ideal)guidaoEl.value=lastRec.guidao_ideal;
+  }
+  const c=document.getElementById('view-bikefit');
+  if(c)c.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
 async function runBikeFitAnalysis(){
   const btn=document.querySelector('#view-bikefit button');
   const result=document.getElementById('bf-result');
@@ -5740,6 +5773,13 @@ async function runBikeFitAnalysis(){
   const photoPreview=document.getElementById('bf-photo-preview');
   const photoB64=photoPreview.dataset.b64||null;
 
+  // Se o atleta ja rodou uma analise antes, manda o que foi RECOMENDADO da ultima vez junto com
+  // os valores ATUAIS que ele esta digitando agora — se baterem, o coach pode confirmar que o
+  // ajuste foi aplicado com sucesso, em vez de sempre tratar como uma bike fit do zero.
+  let lastRec=null;
+  try{ lastRec=JSON.parse(localStorage.getItem('mytri_bikefit_last')||'null'); }catch(e){}
+  const lastRecStr=lastRec?`\n\nANALISE ANTERIOR (recomendado da ultima vez): selim ${lastRec.selim_ideal||'?'}cm, recuo ${lastRec.selim_recuo||'?'}cm, guidao ${lastRec.guidao_ideal||'?'}cm, alcance ${lastRec.alcance_guidao||'?'}cm. Se os valores ATUAIS informados agora batem com isso, comente que o ajuste foi aplicado com sucesso e valide a mudança antes de sugerir novos ajustes finos.`:'';
+
   const prompt=`Você é um especialista em bike fit para triathlon. Analise os dados abaixo e forneça recomendações detalhadas de ajuste de posição.
 
 DADOS DO ATLETA:
@@ -5755,6 +5795,7 @@ BIKE ATUAL:
 - Altura atual do selim: ${selim||'não informada'}cm
 - Altura atual do guidão: ${guidao||'não informado'}cm
 - Observações: ${obs||'nenhuma'}
+${lastRecStr}
 
 ${photoB64?'Uma foto do atleta pedalando de perfil foi anexada para análise visual.':'Sem foto disponível — analise apenas com os dados fornecidos.'}
 
@@ -5764,13 +5805,13 @@ Forneça:
 3. Altura e alcance do guidão
 4. Posição dos cleats
 5. Ajustes específicos para triathlon com aerobar
-6. Pontos de atenção baseados nas dores relatadas
+6. Pontos de atenção baseados nas dores relatadas (escreva o titulo completo, nunca corte no meio)
 
 Seja específico com medidas (cm) e explique o porquê de cada ajuste. Responda em português.
 
 IMPORTANTE: Responda em texto limpo, sem markdown, sem asteriscos, sem hashtags, sem emojis, sem tabelas. Use apenas texto simples. Para titulos use letras maiusculas seguidas de dois pontos. Exemplo: ALTURA DO SELIM:
 
-ANTES de todo o texto acima, na PRIMEIRA linha da resposta (sozinha, nada antes ou depois), inclua um resumo estruturado neste formato EXATO (numeros em cm, sem unidade, so o numero; use "" se algum dado nao se aplica):
+Depois de TODO o texto acima, na ULTIMA linha da resposta (sozinha, nada antes ou depois), inclua um resumo estruturado neste formato EXATO (numeros em cm, sem unidade, so o numero; use "" se algum dado nao se aplica):
 RESUMO_JSON:{"selim_atual":"${selim||''}","selim_ideal":"NUM","selim_recuo":"NUM","guidao_atual":"${guidao||''}","guidao_ideal":"NUM","alcance_guidao":"NUM"}`;
 
   try{
@@ -5792,31 +5833,39 @@ RESUMO_JSON:{"selim_atual":"${selim||''}","selim_ideal":"NUM","selim_recuo":"NUM
       try{ resumo=JSON.parse(_rm[1]); }catch(e){}
       text=text.replace(_rm[0],'').trim();
     }
-    const _chip=(label,de,para,unidade)=>{
+    const _chip=(label,de,para,unidade,cor)=>{
       if(!para)return '';
       const mudou=de&&de!==para;
-      return `<div style="flex:1;min-width:100px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center">
+      return `<div style="flex:1;min-width:100px;background:var(--bg);border:1px solid ${cor}33;border-radius:8px;padding:12px;text-align:center">
         <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:1px;margin-bottom:6px">${label}</div>
         ${mudou?`<div style="font-family:var(--font-ui);font-size:11px;color:var(--muted2);text-decoration:line-through">${de}${unidade}</div>`:''}
-        <div style="font-family:var(--font-display);font-size:20px;color:var(--accent)">${para}${unidade}</div>
+        <div style="font-family:var(--font-display);font-size:20px;color:${cor}">${para}${unidade}</div>
       </div>`;
     };
-    const resumoHtml=resumo?`<div style="margin-bottom:18px;padding:16px;background:${'#00e67612'};border:1px solid #00e67640;border-radius:8px">
-      <div style="font-family:var(--font-ui);font-size:10px;color:var(--accent);letter-spacing:1.5px;margin-bottom:10px">RESUMO DAS ALTERACOES</div>
+    // Selim em laranja (cor do BIKE na paleta do app) e guidao em azul, pra diferenciar
+    // visualmente os dois componentes do fit em vez de tudo na mesma cor.
+    const resumoHtml=resumo?`<div style="margin-top:20px;padding:16px;background:#e05c2a12;border:1px solid #e05c2a40;border-radius:8px">
+      <div style="font-family:var(--font-ui);font-size:10px;color:var(--bike);letter-spacing:1.5px;margin-bottom:10px">RESUMO DAS ALTERACOES</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        ${_chip('SELIM ALTURA',resumo.selim_atual,resumo.selim_ideal,'cm')}
-        ${_chip('SELIM RECUO',resumo.selim_recuo&&resumo.selim_atual?'':'',resumo.selim_recuo,'cm')}
-        ${_chip('GUIDAO ALTURA',resumo.guidao_atual,resumo.guidao_ideal,'cm')}
-        ${_chip('ALCANCE GUIDAO','',resumo.alcance_guidao,'cm')}
+        ${_chip('SELIM ALTURA',resumo.selim_atual,resumo.selim_ideal,'cm','var(--bike)')}
+        ${_chip('SELIM RECUO',resumo.selim_recuo&&resumo.selim_atual?'':'',resumo.selim_recuo,'cm','var(--bike)')}
+        ${_chip('GUIDAO ALTURA',resumo.guidao_atual,resumo.guidao_ideal,'cm','#1a6cf0')}
+        ${_chip('ALCANCE GUIDAO','',resumo.alcance_guidao,'cm','#1a6cf0')}
       </div>
     </div>`:'';
+    // Guarda a recomendacao pra proxima analise poder comparar com o que o atleta digitar depois
+    // (confirmar sucesso do ajuste em vez de tratar como bike fit do zero de novo).
+    if(resumo){ try{ localStorage.setItem('mytri_bikefit_last',JSON.stringify(resumo)); }catch(e){} }
 
     result.style.display='block';
     result.innerHTML=`
       <div style="background:var(--surface);border:1px solid var(--border);border-top:3px solid var(--accent);padding:20px;border-radius:4px">
-        <div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:20px">ANALISE BIKE FIT</div>
-        ${resumoHtml}
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+          <div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase">ANALISE BIKE FIT</div>
+          <button onclick="resetBikeFit()" style="background:none;border:1px solid var(--border);color:var(--muted2);font-family:var(--font-ui);font-size:9px;letter-spacing:1px;padding:6px 10px;border-radius:6px;cursor:pointer">RESETAR</button>
+        </div>
         <div id="bf-result-text" style="font-family:var(--font-body);font-size:14px;line-height:1.8;color:var(--text)"></div>
+        ${resumoHtml}
       </div>`;
     renderBikeFitText(document.getElementById('bf-result-text'),text);
   }catch(e){
@@ -7536,6 +7585,20 @@ function renderObIntro(c){
             <div style="font-family:var(--font-body);font-size:13px;color:var(--muted2);line-height:1.5">Provas reais com link de inscricao, bike fit por IA, clima, estatisticas e recordes pessoais.</div>
           </div>
         </div>
+        <div style="display:flex;gap:14px;align-items:flex-start">
+          <div style="width:38px;height:38px;border-radius:9px;background:rgba(155,106,240,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#9b6af0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></div>
+          <div>
+            <div style="font-family:var(--font-ui);font-size:13px;font-weight:700;color:var(--text);letter-spacing:.3px;margin-bottom:2px">COACH IA QUE CONHECE VOCE</div>
+            <div style="font-family:var(--font-body);font-size:13px;color:var(--muted2);line-height:1.5">Tira duvida, analisa cada treino executado e ajusta o plano com base na sua evolucao real — nao um chatbot generico.</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:14px;align-items:flex-start">
+          <div style="width:38px;height:38px;border-radius:9px;background:rgba(0,230,118,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--accent)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.1-2.8-2.8L7 14"/></svg></div>
+          <div>
+            <div style="font-family:var(--font-ui);font-size:13px;font-weight:700;color:var(--text);letter-spacing:.3px;margin-bottom:2px">EVOLUCAO REAL, NAO CHUTE</div>
+            <div style="font-family:var(--font-body);font-size:13px;color:var(--muted2);line-height:1.5">Compara planejado vs executado, mostra recordes pessoais e recalibra o plano toda semana conforme o que voce realmente fez.</div>
+          </div>
+        </div>
       </div>
 
       <button class="ob-btn" style="margin-top:32px" onclick="obNext()">MONTAR MEU PLANO</button>
@@ -7728,11 +7791,14 @@ async function obSearchRaces(){
   renderOnboarding();
   const distLabel=(DIST_INFO[obData.raceDist]&&DIST_INFO[obData.raceDist].label)||obData.raceDist||'';
   const location=(getMytriProfile().city)||localStorage.getItem('mytri_gps_city')||'Brasil';
+  // Estado (UF) separado da cidade — ajuda a busca a cobrir provas regionais/de assessoria
+  // que nao aparecem numa busca so pela cidade exata do atleta.
+  const state=getMytriProfile().state||'';
   obData._raceSearchError=null;
   try{
     const resp=await fetch('/.netlify/functions/race-search',{
       method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({sport:obData.sport||'triathlon',raceDist:obData.raceDist||'',distLabel,location,monthsAhead:10})
+      body:JSON.stringify({sport:obData.sport||'triathlon',raceDist:obData.raceDist||'',distLabel,location,state,monthsAhead:10})
     });
     let data={};
     try{ data=await resp.json(); }catch(e){ data={}; }
@@ -7892,21 +7958,41 @@ function renderObMeta(c){
         else if(soBike){ const kmh=Math.round(d.b/(totalSec/3600)*10)/10; chips.push(['VELOCIDADE ALVO',kmh+' km/h','#e05c2a']); }
         else if(soNado){ const per100=totalSec/(d.s*10); const mm=Math.floor(per100/60);const sc=Math.round(per100%60); chips.push(['RITMO ALVO',`${mm}:${String(sc).padStart(2,'0')}/100m`,'#1a6cf0']); }
         else {
-          // Triathlon/duatlo: estima divisao aproximada e mostra pace de corrida como referencia principal
-          if(d.r){ const runShare=totalSec*0.42; chips.push(['PACE CORRIDA (aprox)',fmtPace(runShare/d.r),'#00e676']); }
-          if(d.b){ const bikeShare=totalSec*0.5; const kmh=Math.round(d.b/(bikeShare/3600)*10)/10; chips.push(['BIKE (aprox)',kmh+' km/h','#e05c2a']); }
+          // Triathlon/duatlo: divisao aproximada (8% nado, 50% bike, 42% corrida) como ponto de
+          // partida. Os 3 campos agora sao editaveis igual ao de corrida pura — editar qualquer
+          // um recalcula o tempo-alvo total somando os outros dois como estao no momento.
+          const swimSec=d.s?totalSec*0.08:0, bikeSec=d.b?totalSec*0.5:0, runSec=d.r?totalSec*0.42:0;
+          if(d.s){ const per100=swimSec/(d.s*10); const mm=Math.floor(per100/60);const sc=Math.round(per100%60); chips.push(['TRI_SWIM',`${mm}:${String(sc).padStart(2,'0')}`,'#1a6cf0']); }
+          if(d.r){ chips.push(['TRI_RUN',fmtPace(runSec/d.r).replace('/km',''),'#00e676']); }
+          if(d.b){ const kmh=Math.round(d.b/(bikeSec/3600)*10)/10; chips.push(['TRI_BIKE',String(kmh),'#e05c2a']); }
         }
         if(!chips.length) return '';
+        const _triLabels={TRI_SWIM:['PACE NADO','/100m',d.s],TRI_BIKE:['VEL. BIKE','km/h',d.b],TRI_RUN:['PACE CORRIDA','/km',d.r]};
         return `<div style="margin:0 0 8px;padding:14px 16px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
-          <div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1.5px;margin-bottom:10px">EQUIVALE A ${soCorrida?'<span style="color:var(--accent2)">(edite o pace pra ajustar o tempo-alvo)</span>':''}</div>
+          <div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1.5px;margin-bottom:10px">EQUIVALE A ${(soCorrida||chips.some(c=>c[0].startsWith('TRI_')))?'<span style="color:var(--accent2)">(edite pra ajustar o tempo-alvo)</span>':''}</div>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
-            ${chips.map(([l,v,c])=>l==='PACE_INPUT'?`<div style="flex:1;min-width:120px;text-align:center;background:var(--bg);border:1px solid ${c}55;border-radius:8px;padding:8px">
+            ${chips.map(([l,v,c])=>{
+              if(l==='PACE_INPUT')return `<div style="flex:1;min-width:120px;text-align:center;background:var(--bg);border:1px solid ${c}55;border-radius:8px;padding:8px">
               <div style="display:flex;align-items:center;justify-content:center;gap:2px">
                 <input id="ob-pace-alvo" type="tel" inputmode="numeric" value="${v}" oninput="obGoalFromPace(this,${d.r})" style="width:52px;background:none;border:none;color:${c};font-family:var(--font-display);font-size:18px;text-align:right;padding:0">
                 <span style="font-family:var(--font-display);font-size:18px;color:${c}">/km</span>
               </div>
               <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:.5px;margin-top:2px">PACE ALVO</div>
-            </div>`:`<div style="flex:1;min-width:90px;text-align:center;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px"><div style="font-family:var(--font-display);font-size:18px;color:${c}">${v}</div><div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:.5px;margin-top:2px">${l}</div></div>`).join('')}
+            </div>`;
+              if(_triLabels[l]){
+                const [lbl,unit]=_triLabels[l];
+                const inputId='ob-tri-'+l.split('_')[1].toLowerCase();
+                const wide=unit==='km/h';
+                return `<div style="flex:1;min-width:100px;text-align:center;background:var(--bg);border:1px solid ${c}55;border-radius:8px;padding:8px">
+                <div style="display:flex;align-items:center;justify-content:center;gap:2px">
+                  <input id="${inputId}" type="tel" inputmode="${wide?'decimal':'numeric'}" value="${v}" oninput="obGoalFromTriLeg(this,'${l}',${JSON.stringify(d).replace(/"/g,'&quot;')})" style="width:${wide?44:40}px;background:none;border:none;color:${c};font-family:var(--font-display);font-size:16px;text-align:right;padding:0">
+                  <span style="font-family:var(--font-display);font-size:13px;color:${c}">${unit}</span>
+                </div>
+                <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:.5px;margin-top:2px">${lbl}</div>
+              </div>`;
+              }
+              return `<div style="flex:1;min-width:90px;text-align:center;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px"><div style="font-family:var(--font-display);font-size:18px;color:${c}">${v}</div><div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:.5px;margin-top:2px">${l}</div></div>`;
+            }).join('')}
           </div>
         </div>`;
       })()}
@@ -7920,6 +8006,45 @@ function renderObMeta(c){
 // Digitar um pace (ex "545" -> "5:45") recalcula o tempo-alvo direto, sem precisar das setas.
 // Atualiza so os digitos de HORAS/MINUTOS via DOM (nao chama renderOnboarding) pra nao perder
 // o foco do campo enquanto o atleta ainda esta digitando.
+// Edita qualquer uma das 3 pernas (nado/bike/corrida) do triathlon/duatlo e recalcula o
+// tempo-alvo total somando com o que estiver nos OUTROS dois campos no momento — assim os
+// 3 campos ficam "linkados" pelo tempo total, igual pedido pro caso so-corrida.
+function obGoalFromTriLeg(el,leg,d){
+  const raw=el.value.replace(/[^0-9:.,]/g,'');
+  let legSec=0;
+  if(leg==='TRI_BIKE'){
+    const kmh=parseFloat(raw.replace(',','.'))||0;
+    if(kmh>0&&d.b) legSec=(d.b/kmh)*3600;
+  }else{
+    // nado/corrida: formata como pace min:seg (reaproveita obFormatPace se for so digitos)
+    const formatted=/^[0-9]+$/.test(raw)?obFormatPace(el):raw;
+    const parts=formatted.split(':');
+    if(parts.length===2){
+      const paceSec=(parseInt(parts[0])||0)*60+(parseInt(parts[1])||0);
+      if(leg==='TRI_SWIM'&&d.s) legSec=paceSec*d.s*10;
+      if(leg==='TRI_RUN'&&d.r) legSec=paceSec*d.r;
+    }
+  }
+  const getSec=(id,km,isBike)=>{
+    if(!km)return 0;
+    const v=document.getElementById(id)?.value||'';
+    if(isBike){ const kmh=parseFloat(v.replace(',','.'))||0; return kmh>0?(km/kmh)*3600:0; }
+    const parts=v.split(':'); if(parts.length!==2)return 0;
+    const paceSec=(parseInt(parts[0])||0)*60+(parseInt(parts[1])||0);
+    return id.includes('swim')?paceSec*km*10:paceSec*km;
+  };
+  const swimSec=leg==='TRI_SWIM'?legSec:getSec('ob-tri-swim',d.s,false);
+  const bikeSec=leg==='TRI_BIKE'?legSec:getSec('ob-tri-bike',d.b,true);
+  const runSec=leg==='TRI_RUN'?legSec:getSec('ob-tri-run',d.r,false);
+  const totalSec=swimSec+bikeSec+runSec;
+  if(totalSec<=0)return;
+  const hr=Math.floor(totalSec/3600), min=Math.round((totalSec%3600)/60);
+  obData.goalHr=hr; obData.goalMin=min;
+  obData.goalTime=`${String(hr).padStart(2,'0')}:${String(min).padStart(2,'0')}`;
+  const hrEl=document.getElementById('ob-goal-hr-display'); if(hrEl)hrEl.textContent=String(hr).padStart(2,'0');
+  const minEl=document.getElementById('ob-goal-min-display'); if(minEl)minEl.textContent=String(min).padStart(2,'0');
+}
+
 function obGoalFromPace(el,distKm){
   const formatted=obFormatPace(el);
   const parts=formatted.split(':');
@@ -7971,11 +8096,11 @@ function renderObModalidades(c){
       sub:'Nivel atual em cada modalidade.',
       sections:[
         {key:'swimLevel',label:'NATACAO',color:'#1a6cf0',levels:swimLevels,
-         extra:`<input id="ob-swim-pace" type="tel" inputmode="numeric" placeholder="ex: 1:45" value="${obData.swimPace||''}" oninput="obData.swimPace=obFormatPace(this)" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">`},
+         extra:`<input id="ob-swim-pace" type="tel" inputmode="numeric" placeholder="ex: 1:45" value="${obData.swimPace||''}" oninput="obData.swimPace=obFormatPace(this)" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px"><div style="font-family:var(--font-body);font-size:10px;color:var(--muted);margin-top:5px;line-height:1.4">Ex: 1:45 = 1min45s por 100m de nado</div>`},
         {key:'bikeLevel',label:'BIKE',color:'#e05c2a',levels,
-         extra:`<input id="ob-ftp" placeholder="FTP em watts (ex: 200)" value="${obData.ftp||''}" type="number" oninput="obData.ftp=this.value" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">`},
+         extra:`<input id="ob-ftp" placeholder="FTP em watts (ex: 200)" value="${obData.ftp||''}" type="number" oninput="obData.ftp=this.value" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px"><div style="font-family:var(--font-body);font-size:10px;color:var(--muted);margin-top:5px;line-height:1.4">FTP = potencia media que voce sustenta por cerca de 1h no bike</div>`},
         {key:'runLevel',label:'CORRIDA',color:'#00e676',levels,
-         extra:`<input id="ob-run-pace" type="tel" inputmode="numeric" placeholder="ex: 5:30" value="${obData.runPace||''}" oninput="obData.runPace=obFormatPace(this)" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">`},
+         extra:`<input id="ob-run-pace" type="tel" inputmode="numeric" placeholder="ex: 5:30" value="${obData.runPace||''}" oninput="obData.runPace=obFormatPace(this)" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px"><div style="font-family:var(--font-body);font-size:10px;color:var(--muted);margin-top:5px;line-height:1.4">Ex: 5:30 = 5min30s por km percorrido</div>`},
       ]
     },
     corrida:{
@@ -7983,7 +8108,7 @@ function renderObModalidades(c){
       sub:'Onde voce se encontra hoje.',
       sections:[
         {key:'runLevel',label:'CORRIDA',color:'#00e676',levels,
-         extra:`<input id="ob-run-pace" type="tel" inputmode="numeric" placeholder="ex: 5:30" oninput="obFormatPace(this)" value="${obData.runPace||''}" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">`},
+         extra:`<input id="ob-run-pace" type="tel" inputmode="numeric" placeholder="ex: 5:30" oninput="obFormatPace(this)" value="${obData.runPace||''}" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px"><div style="font-family:var(--font-body);font-size:10px;color:var(--muted);margin-top:5px;line-height:1.4">Ex: 5:30 = 5min30s por km percorrido</div>`},
       ]
     },
     ciclismo:{
@@ -7999,7 +8124,7 @@ function renderObModalidades(c){
       sub:'Onde voce se encontra hoje.',
       sections:[
         {key:'swimLevel',label:'NATACAO',color:'#00bcd4',levels:swimLevels,
-         extra:`<input id="ob-swim-pace" type="tel" inputmode="numeric" placeholder="ex: 1:45" value="${obData.swimPace||''}" oninput="obData.swimPace=obFormatPace(this)" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">`},
+         extra:`<input id="ob-swim-pace" type="tel" inputmode="numeric" placeholder="ex: 1:45" value="${obData.swimPace||''}" oninput="obData.swimPace=obFormatPace(this)" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px"><div style="font-family:var(--font-body);font-size:10px;color:var(--muted);margin-top:5px;line-height:1.4">Ex: 1:45 = 1min45s por 100m de nado</div>`},
       ]
     },
     duathlon:{
@@ -8007,7 +8132,7 @@ function renderObModalidades(c){
       sub:'Nivel atual em cada modalidade.',
       sections:[
         {key:'runLevel',label:'CORRIDA',color:'#00e676',levels,
-         extra:`<input id="ob-run-pace" type="tel" inputmode="numeric" placeholder="ex: 5:30" value="${obData.runPace||''}" oninput="obData.runPace=obFormatPace(this)" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">`},
+         extra:`<input id="ob-run-pace" type="tel" inputmode="numeric" placeholder="ex: 5:30" value="${obData.runPace||''}" oninput="obData.runPace=obFormatPace(this)" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px"><div style="font-family:var(--font-body);font-size:10px;color:var(--muted);margin-top:5px;line-height:1.4">Ex: 5:30 = 5min30s por km percorrido</div>`},
         {key:'bikeLevel',label:'BIKE',color:'#e05c2a',levels,
          extra:`<input id="ob-ftp" placeholder="FTP em watts (ex: 200, opcional)" value="${obData.ftp||''}" type="number" oninput="obData.ftp=this.value" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">`},
       ]
