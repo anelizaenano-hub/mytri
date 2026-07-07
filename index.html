@@ -1873,6 +1873,18 @@ function openExerciseGuide(w,d,si){
     </div>`;
   m.style.display='flex';
   m.onclick=(e)=>{ if(e.target===m) closeExerciseGuide(); };
+  // Trava o scroll do body enquanto o modal esta aberto — sem isso, no iOS, um swipe pra baixo
+  // dentro do modal as vezes "vaza" pro scroll da pagina de fundo e a tela parece travada
+  // (nem o modal nem a pagina respondem direito ao gesto).
+  document.body.style.overflow='hidden';
+  // Swipe pra baixo fecha o modal — e o gesto natural que o atleta ja tenta usar.
+  const _sheet=m.firstElementChild;
+  if(_sheet){
+    let _touchStartY=null;
+    _sheet.ontouchstart=(e)=>{ if(_sheet.scrollTop<=0) _touchStartY=e.touches[0].clientY; else _touchStartY=null; };
+    _sheet.ontouchmove=(e)=>{ if(_touchStartY===null)return; const dy=e.touches[0].clientY-_touchStartY; if(dy>80) closeExerciseGuide(); };
+    _sheet.ontouchend=()=>{ _touchStartY=null; };
+  }
 
   // Anima: alterna entre foto inicial e final a cada 1.2s (mini demonstracao do movimento)
   if(window._exgTimer)clearInterval(window._exgTimer);
@@ -1881,11 +1893,18 @@ function openExerciseGuide(w,d,si){
     toggle=!toggle;
     document.querySelectorAll('.exg-photo').forEach(img=>{
       const f1=img.getAttribute('data-f1');const f0=img.getAttribute('data-f0');
-      if(f1&&f0)img.src=toggle?f1:f0;
+      const next=toggle?f1:f0;
+      // So troca o src se realmente mudou — reatribuir o mesmo src forcava recarregar/redecodar
+      // a imagem toda vez, o que com varios exercicios ao mesmo tempo deixava a tela pesada.
+      if(next&&img.src.indexOf(next)===-1)img.src=next;
     });
   },1200);
 }
-function closeExerciseGuide(){ const m=document.getElementById('exguide-modal'); if(m)m.style.display='none'; if(window._exgTimer){clearInterval(window._exgTimer);window._exgTimer=null;} }
+function closeExerciseGuide(){
+  const m=document.getElementById('exguide-modal'); if(m)m.style.display='none';
+  if(window._exgTimer){clearInterval(window._exgTimer);window._exgTimer=null;}
+  document.body.style.overflow='';
+}
 
 // ── RECALIBRACAO SEMANAL DINAMICA ──
 // Analisa o que foi REALMENTE executado numa semana e ajusta o volume da proxima,
@@ -7601,7 +7620,12 @@ function renderObIntro(c){
         </div>
       </div>
 
-      <button class="ob-btn" style="margin-top:32px" onclick="obNext()">MONTAR MEU PLANO</button>
+      <div style="margin-top:22px;padding-top:16px;border-top:1px solid var(--border);font-family:var(--font-body);font-size:11px;color:var(--muted);line-height:1.6">
+        Bike fit por IA e uma estimativa orientativa e nao substitui avaliacao presencial com profissional certificado.<br>
+        Clube da Meia Azul e um recurso social opcional (18+) — o MyTri nao verifica a identidade dos usuarios.
+      </div>
+
+      <button class="ob-btn" style="margin-top:24px" onclick="obNext()">MONTAR MEU PLANO</button>
     </div>`;
 }
 
@@ -7974,7 +7998,7 @@ function renderObMeta(c){
             ${chips.map(([l,v,c])=>{
               if(l==='PACE_INPUT')return `<div style="flex:1;min-width:120px;text-align:center;background:var(--bg);border:1px solid ${c}55;border-radius:8px;padding:8px">
               <div style="display:flex;align-items:center;justify-content:center;gap:2px">
-                <input id="ob-pace-alvo" type="tel" inputmode="numeric" value="${v}" oninput="obGoalFromPace(this,${d.r})" style="width:52px;background:none;border:none;color:${c};font-family:var(--font-display);font-size:18px;text-align:right;padding:0">
+                <input id="ob-pace-alvo" type="tel" inputmode="numeric" value="${v}" onfocus="_obClearPaceBox(this)" onblur="_obRestorePaceBox(this)" oninput="obGoalFromPace(this,${d.r})" style="width:52px;background:none;border:none;color:${c};font-family:var(--font-display);font-size:18px;text-align:right;padding:0">
                 <span style="font-family:var(--font-display);font-size:18px;color:${c}">/km</span>
               </div>
               <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:.5px;margin-top:2px">PACE ALVO</div>
@@ -7985,7 +8009,7 @@ function renderObMeta(c){
                 const wide=unit==='km/h';
                 return `<div style="flex:1;min-width:100px;text-align:center;background:var(--bg);border:1px solid ${c}55;border-radius:8px;padding:8px">
                 <div style="display:flex;align-items:center;justify-content:center;gap:2px">
-                  <input id="${inputId}" type="tel" inputmode="${wide?'decimal':'numeric'}" value="${v}" oninput="obGoalFromTriLeg(this,'${l}',${JSON.stringify(d).replace(/"/g,'&quot;')})" style="width:${wide?44:40}px;background:none;border:none;color:${c};font-family:var(--font-display);font-size:16px;text-align:right;padding:0">
+                  <input id="${inputId}" type="tel" inputmode="${wide?'decimal':'numeric'}" value="${v}" onfocus="_obClearPaceBox(this)" onblur="_obRestorePaceBox(this)" oninput="obGoalFromTriLeg(this,'${l}',${JSON.stringify(d).replace(/"/g,'&quot;')})" style="width:${wide?44:40}px;background:none;border:none;color:${c};font-family:var(--font-display);font-size:16px;text-align:right;padding:0">
                   <span style="font-family:var(--font-display);font-size:13px;color:${c}">${unit}</span>
                 </div>
                 <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:.5px;margin-top:2px">${lbl}</div>
@@ -8043,6 +8067,16 @@ function obGoalFromTriLeg(el,leg,d){
   obData.goalTime=`${String(hr).padStart(2,'0')}:${String(min).padStart(2,'0')}`;
   const hrEl=document.getElementById('ob-goal-hr-display'); if(hrEl)hrEl.textContent=String(hr).padStart(2,'0');
   const minEl=document.getElementById('ob-goal-min-display'); if(minEl)minEl.textContent=String(min).padStart(2,'0');
+}
+
+// Ao focar um box de pace editavel, limpa pro atleta digitar do zero (em vez de ter que apagar
+// o valor sugerido primeiro). Se sair do campo sem digitar nada, volta pro valor anterior.
+function _obClearPaceBox(el){
+  el.dataset.prev=el.value;
+  el.value='';
+}
+function _obRestorePaceBox(el){
+  if(!el.value && el.dataset.prev){ el.value=el.dataset.prev; }
 }
 
 function obGoalFromPace(el,distKm){
@@ -8625,6 +8659,37 @@ function obFinish(){
   showPlanSummary(finalProfile);
 }
 
+// Distancias em km/m por raceDist — usado pra calcular o pace/velocidade NECESSARIO pra bater
+// a meta ANTES de mandar pro coach de IA. Sem isso, o modelo tinha que calcular tempo-alvo /
+// distancia de cabeca e errava a conta (ex: dizia que precisava MELHORAR o pace quando o pace
+// atual do atleta ja era mais rapido que o necessario pra meta).
+const RACE_KM_META={
+  'super-sprint':{s:0.4,b:10,r:2.5},'sprint':{s:0.75,b:20,r:5},'olimpico':{s:1.5,b:40,r:10},
+  'half':{s:1.9,b:90,r:21.1},'full':{s:3.8,b:180,r:42.2},
+  'corrida-5k':{r:5},'corrida-10k':{r:10},'corrida-meia':{r:21.097},'corrida-maratona':{r:42.195},'corrida-trail':{r:21},
+  'bike-gran-fondo':{b:100},'bike-criterium':{b:40},'bike-mtb':{b:50},'bike-century':{b:160},
+  'swim-1500':{s:1.5},'swim-3800':{s:3.8},'swim-open':{s:2},
+  'du-sprint':{r:5,b:20},'du-standard':{r:10,b:40},
+};
+function calcPaceNecessarioMeta(profile){
+  try{
+    if(!profile.goalTime||!profile.raceDist)return '';
+    const parts=String(profile.goalTime).split(':');
+    if(parts.length!==2)return '';
+    const totalSec=(parseInt(parts[0])||0)*3600+(parseInt(parts[1])||0)*60;
+    if(totalSec<=0)return '';
+    const d=RACE_KM_META[profile.raceDist]; if(!d)return '';
+    const soCorrida=d.r&&!d.s&&!d.b, soBike=d.b&&!d.s&&!d.r, soNado=d.s&&!d.b&&!d.r;
+    if(soCorrida){ const secKm=totalSec/d.r; const m=Math.floor(secKm/60),s=Math.round(secKm%60); return `${m}:${String(s).padStart(2,'0')}/km`; }
+    if(soBike){ const kmh=d.b/(totalSec/3600); return `${kmh.toFixed(1)}km/h`; }
+    if(soNado){ const per100=totalSec/(d.s*10); const m=Math.floor(per100/60),s=Math.round(per100%60); return `${m}:${String(s).padStart(2,'0')}/100m`; }
+    // Triathlon/duatlo: usa a divisao aproximada (8% nado, 50% bike, 42% corrida) so pra dar
+    // uma referencia de pace de corrida no relatorio, que e o dado mais comparavel ao nivel atual.
+    if(d.r){ const secKm=(totalSec*0.42)/d.r; const m=Math.floor(secKm/60),s=Math.round(secKm%60); return `~${m}:${String(s).padStart(2,'0')}/km na corrida (estimativa dentro do tempo total)`; }
+    return '';
+  }catch(e){ return ''; }
+}
+
 async function showPlanSummary(profile){
   const el=document.getElementById('view-plan-summary');
   el.classList.add('active');
@@ -8648,7 +8713,7 @@ async function showPlanSummary(profile){
     const resp=await fetch('/.netlify/functions/plan-summary',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({profile})
+      body:JSON.stringify({profile:{...profile, paceNecessarioMeta: calcPaceNecessarioMeta(profile)}})
     });
     let data;
     try{
