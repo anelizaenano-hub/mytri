@@ -12,6 +12,10 @@ exports.handler = async (event) => {
   const raceDate = profile.raceDate || '';
   const goalTime = profile.goalTime || '';
   const daysToRace = raceDate ? Math.max(0, Math.round((new Date(raceDate + 'T12:00:00') - new Date()) / (1000*60*60*24))) : '?';
+  // Pace/velocidade NECESSARIO pra bater a meta, ja calculado no front-end (tempo-alvo / distancia).
+  // Critico: NAO deixar o modelo calcular isso de cabeca — ele errava a conta e as vezes dizia
+  // que o atleta precisava "melhorar" o pace quando na verdade o pace atual ja era suficiente.
+  const paceNecessario = profile.paceNecessarioMeta || '';
 
   // Níveis por modalidade
   let levelStr = '';
@@ -38,6 +42,7 @@ ESPORTE: ${sportName}
 PROVA: ${raceName}
 DIAS ATE A PROVA: ${daysToRace} dias
 META DE TEMPO: ${goalTime || 'completar a prova'}
+${paceNecessario ? `PACE/VELOCIDADE NECESSARIO PARA BATER A META (ja calculado, use este numero, nao recalcule): ${paceNecessario}` : ''}
 PERFORMANCE ATUAL: ${levelStr}
 HORAS SEMANAIS DISPONIVEIS: ${horasStr}h
 DIAS DE TREINO: ${diasStr}
@@ -45,6 +50,11 @@ FC MAXIMA: ${profile.fcMax || '?'}bpm
 LESOES/RESTRICOES: ${lesoesStr}
 
 Escreva o resumo EXCLUSIVAMENTE focado em ${sportName}. NAO mencione outras modalidades a menos que sejam relevantes para o esporte escolhido. Se houver lesoes ou restricoes, considere isso ao montar o ponto critico e a estrategia, evitando exercicios que agravem a condicao.
+
+CRITICO SOBRE O PACE: o campo "PACE/VELOCIDADE NECESSARIO PARA BATER A META" ja vem calculado corretamente (tempo-alvo dividido pela distancia da prova) — nunca recalcule essa conta de cabeca, e nunca inverta a comparacao. Compare esse numero com o pace/nivel ATUAL do atleta (campo PERFORMANCE ATUAL):
+- Se o pace ATUAL do atleta ja e IGUAL OU MAIS RAPIDO (numero menor de min/km, ou velocidade maior em km/h, ou pace menor por 100m) que o necessario pra meta, diga isso claramente: o atleta ja tem a capacidade de completar a prova nesse tempo, e o foco do plano deve ser manter essa capacidade com seguranca (evitar lesao, ganhar resistencia especifica pra sustentar o ritmo pela distancia toda), NAO "melhorar o pace".
+- Só fale em "precisar melhorar o pace" ou "ganhar velocidade" se o pace atual for de fato MAIS LENTO que o necessario pra meta.
+- Nunca calcule diferenca de segundos por km entre pace atual e pace necessario incorretamente — se nao tiver certeza da conta, apenas diga qual dos dois e mais rapido, sem inventar um numero de segundos.
 
 Responda EXATAMENTE neste formato (sem markdown, sem asteriscos, sem ##):
 
