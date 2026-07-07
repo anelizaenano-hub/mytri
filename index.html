@@ -25,6 +25,10 @@
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font-body);overflow-x:hidden;-webkit-font-smoothing:antialiased}
+/* iOS ignora maximum-scale no viewport por acessibilidade — o "zoom" ao tocar rapido nos
+   botoes (setas de hora/minuto etc) e o gesto de double-tap-zoom do Safari, nao pinch-zoom.
+   touch-action:manipulation desativa esse gesto especifico sem afetar scroll normal. */
+button,.mini-check,.mini-dot{touch-action:manipulation}
 
 /* ── HEADER ── */
 .app-header{background:var(--bg);border-bottom:1px solid var(--border);padding:16px 20px 14px;position:sticky;top:0;z-index:100}
@@ -2201,52 +2205,53 @@ function showWorkoutDetail(w,d,key){
         </div>
       </div>
       <div style="padding:8px 22px 0">
-        <div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;margin:12px 0 4px">ESTRUTURA DO TREINO</div>
-        ${structHtml}
-        ${coach?`<div style="margin-top:18px;background:${color}12;border:1px solid ${color}33;border-radius:10px;padding:14px 16px">
-          <div style="font-family:var(--font-ui);font-size:10px;color:${color};letter-spacing:1.5px;margin-bottom:6px">RACIONAL DO COACH</div>
-          <div style="font-family:var(--font-body);font-size:13px;color:var(--text);line-height:1.55">${coach}</div>
-        </div>`:''}
         ${(()=>{
-          // Guia visual de exercicios: so faz sentido para treino de forca/core do PLANO ainda
-          // nao executado. Se ja foi feito com dados reais (Strava), nao mostra guia vazio.
-          const _ovg=sess._origin==='plan'?getOverride(w,d,sess._si):null;
-          const _temReal=(_ovg&&(_ovg.stravaData||_ovg.stravaDist||_ovg.stravaTime));
-          if(!_isSupportSession(sess)||_temReal) return '';
-          return `<button onclick="closeWorkoutDetail();openExerciseGuide(${w},${d},${sess._si})" style="width:100%;margin-top:16px;padding:14px;background:rgba(0,230,118,0.08);border:1px solid rgba(0,230,118,0.35);color:var(--accent);font-family:var(--font-ui);font-size:12px;font-weight:700;letter-spacing:1.5px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-3.5-3.5L9 20"/></svg>
-          VER GUIA VISUAL DOS EXERCICIOS
-        </button>`;
-        })()}
-        ${(()=>{
-          // Bloco de EXECUÇÃO REAL: aparece quando a atividade foi concluida com dados do Strava/manual.
-          // Cobre tanto sessoes do PLANO (override) quanto EXTRAS (atividade do Strava sem sessao
-          // planejada correspondente) — antes, extras nunca mostravam esse bloco nem o botao de report,
-          // mesmo tendo dado real salvo (bug: bike aparecia como se nao tivesse sido feita).
+          // Calcula UMA vez se a sessao ja foi executada (real). Se sim: a pessoa ja fez o treino,
+          // entao lidera com os STATS reais, sem repetir as instrucoes de execucao (que so fazem
+          // sentido pra quem ainda vai treinar). Se nao: mostra o plano normalmente.
           const _ov=sess._origin==='plan'?getOverride(w,d,sess._si):null;
           const _isExtra=sess._origin==='extra';
           const _extraReal=_isExtra&&(sess.dist||sess.note||sess.cal);
           const _real=(_ov&&(_ov.stravaData||_ov.stravaDist||_ov.stravaTime))||_extraReal||null;
-          if(!_real)return '';
-          const linhas=[];
-          if(_ov){
-            if(_ov.stravaDist)linhas.push(['DISTANCIA',_ov.stravaDist]);
-            if(_ov.stravaTime)linhas.push(['TEMPO',_ov.stravaTime]);
-            if(_ov.stravaHR)linhas.push(['FC MEDIA',_ov.stravaHR]);
-            if(_ov.stravaCal)linhas.push(['CALORIAS',_ov.stravaCal]);
-          } else if(_isExtra){
-            // Extras guardam o dado real compactado em "note" (ex: "15km · 42.1km/h · 43min · 105bpm · 273kcal").
-            // Quebra em cards individuais, igual ao formato das sessoes do plano.
-            (sess.note||'').split('·').map(p=>p.trim()).filter(Boolean).forEach(p=>linhas.push(['STRAVA',p]));
-            if(!linhas.length&&sess.cal)linhas.push(['CALORIAS',sess.cal]);
-          }
-          const cards=linhas.map(([l,v])=>`<div style="flex:1;min-width:70px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center"><div style="font-family:var(--font-display);font-size:16px;color:${color}">${v}</div><div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:.5px">${l}</div></div>`).join('');
-          return `<div style="margin-top:18px">
-            <div style="font-family:var(--font-ui);font-size:10px;color:${color};letter-spacing:1.5px;margin-bottom:8px">EXECUCAO REAL (STRAVA)</div>
-            <div style="display:flex;gap:6px;flex-wrap:wrap">${cards}</div>
-            <button onclick="genSessionReport(${w},${d},${sess._origin==='plan'?sess._si:-1},${sess._origin==='extra'?sess._idx:-1})" id="wd-report-btn" style="width:100%;margin-top:14px;padding:14px;background:${color}14;border:1px solid ${color}44;color:${color};font-family:var(--font-ui);font-size:12px;font-weight:700;letter-spacing:1.5px;border-radius:8px;cursor:pointer">VER ANALISE DO TREINO (IA)</button>
-            <div id="wd-report-out" style="margin-top:12px"></div>
-          </div>`;
+
+          const _realBlock=(()=>{
+            if(!_real)return '';
+            const linhas=[];
+            if(_ov){
+              if(_ov.stravaDist)linhas.push(['DISTANCIA',_ov.stravaDist]);
+              if(_ov.stravaTime)linhas.push(['TEMPO',_ov.stravaTime]);
+              if(_ov.stravaHR)linhas.push(['FC MEDIA',_ov.stravaHR]);
+              if(_ov.stravaCal)linhas.push(['CALORIAS',_ov.stravaCal]);
+            } else if(_isExtra){
+              (sess.note||'').split('·').map(p=>p.trim()).filter(Boolean).forEach(p=>linhas.push(['STRAVA',p]));
+              if(!linhas.length&&sess.cal)linhas.push(['CALORIAS',sess.cal]);
+            }
+            const cards=linhas.map(([l,v])=>`<div style="flex:1;min-width:70px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center"><div style="font-family:var(--font-display);font-size:16px;color:${color}">${v}</div><div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:.5px">${l}</div></div>`).join('');
+            return `<div style="margin-top:12px">
+              <div style="font-family:var(--font-ui);font-size:10px;color:${color};letter-spacing:1.5px;margin-bottom:8px">EXECUCAO REAL (STRAVA)</div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap">${cards}</div>
+              <button onclick="genSessionReport(${w},${d},${sess._origin==='plan'?sess._si:-1},${sess._origin==='extra'?sess._idx:-1})" id="wd-report-btn" style="width:100%;margin-top:14px;padding:14px;background:${color}14;border:1px solid ${color}44;color:${color};font-family:var(--font-ui);font-size:12px;font-weight:700;letter-spacing:1.5px;border-radius:8px;cursor:pointer">VER ANALISE DO TREINO (IA)</button>
+              <div id="wd-report-out" style="margin-top:12px"></div>
+            </div>`;
+          })();
+
+          if(_real) return _realBlock;
+
+          const _guia=(()=>{
+            if(!_isSupportSession(sess)) return '';
+            return `<button onclick="closeWorkoutDetail();openExerciseGuide(${w},${d},${sess._si})" style="width:100%;margin-top:16px;padding:14px;background:rgba(0,230,118,0.08);border:1px solid rgba(0,230,118,0.35);color:var(--accent);font-family:var(--font-ui);font-size:12px;font-weight:700;letter-spacing:1.5px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-3.5-3.5L9 20"/></svg>
+            VER GUIA VISUAL DOS EXERCICIOS
+          </button>`;
+          })();
+
+          return `<div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;margin:12px 0 4px">ESTRUTURA DO TREINO</div>
+          ${structHtml}
+          ${coach?`<div style="margin-top:18px;background:${color}12;border:1px solid ${color}33;border-radius:10px;padding:14px 16px">
+            <div style="font-family:var(--font-ui);font-size:10px;color:${color};letter-spacing:1.5px;margin-bottom:6px">RACIONAL DO COACH</div>
+            <div style="font-family:var(--font-body);font-size:13px;color:var(--text);line-height:1.55">${coach}</div>
+          </div>`:''}
+          ${_guia}`;
         })()}
       </div>
     </div>`;
@@ -4052,7 +4057,8 @@ function renderStats(){
       </div>`;
     };
     periodDiv.innerHTML=`
-      <div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:2px;margin-bottom:10px">ACUMULO POR PERIODO</div>
+      <div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:2px;margin-bottom:2px">ACUMULO POR PERIODO</div>
+      <div style="font-family:var(--font-body);font-size:10px;color:var(--muted2);margin-bottom:10px">Volume real feito nesta semana/mes, comparado ao mesmo periodo anterior — nao ao plano inteiro.</div>
       <div style="display:flex;gap:8px">
         ${card('ESTA SEMANA','vs. semana passada',wkNow,wkPrev.km)}
         ${card(monthName.toUpperCase(),'vs. mes passado',moNow,moPrev.km)}
@@ -4089,31 +4095,39 @@ function renderStats(){
   container.appendChild(progressDiv);
 
   const volDiv=document.createElement('div');volDiv.className='vol-breakdown';
-  const _pctSwim=Math.min(100,Math.round((vol.swim/Math.max(totalSwim,0.1))*100));
+  const _pctSwim=Math.min(100,Math.round((vol.swim/Math.max(totalSwim,0.001))*100));
   const _pctBike=Math.min(100,Math.round((vol.bike/Math.max(totalBike,0.1))*100));
   const _pctRun=Math.min(100,Math.round((vol.run/Math.max(totalRun,0.1))*100));
+  // So mostra a barra da modalidade se ela realmente faz parte do esporte escolhido no onboarding.
+  // Antes mostrava sempre as 3 (natacao/bike/corrida) mesmo pra quem escolheu so "corrida" — um
+  // extra avulso de nado virava "100% do plano" porque o total planejado daquela modalidade era ~0.
+  const _sportNow=(getMytriProfile&&getMytriProfile().sport)||'triathlon';
+  const _showSwim=['triathlon','natacao'].includes(_sportNow);
+  const _showBike=['triathlon','duathlon','ciclismo'].includes(_sportNow);
+  const _showRun=['triathlon','duathlon','corrida'].includes(_sportNow);
+  const _swimM=Math.round(vol.swim*1000), _totalSwimM=Math.round(totalSwim*1000);
   volDiv.innerHTML=`
     <div class="vol-title">VOLUME ACUMULADO <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0">(% do plano completo por modalidade)</span></div>
-    <div class="vol-row">
+    ${_showSwim?`<div class="vol-row">
       <div class="vol-dot" style="background:#1a6cf0"></div>
       <span class="vol-label">NATACAO</span>
       <div class="vol-bar-bg"><div class="vol-bar-fill" style="width:${_pctSwim}%;background:#1a6cf0"></div></div>
-      <span class="vol-val">${vol.swim.toFixed(1)}km <span style="color:var(--muted);font-size:9px">${_pctSwim}%</span></span>
-    </div>
-    <div class="vol-row">
+      <span class="vol-val">${_swimM}m <span style="color:var(--muted);font-size:9px">${_pctSwim}%</span></span>
+    </div>`:''}
+    ${_showBike?`<div class="vol-row">
       <div class="vol-dot" style="background:#e05c2a"></div>
       <span class="vol-label">BIKE</span>
       <div class="vol-bar-bg"><div class="vol-bar-fill" style="width:${_pctBike}%;background:#e05c2a"></div></div>
       <span class="vol-val">${vol.bike.toFixed(0)}km <span style="color:var(--muted);font-size:9px">${_pctBike}%</span></span>
-    </div>
-    <div class="vol-row">
+    </div>`:''}
+    ${_showRun?`<div class="vol-row">
       <div class="vol-dot" style="background:#00e676"></div>
       <span class="vol-label">CORRIDA</span>
       <div class="vol-bar-bg"><div class="vol-bar-fill" style="width:${_pctRun}%;background:#00e676"></div></div>
       <span class="vol-val">${vol.run.toFixed(0)}km <span style="color:var(--muted);font-size:9px">${_pctRun}%</span></span>
-    </div>
+    </div>`:''}
     <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1px">
-      PLANEJADO TOTAL: ${totalSwim.toFixed(1)}km nat &middot; ${totalBike.toFixed(0)}km bike &middot; ${totalRun.toFixed(0)}km corrida
+      PLANEJADO TOTAL: ${[_showSwim?_totalSwimM+'m nat':null,_showBike?totalBike.toFixed(0)+'km bike':null,_showRun?totalRun.toFixed(0)+'km corrida':null].filter(Boolean).join(' &middot; ')}
     </div>`;
 
   const distCard=document.createElement('div');
@@ -5754,7 +5768,10 @@ Forneça:
 
 Seja específico com medidas (cm) e explique o porquê de cada ajuste. Responda em português.
 
-IMPORTANTE: Responda em texto limpo, sem markdown, sem asteriscos, sem hashtags, sem emojis, sem tabelas. Use apenas texto simples. Para titulos use letras maiusculas seguidas de dois pontos. Exemplo: ALTURA DO SELIM:`;
+IMPORTANTE: Responda em texto limpo, sem markdown, sem asteriscos, sem hashtags, sem emojis, sem tabelas. Use apenas texto simples. Para titulos use letras maiusculas seguidas de dois pontos. Exemplo: ALTURA DO SELIM:
+
+ANTES de todo o texto acima, na PRIMEIRA linha da resposta (sozinha, nada antes ou depois), inclua um resumo estruturado neste formato EXATO (numeros em cm, sem unidade, so o numero; use "" se algum dado nao se aplica):
+RESUMO_JSON:{"selim_atual":"${selim||''}","selim_ideal":"NUM","selim_recuo":"NUM","guidao_atual":"${guidao||''}","guidao_ideal":"NUM","alcance_guidao":"NUM"}`;
 
   try{
     const resp=await fetch('/.netlify/functions/bike-fit',{
@@ -5764,12 +5781,41 @@ IMPORTANTE: Responda em texto limpo, sem markdown, sem asteriscos, sem hashtags,
     });
     const data=await resp.json();
     if(!resp.ok)throw new Error(data.error||'Erro');
-    const text=data.text||'';
+    let text=data.text||'';
+
+    // Extrai o resumo estruturado (RESUMO_JSON na 1a linha) pra montar um card visual
+    // "atual -> recomendado" antes do texto corrido — antes so tinha a explicacao longa,
+    // sem um resumo rapido de execucao das alteracoes.
+    let resumo=null;
+    const _rm=text.match(/RESUMO_JSON:\s*(\{[^\n]*\})/);
+    if(_rm){
+      try{ resumo=JSON.parse(_rm[1]); }catch(e){}
+      text=text.replace(_rm[0],'').trim();
+    }
+    const _chip=(label,de,para,unidade)=>{
+      if(!para)return '';
+      const mudou=de&&de!==para;
+      return `<div style="flex:1;min-width:100px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center">
+        <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:1px;margin-bottom:6px">${label}</div>
+        ${mudou?`<div style="font-family:var(--font-ui);font-size:11px;color:var(--muted2);text-decoration:line-through">${de}${unidade}</div>`:''}
+        <div style="font-family:var(--font-display);font-size:20px;color:var(--accent)">${para}${unidade}</div>
+      </div>`;
+    };
+    const resumoHtml=resumo?`<div style="margin-bottom:18px;padding:16px;background:${'#00e67612'};border:1px solid #00e67640;border-radius:8px">
+      <div style="font-family:var(--font-ui);font-size:10px;color:var(--accent);letter-spacing:1.5px;margin-bottom:10px">RESUMO DAS ALTERACOES</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${_chip('SELIM ALTURA',resumo.selim_atual,resumo.selim_ideal,'cm')}
+        ${_chip('SELIM RECUO',resumo.selim_recuo&&resumo.selim_atual?'':'',resumo.selim_recuo,'cm')}
+        ${_chip('GUIDAO ALTURA',resumo.guidao_atual,resumo.guidao_ideal,'cm')}
+        ${_chip('ALCANCE GUIDAO','',resumo.alcance_guidao,'cm')}
+      </div>
+    </div>`:'';
 
     result.style.display='block';
     result.innerHTML=`
       <div style="background:var(--surface);border:1px solid var(--border);border-top:3px solid var(--accent);padding:20px;border-radius:4px">
         <div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:20px">ANALISE BIKE FIT</div>
+        ${resumoHtml}
         <div id="bf-result-text" style="font-family:var(--font-body);font-size:14px;line-height:1.8;color:var(--text)"></div>
       </div>`;
     renderBikeFitText(document.getElementById('bf-result-text'),text);
@@ -7800,7 +7846,7 @@ function renderObMeta(c){
 
       <div style="display:flex;align-items:center;justify-content:center;gap:16px;margin:32px 0">
         <div style="text-align:center">
-          <div style="font-family:var(--font-display);font-size:64px;color:var(--text)">${String(hr).padStart(2,'0')}</div>
+          <div id="ob-goal-hr-display" style="font-family:var(--font-display);font-size:64px;color:var(--text)">${String(hr).padStart(2,'0')}</div>
           <div style="font-family:var(--font-ui);font-size:11px;color:var(--muted);letter-spacing:1px">HORAS</div>
           <div style="display:flex;gap:8px;margin-top:8px">
             <button onclick="obAdjust('hr',-1)" style="width:40px;height:40px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-size:20px;border-radius:8px;cursor:pointer">-</button>
@@ -7809,7 +7855,7 @@ function renderObMeta(c){
         </div>
         <div style="font-family:var(--font-display);font-size:48px;color:var(--muted)">:</div>
         <div style="text-align:center">
-          <div style="font-family:var(--font-display);font-size:64px;color:var(--text)">${String(min).padStart(2,'0')}</div>
+          <div id="ob-goal-min-display" style="font-family:var(--font-display);font-size:64px;color:var(--text)">${String(min).padStart(2,'0')}</div>
           <div style="font-family:var(--font-ui);font-size:11px;color:var(--muted);letter-spacing:1px">MINUTOS</div>
           <div style="display:flex;gap:8px;margin-top:8px">
             <button onclick="obAdjust('min',-5)" style="width:40px;height:40px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-size:20px;border-radius:8px;cursor:pointer">-</button>
@@ -7837,7 +7883,12 @@ function renderObMeta(c){
         const soCorrida=d.r&&!d.s&&!d.b;
         const soBike=d.b&&!d.s&&!d.r;
         const soNado=d.s&&!d.b&&!d.r;
-        if(soCorrida){ chips.push(['PACE ALVO',fmtPace(totalSec/d.r),'#00e676']); }
+        if(soCorrida){
+          // Chip de pace agora e editavel: digitar um pace recalcula o tempo-alvo (hr/min) direto,
+          // sem precisar usar as setas. Os dois caminhos ficam sincronizados.
+          const paceNow=fmtPace(totalSec/d.r).replace('/km','');
+          chips.push(['PACE_INPUT',paceNow,'#00e676']);
+        }
         else if(soBike){ const kmh=Math.round(d.b/(totalSec/3600)*10)/10; chips.push(['VELOCIDADE ALVO',kmh+' km/h','#e05c2a']); }
         else if(soNado){ const per100=totalSec/(d.s*10); const mm=Math.floor(per100/60);const sc=Math.round(per100%60); chips.push(['RITMO ALVO',`${mm}:${String(sc).padStart(2,'0')}/100m`,'#1a6cf0']); }
         else {
@@ -7847,9 +7898,15 @@ function renderObMeta(c){
         }
         if(!chips.length) return '';
         return `<div style="margin:0 0 8px;padding:14px 16px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
-          <div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1.5px;margin-bottom:10px">EQUIVALE A</div>
+          <div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1.5px;margin-bottom:10px">EQUIVALE A ${soCorrida?'<span style="color:var(--accent2)">(edite o pace pra ajustar o tempo-alvo)</span>':''}</div>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
-            ${chips.map(([l,v,c])=>`<div style="flex:1;min-width:90px;text-align:center;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px"><div style="font-family:var(--font-display);font-size:18px;color:${c}">${v}</div><div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:.5px;margin-top:2px">${l}</div></div>`).join('')}
+            ${chips.map(([l,v,c])=>l==='PACE_INPUT'?`<div style="flex:1;min-width:120px;text-align:center;background:var(--bg);border:1px solid ${c}55;border-radius:8px;padding:8px">
+              <div style="display:flex;align-items:center;justify-content:center;gap:2px">
+                <input id="ob-pace-alvo" type="tel" inputmode="numeric" value="${v}" oninput="obGoalFromPace(this,${d.r})" style="width:52px;background:none;border:none;color:${c};font-family:var(--font-display);font-size:18px;text-align:right;padding:0">
+                <span style="font-family:var(--font-display);font-size:18px;color:${c}">/km</span>
+              </div>
+              <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:.5px;margin-top:2px">PACE ALVO</div>
+            </div>`:`<div style="flex:1;min-width:90px;text-align:center;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px"><div style="font-family:var(--font-display);font-size:18px;color:${c}">${v}</div><div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:.5px;margin-top:2px">${l}</div></div>`).join('')}
           </div>
         </div>`;
       })()}
@@ -7860,9 +7917,36 @@ function renderObMeta(c){
     </div>`;
 }
 
+// Digitar um pace (ex "545" -> "5:45") recalcula o tempo-alvo direto, sem precisar das setas.
+// Atualiza so os digitos de HORAS/MINUTOS via DOM (nao chama renderOnboarding) pra nao perder
+// o foco do campo enquanto o atleta ainda esta digitando.
+function obGoalFromPace(el,distKm){
+  const formatted=obFormatPace(el);
+  const parts=formatted.split(':');
+  if(parts.length!==2||!distKm)return;
+  const paceSec=(parseInt(parts[0])||0)*60+(parseInt(parts[1])||0);
+  const totalSec=paceSec*distKm;
+  const hr=Math.floor(totalSec/3600);
+  const min=Math.round((totalSec%3600)/60);
+  obData.goalHr=hr; obData.goalMin=min;
+  obData.goalTime=`${String(hr).padStart(2,'0')}:${String(min).padStart(2,'0')}`;
+  const hrEl=document.getElementById('ob-goal-hr-display'); if(hrEl)hrEl.textContent=String(hr).padStart(2,'0');
+  const minEl=document.getElementById('ob-goal-min-display'); if(minEl)minEl.textContent=String(min).padStart(2,'0');
+}
 function obAdjust(field,delta){
-  if(field==='hr'){obData.goalHr=Math.max(0,Math.min(17,(obData.goalHr||1)+delta));}
-  else{obData.goalMin=Math.max(0,Math.min(59,Math.round(((obData.goalMin||30)+delta)/5)*5));}
+  // Antes: minutos so tinham clamp 0-59, sem "emprestar" hora nenhuma direcao (so
+  // parecia funcionar subindo por coincidencia de fluxo — descendo travava em 00).
+  // Agora minuto e hora ficam corretamente correlacionados nos dois sentidos.
+  let hr=obData.goalHr||0, min=obData.goalMin||0;
+  if(field==='hr'){
+    hr=hr+delta;
+  }else{
+    min=min+delta;
+    while(min>=60){ min-=60; hr+=1; }
+    while(min<0){ min+=60; hr-=1; }
+  }
+  obData.goalHr=Math.max(0,Math.min(17,hr));
+  obData.goalMin=Math.max(0,Math.min(59,min));
   renderOnboarding();
 }
 
@@ -8410,7 +8494,9 @@ function obFinish(){
   localStorage.setItem('mytri_onboard_done','1');
   document.getElementById('view-onboard').classList.remove('active');
   document.body.classList.remove('onboarding-active');
-  const _fab=document.getElementById('consult-fab'); if(_fab)_fab.style.display='flex';
+  // FAB da consultoria fica escondido ate o atleta realmente entrar no app (closePlanSummary) —
+  // antes aparecia ja na tela de resumo do plano, o que nao faz sentido (ainda nem viu a semana).
+  const _fabHide=document.getElementById('consult-fab'); if(_fabHide)_fabHide.style.display='none';
   showPlanSummary(finalProfile);
 }
 
@@ -8586,6 +8672,7 @@ function closePlanSummary(){
   document.getElementById('view-plan-summary').classList.remove('active');
   document.getElementById('view-onboard').classList.remove('active');
   switchTab('agenda');
+  const _fab=document.getElementById('consult-fab'); if(_fab)_fab.style.display='flex';
   // Sync automatico do Strava logo apos o onboarding, se conectado. Assim o atleta ja entra
   // com as atividades reais importadas, sem precisar acionar o sync manualmente.
   try{
@@ -8730,7 +8817,7 @@ async function maybeShowSessionAnalysis(key, sess, w, d){
       body: JSON.stringify({
         session: {type: sess.type, text: sess.text, dist: sess.dist, plannedDist, volComparison},
         strava: stravaStr,
-        profile: {name: profile.name || 'Nano'},
+        profile: {name: profile.name || 'Nano', injuries: profile.lesoes||[], injuryDetail: profile.lesaoDetalhe||''},
         daysToRace,
         week: w,
         phase
