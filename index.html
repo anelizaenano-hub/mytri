@@ -151,7 +151,7 @@ button,.mini-check,.mini-dot{touch-action:manipulation}
 .vol-bar-fill{height:100%}
 
 /* ── BOTTOM NAV ── */
-.bottom-nav{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);display:flex;z-index:500;padding-bottom:env(safe-área-inset-bottom)}
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);display:flex;z-index:500;padding-bottom:env(safe-area-inset-bottom)}
 #view-onboard.active ~ #consult-fab{display:none!important}
 body.onboarding-active #consult-fab{display:none!important}
 body.onboarding-active .bottom-nav,body.onboarding-active .app-header{display:none!important}
@@ -483,9 +483,12 @@ summary span:last-child{transition:transform .2s;display:inline-block}
     </div>
     <button onclick="closeConsult()" style="background:none;border:none;color:var(--muted2);font-size:28px;cursor:pointer;line-height:1;padding:0 4px">&times;</button>
   </div>
+  <div style="padding:6px 16px;display:flex;justify-content:flex-end">
+    <button onclick="clearConsultHistory()" style="background:none;border:none;color:var(--muted);font-family:var(--font-ui);font-size:10px;letter-spacing:1px;cursor:pointer;padding:2px">LIMPAR CONVERSA</button>
+  </div>
   <div id="consult-messages" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:18px 16px;display:flex;flex-direction:column;gap:12px"></div>
   <div id="consult-suggestions" style="padding:0 12px 8px;display:flex;gap:8px;flex-wrap:wrap"></div>
-  <div style="padding:12px 14px;border-top:1px solid var(--border);background:var(--surface);display:flex;gap:10px;align-items:flex-end;flex-shrink:0;padding-bottom:calc(16px + env(safe-área-inset-bottom))">
+  <div style="padding:12px 14px;border-top:1px solid var(--border);background:var(--surface);display:flex;gap:10px;align-items:flex-end;flex-shrink:0;padding-bottom:calc(16px + env(safe-area-inset-bottom))">
     <textarea id="consult-input" rows="1" placeholder="Pergunte sobre seu treino..." style="flex:1;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:11px 14px;border-radius:20px;resize:none;max-height:100px;line-height:1.3"></textarea>
     <button id="consult-send" onclick="sendConsult()" style="width:44px;height:44px;border-radius:50%;background:var(--accent);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
@@ -494,15 +497,283 @@ summary span:last-child{transition:transform .2s;display:inline-block}
 </div>
 
 <div class="bottom-nav">
-  <div class="bnav-item" onclick="switchTab('perfil')">Perfil</div>
-  <div class="bnav-item active" onclick="switchTab('agenda')">Agenda</div>
-  <div class="bnav-item" onclick="switchTab('stats')">Stats</div>
-  <div class="bnav-item" onclick="switchTab('conquistas')">Hist</div>
-  <div class="bnav-item" onclick="switchTab('bikefit')">Fit</div>
-  <div class="bnav-item" onclick="switchTab('club')">Club</div>
+  <div class="bnav-item" onclick="switchTab('perfil')" id="bnav-perfil">Perfil</div>
+  <div class="bnav-item active" onclick="switchTab('agenda')" id="bnav-agenda">Agenda</div>
+  <div class="bnav-item" onclick="switchTab('stats')" id="bnav-stats">Stats</div>
+  <div class="bnav-item" onclick="switchTab('conquistas')" id="bnav-hist">Hist</div>
+  <div class="bnav-item" onclick="switchTab('bikefit')" id="bnav-fit">Fit</div>
+  <div class="bnav-item" onclick="switchTab('club')" id="bnav-club">Club</div>
 </div>
 
 <script>
+// ══════════════════════════════════════════════════════════════════
+// I18N — infraestrutura de idiomas. Chave de design: t('chave') busca a
+// string no idioma atual, cai pro PT se faltar (nunca quebra mostrando
+// a chave crua). Troca de idioma recarrega a pagina (location.reload) em
+// vez de tentar re-renderizar tudo ao vivo — o app inteiro e construido
+// com innerHTML imperativo por aba, nao um framework reativo, entao um
+// reload e muito mais seguro que tentar re-pintar cada tela na mao.
+//
+// COBERTURA ATUAL: infraestrutura completa + navegacao inferior + tela
+// de intro do onboarding (prova de conceito ponta a ponta). O resto do
+// app (milhares de strings) ainda esta soo em portugues fixo — migrar
+// tela por tela e o proximo trabalho, usando exatamente este padrao.
+const SUPPORTED_LANGS=['pt','en','es','zh'];
+const LANG_LABELS={pt:'Português',en:'English',es:'Español',zh:'中文'};
+const I18N={
+  pt:{
+    nav_perfil:'Perfil', nav_agenda:'Agenda', nav_stats:'Stats', nav_hist:'Hist', nav_fit:'Fit', nav_club:'Club',
+    ob_intro_title:'O que e\no MyTri?',
+    ob_intro_sub:'Não e mais um app de planilha generica.',
+    ob_feat1_title:'PLANO 100% PERSONALIZADO',
+    ob_feat1_desc:'Cada treino gerado pela sua prova, distancia, nível, lesoes e dias disponíveis. Nenhum plano igual ao outro.',
+    ob_feat2_title:'CONECTA COM SEUS APPS DE TREINO',
+    ob_feat2_desc:'Puxa seus treinos reais de outras plataformas e compara com o planejado. Um co-piloto, não um substituto.',
+    ob_feat3_title:'TUDO NUM LUGAR SÓ',
+    ob_feat3_desc:'Provas reais com link de inscricao, clima, estatísticas e recordes pessoais.',
+    ob_feat4_title:'BIKE FIT POR IA',
+    ob_feat4_desc:'Analise de posição na bike a partir de foto e medidas. Estimativa orientativa, não substitui avaliação presencial.',
+    ob_feat5_title:'CLUBE DA MEIA AZUL',
+    ob_feat5_desc:'Comunidade de triatletas pra treinar e trocar junto. Recurso social opcional, exclusivo pra maiores de 18 anos.',
+    ob_feat6_title:'COACH IA QUE CONHECE VOCÊ',
+    ob_feat6_desc:'Tira dúvida, analisa cada treino executado e ajusta o plano com base na sua evolução real — não um chatbot generico.',
+    ob_feat7_title:'EVOLUÇÃO REAL, NÃO CHUTE',
+    ob_feat7_desc:'Compara planejado vs executado, mostra recordes pessoais e recalibra o plano toda semana conforme o que você realmente fez.',
+    ob_intro_cta:'MONTAR MEU PLANO',
+    lang_picker_title:'IDIOMA',
+    btn_continuar:'CONTINUAR',
+    welcome_sub:'Seu co-piloto personalizado para chegar na linha de chegada pronto',
+    welcome_cta:'COMEÇAR',
+    ob_sport_title:'Qual e\no seu esporte?',
+    ob_sport_sub:'Vamos personalizar tudo para a sua modalidade.',
+    ob_dist_title:'Qual a distancia\nda sua prova?',
+    ob_dist_sub:'Selecione o formato da sua próxima competicao.',
+    ob_race_title:'Qual e\nsua prova?',
+    ob_race_sub:'Selecione, busque provas reais ou cadastre manualmente.',
+    ob_race_searching:'BUSCANDO SUA PRÓXIMA PROVA...',
+    ob_race_search_btn:'BUSCAR SUA PRÓXIMA PROVA',
+    ob_race_view_reg:'VER INSCRICOES',
+    ob_meta_title:'Qual e\nsua meta?',
+    ob_meta_sub_prefix:'Tempo alvo para',
+    ob_hours_label:'HORAS',
+    ob_minutes_label:'MINUTOS',
+    ob_fitness_title:'Dados\nfisicos',
+    ob_fitness_sub:'Usamos para calcular suas zonas de treino.',
+    ob_hours_title:'Quantas horas\ntreina por semana?',
+    ob_hours_sub:'Seu plano sera construido a partir do seu volume atual.',
+    ob_days_title:'Quais dias você\npode treinar?',
+    ob_days_sub:'Seu plano sera montado respeitando sua disponibilidade.',
+    ob_injuries_title:'Alguma lesao\nou restrição?',
+    ob_injuries_sub:'Seu plano vai considerar isso para evitar agravar lesoes.',
+    ob_strava_title:'Conecte\nsuas redes',
+    ob_strava_sub:'Importamos treinos e fotos automaticamente.',
+    ob_fim_title:'Tudo pronto,',
+    ob_fim_prova:'PROVA',
+    ob_fim_dist:'DISTANCIA',
+    ob_fim_data:'DATA',
+    ob_fim_meta:'META',
+    ob_fim_meta_default:'Meta: completar a prova',
+    ob_fim_cta:'ENTRAR NO MYTRI',
+    tab_hoje:'HOJE', tab_semana:'SEMANA', tab_fases:'FASES', tab_cal:'CAL',
+    day0:'Segunda', day1:'Terca', day2:'Quarta', day3:'Quinta', day4:'Sexta', day5:'Sabado', day6:'Domingo',
+    week_label:'SEMANA',
+    countdown_prova_suffix:'D PROVA',
+    countdown_livre:'LIVRE',
+    countdown_treino_livre:'TREINO LIVRE \u00b7 SEM PROVA DEFINIDA',
+    locale_code:'pt-BR',
+  },
+  en:{
+    nav_perfil:'Profile', nav_agenda:'Schedule', nav_stats:'Stats', nav_hist:'History', nav_fit:'Fit', nav_club:'Club',
+    ob_intro_title:'What is\nMyTri?',
+    ob_intro_sub:'Not just another generic spreadsheet app.',
+    ob_feat1_title:'100% PERSONALIZED PLAN',
+    ob_feat1_desc:'Every workout built around your race, distance, level, injuries and available days. No plan is the same as another.',
+    ob_feat2_title:'CONNECTS TO YOUR TRAINING APPS',
+    ob_feat2_desc:'Pulls your real workouts from other platforms and compares with what was planned. A co-pilot, not a replacement.',
+    ob_feat3_title:'EVERYTHING IN ONE PLACE',
+    ob_feat3_desc:'Real races with registration links, weather, stats and personal records.',
+    ob_feat4_title:'AI BIKE FIT',
+    ob_feat4_desc:'Bike position analysis from a photo and measurements. An orientative estimate, not a replacement for an in-person fitting.',
+    ob_feat5_title:'BLUE SOCK CLUB',
+    ob_feat5_desc:'A community of triathletes to train and connect with. Optional social feature, 18+ only.',
+    ob_feat6_title:'AN AI COACH THAT KNOWS YOU',
+    ob_feat6_desc:'Answers questions, analyzes every workout you complete, and adjusts your plan based on your real progress — not a generic chatbot.',
+    ob_feat7_title:'REAL PROGRESS, NOT GUESSWORK',
+    ob_feat7_desc:'Compares planned vs. actual, shows personal records, and recalibrates your plan every week based on what you actually did.',
+    ob_intro_cta:'BUILD MY PLAN',
+    lang_picker_title:'LANGUAGE',
+    btn_continuar:'CONTINUE',
+    welcome_sub:'Your personal co-pilot to reach the finish line ready',
+    welcome_cta:'START',
+    ob_sport_title:'What is\nyour sport?',
+    ob_sport_sub:"We'll personalize everything for your discipline.",
+    ob_dist_title:'What distance\nis your race?',
+    ob_dist_sub:'Select the format of your next race.',
+    ob_race_title:'What is\nyour race?',
+    ob_race_sub:'Select, search real races, or add one manually.',
+    ob_race_searching:'SEARCHING YOUR NEXT RACE...',
+    ob_race_search_btn:'SEARCH FOR YOUR NEXT RACE',
+    ob_race_view_reg:'VIEW REGISTRATION',
+    ob_meta_title:'What is\nyour goal?',
+    ob_meta_sub_prefix:'Target time for',
+    ob_hours_label:'HOURS',
+    ob_minutes_label:'MINUTES',
+    ob_fitness_title:'Physical\ndata',
+    ob_fitness_sub:'We use this to calculate your training zones.',
+    ob_hours_title:'How many hours\ndo you train per week?',
+    ob_hours_sub:'Your plan will be built around your current volume.',
+    ob_days_title:'Which days can\nyou train?',
+    ob_days_sub:'Your plan will be built around your availability.',
+    ob_injuries_title:'Any injury\nor restriction?',
+    ob_injuries_sub:'Your plan will take this into account to avoid making it worse.',
+    ob_strava_title:'Connect\nyour accounts',
+    ob_strava_sub:'We import your workouts and photos automatically.',
+    ob_fim_title:'All set,',
+    ob_fim_prova:'RACE',
+    ob_fim_dist:'DISTANCE',
+    ob_fim_data:'DATE',
+    ob_fim_meta:'GOAL',
+    ob_fim_meta_default:'Goal: finish the race',
+    ob_fim_cta:'ENTER MYTRI',
+    tab_hoje:'TODAY', tab_semana:'WEEK', tab_fases:'PHASES', tab_cal:'CAL',
+    day0:'Monday', day1:'Tuesday', day2:'Wednesday', day3:'Thursday', day4:'Friday', day5:'Saturday', day6:'Sunday',
+    week_label:'WEEK',
+    countdown_prova_suffix:'D TO RACE',
+    countdown_livre:'FREE',
+    countdown_treino_livre:'FREE TRAINING \u00b7 NO RACE SET',
+    locale_code:'en-US',
+  },
+  es:{
+    nav_perfil:'Perfil', nav_agenda:'Agenda', nav_stats:'Stats', nav_hist:'Historial', nav_fit:'Fit', nav_club:'Club',
+    ob_intro_title:'¿Qué es\nMyTri?',
+    ob_intro_sub:'No es otra app de planilla generica.',
+    ob_feat1_title:'PLAN 100% PERSONALIZADO',
+    ob_feat1_desc:'Cada entrenamiento generado segun tu carrera, distancia, nivel, lesiones y dias disponibles. Ningun plan es igual a otro.',
+    ob_feat2_title:'CONECTA CON TUS APPS DE ENTRENAMIENTO',
+    ob_feat2_desc:'Trae tus entrenamientos reales de otras plataformas y los compara con lo planeado. Un copiloto, no un sustituto.',
+    ob_feat3_title:'TODO EN UN SOLO LUGAR',
+    ob_feat3_desc:'Carreras reales con enlace de inscripcion, clima, estadisticas y records personales.',
+    ob_feat4_title:'BIKE FIT POR IA',
+    ob_feat4_desc:'Analisis de posicion en la bici a partir de una foto y medidas. Estimacion orientativa, no reemplaza una evaluacion presencial.',
+    ob_feat5_title:'CLUB DE LA MEDIA AZUL',
+    ob_feat5_desc:'Comunidad de triatletas para entrenar y conectar. Funcion social opcional, exclusiva para mayores de 18 anos.',
+    ob_feat6_title:'UN COACH DE IA QUE TE CONOCE',
+    ob_feat6_desc:'Responde dudas, analiza cada entrenamiento realizado y ajusta el plan segun tu evolucion real — no es un chatbot generico.',
+    ob_feat7_title:'EVOLUCION REAL, NO SUPOSICIONES',
+    ob_feat7_desc:'Compara lo planeado vs lo ejecutado, muestra records personales y recalibra el plan cada semana segun lo que realmente hiciste.',
+    ob_intro_cta:'ARMAR MI PLAN',
+    lang_picker_title:'IDIOMA',
+    btn_continuar:'CONTINUAR',
+    welcome_sub:'Tu copiloto personalizado para llegar a la meta listo',
+    welcome_cta:'EMPEZAR',
+    ob_sport_title:'¿Cual es\ntu deporte?',
+    ob_sport_sub:'Vamos a personalizar todo segun tu disciplina.',
+    ob_dist_title:'¿Que distancia\ntiene tu carrera?',
+    ob_dist_sub:'Selecciona el formato de tu proxima competencia.',
+    ob_race_title:'¿Cual es\ntu carrera?',
+    ob_race_sub:'Selecciona, busca carreras reales o agrega una manualmente.',
+    ob_race_searching:'BUSCANDO TU PROXIMA CARRERA...',
+    ob_race_search_btn:'BUSCAR TU PROXIMA CARRERA',
+    ob_race_view_reg:'VER INSCRIPCION',
+    ob_meta_title:'¿Cual es\ntu meta?',
+    ob_meta_sub_prefix:'Tiempo objetivo para',
+    ob_hours_label:'HORAS',
+    ob_minutes_label:'MINUTOS',
+    ob_fitness_title:'Datos\nfisicos',
+    ob_fitness_sub:'Los usamos para calcular tus zonas de entrenamiento.',
+    ob_hours_title:'¿Cuantas horas\nentrenas por semana?',
+    ob_hours_sub:'Tu plan se construira segun tu volumen actual.',
+    ob_days_title:'¿Que dias\npuedes entrenar?',
+    ob_days_sub:'Tu plan respetara tu disponibilidad.',
+    ob_injuries_title:'¿Alguna lesion\no restriccion?',
+    ob_injuries_sub:'Tu plan tendra esto en cuenta para no agravarla.',
+    ob_strava_title:'Conecta\ntus cuentas',
+    ob_strava_sub:'Importamos tus entrenamientos y fotos automaticamente.',
+    ob_fim_title:'Todo listo,',
+    ob_fim_prova:'CARRERA',
+    ob_fim_dist:'DISTANCIA',
+    ob_fim_data:'FECHA',
+    ob_fim_meta:'META',
+    ob_fim_meta_default:'Meta: terminar la carrera',
+    ob_fim_cta:'ENTRAR A MYTRI',
+    tab_hoje:'HOY', tab_semana:'SEMANA', tab_fases:'FASES', tab_cal:'CAL',
+    day0:'Lunes', day1:'Martes', day2:'Miercoles', day3:'Jueves', day4:'Viernes', day5:'Sabado', day6:'Domingo',
+    week_label:'SEMANA',
+    countdown_prova_suffix:'D PARA LA CARRERA',
+    countdown_livre:'LIBRE',
+    countdown_treino_livre:'ENTRENAMIENTO LIBRE \u00b7 SIN CARRERA DEFINIDA',
+    locale_code:'es-ES',
+  },
+  zh:{
+    // Traducao preliminar (a revisar por falante nativo antes de lancar pra usuarios reais) —
+    // as fontes de titulo do app (Anton/Barlow Condensed) nao tem glifos chineses, entao essas
+    // telas caem numa fonte de sistema generica ate a gente ajustar a tipografia especificamente
+    // pra esse idioma.
+    nav_perfil:'个人资料', nav_agenda:'日程', nav_stats:'统计', nav_hist:'历史', nav_fit:'体测', nav_club:'俱乐部',
+    ob_intro_title:'什么是\nMyTri？',
+    ob_intro_sub:'不只是又一个通用表格应用。',
+    ob_feat1_title:'100%个性化计划',
+    ob_feat1_desc:'根据你的比赛、距离、水平、伤病和可用时间生成每一次训练。没有两个计划是一样的。',
+    ob_feat2_title:'连接你的训练应用',
+    ob_feat2_desc:'导入其他平台的真实训练记录，与计划对比。是副驾驶，不是替代品。',
+    ob_feat3_title:'一站式管理',
+    ob_feat3_desc:'真实比赛及报名链接、天气、统计数据和个人记录。',
+    ob_feat4_title:'AI 单车姿势分析',
+    ob_feat4_desc:'通过照片和测量数据分析单车姿势。仅供参考，不能替代现场专业评估。',
+    ob_feat5_title:'蓝袜俱乐部',
+    ob_feat5_desc:'与铁人三项爱好者一起训练交流的社区。可选社交功能，仅限18岁以上。',
+    ob_feat6_title:'懂你的 AI 教练',
+    ob_feat6_desc:'回答问题，分析你完成的每一次训练，并根据你的真实进展调整计划——不是通用聊天机器人。',
+    ob_feat7_title:'真实进步，而非猜测',
+    ob_feat7_desc:'对比计划与实际执行，展示个人记录，并根据你的实际表现每周重新校准计划。',
+    ob_intro_cta:'制定我的计划',
+    lang_picker_title:'语言',
+    btn_continuar:'继续',
+    welcome_sub:'你的专属副驾驶，助你准备好冲过终点线',
+    welcome_cta:'开始',
+    ob_sport_title:'你的运动\n项目是？',
+    ob_sport_sub:'我们将根据你的项目个性化一切。',
+    ob_dist_title:'你比赛的\n距离是？',
+    ob_dist_sub:'选择你下一场比赛的项目。',
+    ob_race_title:'你的\n比赛是？',
+    ob_race_sub:'选择、搜索真实比赛，或手动添加。',
+    ob_race_searching:'正在搜索你的下一场比赛...',
+    ob_race_search_btn:'搜索你的下一场比赛',
+    ob_race_view_reg:'查看报名',
+    ob_meta_title:'你的\n目标是？',
+    ob_meta_sub_prefix:'目标完赛时间：',
+    ob_hours_label:'小时',
+    ob_minutes_label:'分钟',
+    ob_fitness_title:'身体\n数据',
+    ob_fitness_sub:'用于计算你的训练区间。',
+    ob_hours_title:'你每周训练\n多少小时？',
+    ob_hours_sub:'你的计划将根据当前训练量制定。',
+    ob_days_title:'你哪些天\n可以训练？',
+    ob_days_sub:'你的计划将根据你的时间安排制定。',
+    ob_injuries_title:'有伤病或\n限制吗？',
+    ob_injuries_sub:'你的计划会考虑这一点，避免加重伤病。',
+    ob_strava_title:'连接\n你的账号',
+    ob_strava_sub:'自动导入你的训练和照片。',
+    ob_fim_title:'一切就绪，',
+    ob_fim_prova:'比赛',
+    ob_fim_dist:'距离',
+    ob_fim_data:'日期',
+    ob_fim_meta:'目标',
+    ob_fim_meta_default:'目标：完成比赛',
+    ob_fim_cta:'进入 MYTRI',
+    tab_hoje:'今天', tab_semana:'本周', tab_fases:'阶段', tab_cal:'日历',
+    day0:'星期一', day1:'星期二', day2:'星期三', day3:'星期四', day4:'星期五', day5:'星期六', day6:'星期日',
+    week_label:'第',
+    countdown_prova_suffix:'天后比赛',
+    countdown_livre:'自由训练',
+    countdown_treino_livre:'自由训练 \u00b7 未设定比赛',
+    locale_code:'zh-CN',
+  },
+};
+function getLang(){ const l=localStorage.getItem('mytri_lang'); return SUPPORTED_LANGS.includes(l)?l:'pt'; }
+function setLang(l){ if(!SUPPORTED_LANGS.includes(l))return; localStorage.setItem('mytri_lang',l); location.reload(); }
+function t(key){ const lang=getLang(); return (I18N[lang]&&I18N[lang][key])||I18N.pt[key]||key; }
+
 // ── CONSTANTS ──
 const SWIM='swim',BIKE='bike',RUN='run',BRICK='brick',GYM='gym',REST='rest',TENNIS='tennis';
 const DAY_NAMES=['SEG','TER','QUA','QUI','SEX','SAB','DOM'];
@@ -1635,7 +1906,7 @@ function switchAgendaSubTab(sub){
 function renderAgenda(){
   const el=document.getElementById('view-agenda');
   if(!el)return;
-  const subTabs=[{id:'hoje',label:'HOJE'},{id:'semana',label:'SEMANA'},{id:'fases',label:'FASES'},{id:'calendario',label:'CAL'}];
+  const subTabs=[{id:'hoje',label:t('tab_hoje')},{id:'semana',label:t('tab_semana')},{id:'fases',label:t('tab_fases')},{id:'calendario',label:t('tab_cal')}];
   el.innerHTML=`
     <div style="display:flex;border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:10">
       ${subTabs.map(t=>`
@@ -1660,15 +1931,15 @@ function updateCountdown(){
         const loc=p.raceLocal||p.city||'';
         sub.textContent=(p.raceName+(loc?' \u00b7 '+loc:'')).toUpperCase();
       }else{
-        sub.textContent='TREINO LIVRE \u00b7 SEM PROVA DEFINIDA';
+        sub.textContent=t('countdown_treino_livre');
       }
     }
   }catch(e){}
   const el=document.getElementById('countdown-header');
   if(!el)return;
-  if(!hasRace()){ el.textContent='LIVRE'; return; }
+  if(!hasRace()){ el.textContent=t('countdown_livre'); return; }
   const d=countdownDays();
-  el.textContent=`${d}D PROVA`;
+  el.textContent=`${d}${t('countdown_prova_suffix')}`;
 }
 
 // ── HOJE ──
@@ -2797,8 +3068,8 @@ function _buildDaySlide(w,d){
   const cellDate=new Date(PLAN_START);cellDate.setDate(PLAN_START.getDate()+(w-1)*7+d);
   const cellDateStr2=cellDate.toDateString();
   const isToday=new Date().toDateString()===cellDateStr2;
-  const dateStr=cellDate.toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'});
-  const dayName=DAY_FULL[d]||DAY_FULL[0];
+  const dateStr=cellDate.toLocaleDateString(t('locale_code'),{weekday:'long',day:'numeric',month:'long'});
+  const dayName=t('day'+d);
   const header=document.createElement('div');
   header.className='hoje-header';
   const atStart=w===1&&d===0, atEnd=w===16&&d===6;
@@ -2824,7 +3095,7 @@ function _buildDaySlide(w,d){
     </div>
     <div class="hoje-title" style="${isToday?'color:var(--accent)':''}">${dayName.toUpperCase()}</div>
     <div style="display:flex;align-items:center;gap:10px">
-      <div class="hoje-week">SEMANA ${w} &middot; ${getWeekDates(w)}</div>
+      <div class="hoje-week">${t('week_label')} ${w} &middot; ${getWeekDates(w)}</div>
       ${totalCal>0?`<div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:.5px">${totalCal} KCAL</div>`:''}
     </div>`;
   // Profile mini card removido — agora existe aba dedicada PERFIL no nav
@@ -3651,6 +3922,13 @@ function togglePhaseWeek(header){header.nextElementSibling.classList.toggle('ope
 // ── STATS ──
 // ── CONSULTORIA LIVE (chat com IA que conhece o perfil) ──
 let _consultHistory=[];
+// Historico persistido — antes era so uma variavel em memoria, perdia a conversa toda vez
+// que o app recarregava (fechar/abrir de novo, refresh). Agora salva e recarrega.
+const CONSULT_HISTORY_KEY='mytri_consult_history';
+try{ _consultHistory=JSON.parse(localStorage.getItem(CONSULT_HISTORY_KEY)||'[]'); }catch(e){ _consultHistory=[]; }
+function _saveConsultHistory(){
+  try{ localStorage.setItem(CONSULT_HISTORY_KEY, JSON.stringify(_consultHistory.slice(-40))); }catch(e){}
+}
 const _consultSuggestions=[
   'Como está minha evolução?',
   'Posso trocar o treino de hoje?',
@@ -3665,10 +3943,22 @@ function openConsult(){
   m.style.display='flex';
   if(!_consultHistory.length){
     _renderConsultWelcome();
+  }else{
+    // Reconstroi as bolhas a partir do historico salvo, em vez de mostrar so a saudacao de novo.
+    const box=document.getElementById('consult-messages');
+    box.innerHTML='';
+    _consultHistory.forEach(m=>box.appendChild(_consultBubble(m.role,m.content)));
+    box.scrollTop=box.scrollHeight;
+    _clearSuggestions();
   }
   setTimeout(()=>{ const i=document.getElementById('consult-input'); if(i)i.focus(); },200);
 }
 function closeConsult(){ const m=document.getElementById('consult-modal'); if(m)m.style.display='none'; }
+function clearConsultHistory(){
+  _consultHistory=[];
+  _saveConsultHistory();
+  _renderConsultWelcome();
+}
 
 function _consultProfile(){
   try{
@@ -3736,6 +4026,7 @@ async function sendConsult(){
   // bolha do usuario
   box.appendChild(_consultBubble('user',text));
   _consultHistory.push({role:'user',content:text});
+  _saveConsultHistory();
   input.value=''; input.style.height='auto';
   box.scrollTop=box.scrollHeight;
   // bolha "digitando"
@@ -3754,6 +4045,7 @@ async function sendConsult(){
     const answer=j.text||'Não consegui responder agora. Tenta de novo em instantes.';
     box.appendChild(_consultBubble('assistant',answer));
     _consultHistory.push({role:'assistant',content:answer});
+    _saveConsultHistory();
     box.scrollTop=box.scrollHeight;
   }catch(e){
     const typingEl=document.getElementById('consult-typing-bubble');
@@ -5847,7 +6139,23 @@ RESUMO_JSON:{"selim_atual":"${selim||''}","selim_ideal":"NUM","selim_recuo":"NUM
     // "atual -> recomendado" antes do texto corrido — antes só tinha a explicação longa,
     // sem um resumo rápido de execução das alteracoes.
     let resumo=null;
-    const _rm=text.match(/RESUMO_JSON:\s*(\{[^\n]*\})/);
+    // Regex tolera JSON em varias linhas (balanceamento de chaves) — antes exigia tudo numa
+    // linha so, e se a IA formatava o JSON com quebra de linha o quadro-resumo sumia sem avisar.
+    const _rm=(()=>{
+      const key=text.indexOf('RESUMO_JSON:');
+      if(key===-1)return null;
+      const start=text.indexOf('{',key);
+      if(start===-1)return null;
+      let depth=0,inStr=false,esc=false;
+      for(let i=start;i<text.length;i++){
+        const c=text[i];
+        if(inStr){ if(esc)esc=false; else if(c==='\\')esc=true; else if(c==='"')inStr=false; continue; }
+        if(c==='"'){ inStr=true; continue; }
+        if(c==='{')depth++;
+        else if(c==='}'){ depth--; if(depth===0)return [text.slice(key,i+1), text.slice(start,i+1)]; }
+      }
+      return null;
+    })();
     if(_rm){
       try{ resumo=JSON.parse(_rm[1]); }catch(e){}
       text=text.replace(_rm[0],'').trim();
@@ -7088,6 +7396,12 @@ function renderProfile(){
     </div>
     <div class="profile-section" style="margin-top:8px">
       <div class="profile-section-title" style="color:var(--muted)">Zona de desenvolvimento</div>
+      <div style="margin-bottom:16px">
+        <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;display:block;margin-bottom:8px">${t('lang_picker_title')}</label>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          ${SUPPORTED_LANGS.map(l=>`<button onclick="setLang('${l}')" style="flex:1;min-width:70px;padding:10px;border-radius:6px;border:1px solid ${getLang()===l?'var(--accent)':'var(--border)'};background:${getLang()===l?'rgba(0,230,118,0.12)':'var(--surface)'};color:${getLang()===l?'var(--accent)':'var(--muted2)'};font-family:var(--font-ui);font-size:11px;letter-spacing:.5px;cursor:pointer">${LANG_LABELS[l]}</button>`).join('')}
+        </div>
+      </div>
       <button onclick="regeneratePlanClean()" style="width:100%;padding:14px;background:rgba(0,230,118,0.08);border:1px solid rgba(0,230,118,0.35);color:var(--accent);font-family:var(--font-ui);font-size:11px;letter-spacing:1.5px;border-radius:4px;cursor:pointer;margin-bottom:8px">REGENERAR PLANO (LIMPAR DADOS ANTIGOS)</button>
       <button onclick="resetOnboarding()" style="width:100%;padding:14px;background:none;border:1px solid var(--border);color:var(--muted);font-family:var(--font-ui);font-size:11px;letter-spacing:1.5px;border-radius:4px;cursor:pointer;margin-bottom:8px">RESETAR ONBOARDING</button>
       <button onclick="resetClubTerms()" style="width:100%;padding:14px;background:none;border:1px solid var(--border);color:var(--muted);font-family:var(--font-ui);font-size:11px;letter-spacing:1.5px;border-radius:4px;cursor:pointer;margin-bottom:8px">RESETAR CLUBE DA MEIA AZUL</button>
@@ -7552,10 +7866,10 @@ function renderObWelcome(c){
       <div style="position:relative;text-align:center;padding:0 28px;display:flex;flex-direction:column;align-items:center;gap:0;width:100%">
         <img src="/logo.png" alt="MyTri" class="ob-logo-fade" style="width:min(80vw,360px);height:auto;display:block;margin-bottom:30px">
         <div class="ob-sub-anim" style="font-family:var(--font-body);font-size:16px;color:rgba(255,255,255,0.82);line-height:1.7;margin-bottom:40px;animation-delay:1.1s;max-width:300px">
-          Seu co-piloto personalizado para chegar na linha de chegada pronto${nome}.
+          ${t('welcome_sub')}${nome}.
         </div>
         <div class="ob-sub-anim" style="animation-delay:1.4s;width:100%;max-width:340px">
-          <button onclick="obNext()" style="background:var(--accent);color:#000;border:none;width:100%;padding:20px;font-family:var(--font-ui);font-size:14px;font-weight:700;letter-spacing:2px;border-radius:6px;cursor:pointer">COMEÇAR</button>
+          <button onclick="obNext()" style="background:var(--accent);color:#000;border:none;width:100%;padding:20px;font-family:var(--font-ui);font-size:14px;font-weight:700;letter-spacing:2px;border-radius:6px;cursor:pointer">${t('welcome_cta')}</button>
         </div>
       </div>
     </div>`;
@@ -7579,62 +7893,65 @@ function renderObWelcome(c){
 function renderObIntro(c){
   c.innerHTML=`
     <div style="padding:64px 28px 40px;display:flex;flex-direction:column">
-      <div class="ob-title" style="margin-bottom:8px">O que e<br>o MyTri?</div>
-      <div class="ob-sub" style="margin-bottom:28px">Não e mais um app de planilha generica.</div>
+      <div style="display:flex;justify-content:flex-end;gap:6px;margin-bottom:16px">
+        ${SUPPORTED_LANGS.map(l=>`<button onclick="setLang('${l}')" style="padding:6px 10px;border-radius:6px;border:1px solid ${getLang()===l?'var(--accent)':'var(--border)'};background:${getLang()===l?'rgba(0,230,118,0.12)':'none'};color:${getLang()===l?'var(--accent)':'var(--muted)'};font-family:var(--font-ui);font-size:10px;letter-spacing:1px;cursor:pointer">${l.toUpperCase()}</button>`).join('')}
+      </div>
+      <div class="ob-title" style="margin-bottom:8px">${t('ob_intro_title').replace(/\n/g,'<br>')}</div>
+      <div class="ob-sub" style="margin-bottom:28px">${t('ob_intro_sub')}</div>
 
       <div style="display:flex;flex-direction:column;gap:16px">
         <div style="display:flex;gap:14px;align-items:flex-start">
           <div style="width:38px;height:38px;border-radius:9px;background:rgba(0,230,118,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--accent)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/><circle cx="12" cy="12" r="4"/></svg></div>
           <div>
-            <div style="font-family:var(--font-ui);font-size:13px;font-weight:700;color:var(--text);letter-spacing:.3px;margin-bottom:2px">PLANO 100% PERSONALIZADO</div>
-            <div style="font-family:var(--font-body);font-size:13px;color:var(--muted2);line-height:1.5">Cada treino gerado pela sua prova, distancia, nível, lesoes e dias disponíveis. Nenhum plano igual ao outro.</div>
+            <div style="font-family:var(--font-ui);font-size:13px;font-weight:700;color:var(--text);letter-spacing:.3px;margin-bottom:2px">${t('ob_feat1_title')}</div>
+            <div style="font-family:var(--font-body);font-size:13px;color:var(--muted2);line-height:1.5">${t('ob_feat1_desc')}</div>
           </div>
         </div>
         <div style="display:flex;gap:14px;align-items:flex-start">
           <div style="width:38px;height:38px;border-radius:9px;background:rgba(26,108,240,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#1a6cf0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
           <div>
-            <div style="font-family:var(--font-ui);font-size:13px;font-weight:700;color:var(--text);letter-spacing:.3px;margin-bottom:2px">CONECTA COM SEUS APPS DE TREINO</div>
-            <div style="font-family:var(--font-body);font-size:13px;color:var(--muted2);line-height:1.5">Puxa seus treinos reais de outras plataformas e compara com o planejado. Um co-piloto, não um substituto.</div>
+            <div style="font-family:var(--font-ui);font-size:13px;font-weight:700;color:var(--text);letter-spacing:.3px;margin-bottom:2px">${t('ob_feat2_title')}</div>
+            <div style="font-family:var(--font-body);font-size:13px;color:var(--muted2);line-height:1.5">${t('ob_feat2_desc')}</div>
           </div>
         </div>
         <div style="display:flex;gap:14px;align-items:flex-start">
           <div style="width:38px;height:38px;border-radius:9px;background:rgba(224,92,42,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#e05c2a"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div>
           <div>
-            <div style="font-family:var(--font-ui);font-size:13px;font-weight:700;color:var(--text);letter-spacing:.3px;margin-bottom:2px">TUDO NUM LUGAR SÓ</div>
-            <div style="font-family:var(--font-body);font-size:13px;color:var(--muted2);line-height:1.5">Provas reais com link de inscricao, clima, estatísticas e recordes pessoais.</div>
+            <div style="font-family:var(--font-ui);font-size:13px;font-weight:700;color:var(--text);letter-spacing:.3px;margin-bottom:2px">${t('ob_feat3_title')}</div>
+            <div style="font-family:var(--font-body);font-size:13px;color:var(--muted2);line-height:1.5">${t('ob_feat3_desc')}</div>
           </div>
         </div>
         <div style="display:flex;gap:14px;align-items:flex-start">
           <div style="width:38px;height:38px;border-radius:9px;background:rgba(224,92,42,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#e05c2a"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.5" cy="17" r="3.5"/><circle cx="18.5" cy="17" r="3.5"/><path d="M5.5 17l4-8h5l-3 8M12 6h3"/></svg></div>
           <div>
-            <div style="font-family:var(--font-ui);font-size:13px;font-weight:700;color:var(--text);letter-spacing:.3px;margin-bottom:2px">BIKE FIT POR IA</div>
-            <div style="font-family:var(--font-body);font-size:13px;color:var(--muted2);line-height:1.5">Analise de posição na bike a partir de foto e medidas. Estimativa orientativa, não substitui avaliação presencial.</div>
+            <div style="font-family:var(--font-ui);font-size:13px;font-weight:700;color:var(--text);letter-spacing:.3px;margin-bottom:2px">${t('ob_feat4_title')}</div>
+            <div style="font-family:var(--font-body);font-size:13px;color:var(--muted2);line-height:1.5">${t('ob_feat4_desc')}</div>
           </div>
         </div>
         <div style="display:flex;gap:14px;align-items:flex-start">
           <div style="width:38px;height:38px;border-radius:9px;background:rgba(26,108,240,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#1a6cf0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
           <div>
-            <div style="font-family:var(--font-ui);font-size:13px;font-weight:700;color:var(--text);letter-spacing:.3px;margin-bottom:2px">CLUBE DA MEIA AZUL</div>
-            <div style="font-family:var(--font-body);font-size:13px;color:var(--muted2);line-height:1.5">Comunidade de triatletas pra treinar e trocar junto. Recurso social opcional (18+), sem verificacao de identidade.</div>
+            <div style="font-family:var(--font-ui);font-size:13px;font-weight:700;color:var(--text);letter-spacing:.3px;margin-bottom:2px">${t('ob_feat5_title')}</div>
+            <div style="font-family:var(--font-body);font-size:13px;color:var(--muted2);line-height:1.5">${t('ob_feat5_desc')}</div>
           </div>
         </div>
         <div style="display:flex;gap:14px;align-items:flex-start">
           <div style="width:38px;height:38px;border-radius:9px;background:rgba(155,106,240,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#9b6af0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></div>
           <div>
-            <div style="font-family:var(--font-ui);font-size:13px;font-weight:700;color:var(--text);letter-spacing:.3px;margin-bottom:2px">COACH IA QUE CONHECE VOCÊ</div>
-            <div style="font-family:var(--font-body);font-size:13px;color:var(--muted2);line-height:1.5">Tira dúvida, analisa cada treino executado e ajusta o plano com base na sua evolução real — não um chatbot generico.</div>
+            <div style="font-family:var(--font-ui);font-size:13px;font-weight:700;color:var(--text);letter-spacing:.3px;margin-bottom:2px">${t('ob_feat6_title')}</div>
+            <div style="font-family:var(--font-body);font-size:13px;color:var(--muted2);line-height:1.5">${t('ob_feat6_desc')}</div>
           </div>
         </div>
         <div style="display:flex;gap:14px;align-items:flex-start">
           <div style="width:38px;height:38px;border-radius:9px;background:rgba(0,230,118,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--accent)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.1-2.8-2.8L7 14"/></svg></div>
           <div>
-            <div style="font-family:var(--font-ui);font-size:13px;font-weight:700;color:var(--text);letter-spacing:.3px;margin-bottom:2px">EVOLUÇÃO REAL, NÃO CHUTE</div>
-            <div style="font-family:var(--font-body);font-size:13px;color:var(--muted2);line-height:1.5">Compara planejado vs executado, mostra recordes pessoais e recalibra o plano toda semana conforme o que você realmente fez.</div>
+            <div style="font-family:var(--font-ui);font-size:13px;font-weight:700;color:var(--text);letter-spacing:.3px;margin-bottom:2px">${t('ob_feat7_title')}</div>
+            <div style="font-family:var(--font-body);font-size:13px;color:var(--muted2);line-height:1.5">${t('ob_feat7_desc')}</div>
           </div>
         </div>
       </div>
 
-      <button class="ob-btn" style="margin-top:24px" onclick="obNext()">MONTAR MEU PLANO</button>
+      <button class="ob-btn" style="margin-top:24px" onclick="obNext()">${t('ob_intro_cta')}</button>
     </div>`;
 }
 
@@ -7642,8 +7959,8 @@ function renderObEsporte(c){
   const sports=Object.keys(SPORT_INFO);
   c.innerHTML=`
     <div style="padding:32px 24px 0">
-      <div class="ob-title">Qual e<br>o seu esporte?</div>
-      <div class="ob-sub">Vamos personalizar tudo para a sua modalidade.</div>
+      <div class="ob-title">${t('ob_sport_title').replace(/\n/g,'<br>')}</div>
+      <div class="ob-sub">${t('ob_sport_sub')}</div>
       <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
         ${sports.map(s=>{
           const info=SPORT_INFO[s];
@@ -7663,7 +7980,7 @@ function renderObEsporte(c){
       </div>
     </div>
     <div style="padding:24px">
-      <button class="ob-btn" onclick="obNext()">CONTINUAR</button>
+      <button class="ob-btn" onclick="obNext()">${t('btn_continuar')}</button>
     </div>`;
 }
 
@@ -7691,8 +8008,8 @@ function renderObDistancia(c){
   const dists=Object.keys(DIST_INFO).filter(k=>DIST_INFO[k].sport===sport);
   c.innerHTML=`
     <div style="padding:32px 24px 0">
-      <div class="ob-title">Qual a distancia<br>da sua prova?</div>
-      <div class="ob-sub">Selecione o formato da sua próxima competicao.</div>
+      <div class="ob-title">${t('ob_dist_title').replace(/\n/g,'<br>')}</div>
+      <div class="ob-sub">${t('ob_dist_sub')}</div>
       <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
         ${dists.map(d=>{
           const info=DIST_INFO[d];
@@ -7712,7 +8029,7 @@ function renderObDistancia(c){
       </div>
     </div>
     <div style="padding:24px">
-      <button class="ob-btn" onclick="obNext()">CONTINUAR</button>
+      <button class="ob-btn" onclick="obNext()">${t('btn_continuar')}</button>
     </div>`;
 }
 
@@ -7751,14 +8068,14 @@ function renderObProva(c){
           <div style="font-family:var(--font-body);font-size:11px;color:var(--muted2);margin-top:3px">${p.local||''} &middot; ${p.date?new Date(p.date+'T12:00:00').toLocaleDateString('pt-BR',{day:'numeric',month:'short',year:'numeric'}):''}</div>
         </div>
       </div>
-      ${p.url?`<div onclick="event.stopPropagation();window.open('${p.url}','_blank')" style="border-top:1px solid ${sel?sportInfo.color+'44':'var(--border)'};padding:8px 16px;font-family:var(--font-ui);font-size:9px;color:${sel?sportInfo.color:'var(--muted)'};letter-spacing:1.5px;cursor:pointer">VER INSCRICOES</div>`:''}
+      ${p.url?`<div onclick="event.stopPropagation();window.open('${p.url}','_blank')" style="border-top:1px solid ${sel?sportInfo.color+'44':'var(--border)'};padding:8px 16px;font-family:var(--font-ui);font-size:9px;color:${sel?sportInfo.color:'var(--muted)'};letter-spacing:1.5px;cursor:pointer">${t('ob_race_view_reg')}</div>`:''}
     </div>`;
   c.innerHTML=`
     <div style="padding:32px 24px 0">
-      <div class="ob-title">Qual e<br>sua prova?</div>
-      <div class="ob-sub">Selecione, busque provas reais ou cadastre manualmente.</div>
+      <div class="ob-title">${t('ob_race_title').replace(/\n/g,'<br>')}</div>
+      <div class="ob-sub">${t('ob_race_sub')}</div>
       <div onclick="obSearchRaces()" style="margin-bottom:14px;padding:12px 16px;border:1.5px solid ${sportInfo.color};border-radius:8px;cursor:pointer;text-align:center;font-family:var(--font-ui);font-size:12px;color:${sportInfo.color};letter-spacing:1px;display:flex;align-items:center;justify-content:center;gap:8px">
-        ${searching?'<span style="width:14px;height:14px;border:2px solid '+sportInfo.color+';border-top-color:transparent;border-radius:50%;display:inline-block;animation:spin 0.8s linear infinite"></span> BUSCANDO SUA PRÓXIMA PROVA...':'BUSCAR SUA PRÓXIMA PROVA'}
+        ${searching?'<span style="width:14px;height:14px;border:2px solid '+sportInfo.color+';border-top-color:transparent;border-radius:50%;display:inline-block;animation:spin 0.8s linear infinite"></span> '+t('ob_race_searching'):t('ob_race_search_btn')}
       </div>
       <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
         ${webRaces&&webRaces.length?(()=>{
@@ -7790,7 +8107,7 @@ function renderObProva(c){
         <div class="ob-field"><label>Nome da prova</label><input id="ob-prova-nome" value="${obData.raceName||''}" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:12px;border-radius:4px"></div>
         <div class="ob-field"><label>Data da prova</label><input id="ob-data" type="date" value="${obData.raceDate||''}" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:12px;border-radius:4px"></div>
         <div class="ob-field"><label>Cidade / Estado da prova</label><input id="ob-prova-local" value="${obData.raceLocal||''}" placeholder="ex: Guaruja, SP" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:12px;border-radius:4px"><div style="font-family:var(--font-body);font-size:11px;color:var(--muted2);margin-top:6px;line-height:1.4">Usado para prever o clima no dia da prova (calor, frio, chuva) e ajustar hidratação e estratégia.</div></div>
-        <button class="ob-btn" onclick="obNext()" style="margin-top:12px">CONTINUAR</button>
+        <button class="ob-btn" onclick="obNext()" style="margin-top:12px">${t('btn_continuar')}</button>
       `:''}
     </div>
     <div style="padding:24px">
@@ -7939,14 +8256,14 @@ function renderObMeta(c){
   const min=obData.goalMin||0;
   c.innerHTML=`
     <div style="padding:32px 24px 0">
-      <div class="ob-title">Qual e<br>sua meta?</div>
-      <div class="ob-sub">Tempo alvo para ${obData.raceName||dist.label}.</div>
+      <div class="ob-title">${t('ob_meta_title').replace(/\n/g,'<br>')}</div>
+      <div class="ob-sub">${t('ob_meta_sub_prefix')} ${obData.raceName||dist.label}.</div>
       <div style="font-family:var(--font-ui);font-size:10px;color:var(--accent);letter-spacing:2px;margin-bottom:16px">${dist.label.toUpperCase()} &middot; ${dist.sub||''}</div>
 
       <div style="display:flex;align-items:center;justify-content:center;gap:16px;margin:32px 0">
         <div style="text-align:center">
           <div id="ob-goal-hr-display" style="font-family:var(--font-display);font-size:64px;color:var(--text)">${String(hr).padStart(2,'0')}</div>
-          <div style="font-family:var(--font-ui);font-size:11px;color:var(--muted);letter-spacing:1px">HORAS</div>
+          <div style="font-family:var(--font-ui);font-size:11px;color:var(--muted);letter-spacing:1px">${t('ob_hours_label')}</div>
           <div style="display:flex;gap:8px;margin-top:8px">
             <button onclick="obAdjust('hr',-1)" style="width:40px;height:40px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-size:20px;border-radius:8px;cursor:pointer">-</button>
             <button onclick="obAdjust('hr',1)" style="width:40px;height:40px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-size:20px;border-radius:8px;cursor:pointer">+</button>
@@ -7955,7 +8272,7 @@ function renderObMeta(c){
         <div style="font-family:var(--font-display);font-size:48px;color:var(--muted)">:</div>
         <div style="text-align:center">
           <div id="ob-goal-min-display" style="font-family:var(--font-display);font-size:64px;color:var(--text)">${String(min).padStart(2,'0')}</div>
-          <div style="font-family:var(--font-ui);font-size:11px;color:var(--muted);letter-spacing:1px">MINUTOS</div>
+          <div style="font-family:var(--font-ui);font-size:11px;color:var(--muted);letter-spacing:1px">${t('ob_minutes_label')}</div>
           <div style="display:flex;gap:8px;margin-top:8px">
             <button onclick="obAdjust('min',-5)" style="width:40px;height:40px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-size:20px;border-radius:8px;cursor:pointer">-</button>
             <button onclick="obAdjust('min',5)" style="width:40px;height:40px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-size:20px;border-radius:8px;cursor:pointer">+</button>
@@ -8031,7 +8348,7 @@ function renderObMeta(c){
       })()}
     </div>
     <div style="padding:24px">
-      <button class="ob-btn" onclick="obSaveMeta();obNext()">CONTINUAR</button>
+      <button class="ob-btn" onclick="obSaveMeta();obNext()">${t('btn_continuar')}</button>
       <button class="ob-btn-skip" onclick="obData.goalTime=null;obNext()">Quero apenas completar a prova</button>
     </div>`;
 }
@@ -8197,7 +8514,7 @@ function renderObModalidades(c){
         </div>`).join('')}
     </div>
     <div style="padding:24px">
-      <button class="ob-btn" onclick="obSaveModalidades();obNext()">CONTINUAR</button>
+      <button class="ob-btn" onclick="obSaveModalidades();obNext()">${t('btn_continuar')}</button>
     </div>`;
 }
 
@@ -8218,8 +8535,8 @@ function obSaveModalidades(){
 function renderObFitness(c){
   c.innerHTML=`
     <div style="padding:32px 24px 0">
-      <div class="ob-title">Dados<br>fisicos</div>
-      <div class="ob-sub">Usamos para calcular suas zonas de treino.</div>
+      <div class="ob-title">${t('ob_fitness_title').replace(/\n/g,'<br>')}</div>
+      <div class="ob-sub">${t('ob_fitness_sub')}</div>
 
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px">
         <div><div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;margin-bottom:6px">IDADE</div>
@@ -8258,7 +8575,7 @@ function renderObFitness(c){
       </div>
     </div>
     <div style="padding:16px 24px 24px">
-      <button class="ob-btn" onclick="obSaveFitness();obNext()">CONTINUAR</button>
+      <button class="ob-btn" onclick="obSaveFitness();obNext()">${t('btn_continuar')}</button>
       <button class="ob-btn-skip" onclick="obNext()">Pular</button>
     </div>`;
 }
@@ -8340,8 +8657,8 @@ function renderObHoras(c){
   ];
   c.innerHTML=`
     <div style="padding:32px 24px 0">
-      <div class="ob-title">Quantas horas<br>treina por semana?</div>
-      <div class="ob-sub">Seu plano sera construido a partir do seu volume atual.</div>
+      <div class="ob-title">${t('ob_hours_title').replace(/\n/g,'<br>')}</div>
+      <div class="ob-sub">${t('ob_hours_sub')}</div>
       <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
         ${opts.map(o=>`<div onclick="obSelectHoras('${o.v}')" style="padding:18px 20px;background:${obData.weeklyHours===o.v?'rgba(0,230,118,.08)':'var(--surface)'};border:2px solid ${obData.weeklyHours===o.v?'var(--accent)':'var(--border)'};border-radius:6px;cursor:pointer">
           <div style="font-family:var(--font-ui);font-size:14px;font-weight:700;letter-spacing:.5px;color:${obData.weeklyHours===o.v?'var(--accent)':'var(--text)'}">${o.l}</div>
@@ -8350,7 +8667,7 @@ function renderObHoras(c){
       </div>
     </div>
     <div style="padding:24px">
-      <button class="ob-btn" onclick="obNext()">CONTINUAR</button>
+      <button class="ob-btn" onclick="obNext()">${t('btn_continuar')}</button>
     </div>`;
 }
 
@@ -8379,8 +8696,8 @@ function renderObDias(c){
   };
   c.innerHTML=`
     <div style="padding:32px 24px 0">
-      <div class="ob-title">Quais dias você<br>pode treinar?</div>
-      <div class="ob-sub">Seu plano sera montado respeitando sua disponibilidade.</div>
+      <div class="ob-title">${t('ob_days_title').replace(/\n/g,'<br>')}</div>
+      <div class="ob-sub">${t('ob_days_sub')}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
         ${dias.map(d=>{
           const sel=obData.diasDisponiveis.includes(d.v);
@@ -8394,7 +8711,7 @@ function renderObDias(c){
       </div>
     </div>
     <div style="padding:24px">
-      <button class="ob-btn" onclick="obNext()" ${obData.diasDisponiveis.length===0?'disabled style="opacity:.4"':''}>CONTINUAR</button>
+      <button class="ob-btn" onclick="obNext()" ${obData.diasDisponiveis.length===0?'disabled style="opacity:.4"':''}>${t('btn_continuar')}</button>
       <button class="ob-btn-skip" onclick="obData.diasDisponiveis=['seg','ter','qua','qui','sex'];obNext()">Pular — usar dias uteis</button>
     </div>`;
 }
@@ -8421,8 +8738,8 @@ function renderObLesoes(c){
   if(!obData.lesoes) obData.lesoes=[];
   c.innerHTML=`
     <div style="padding:32px 24px 0">
-      <div class="ob-title">Alguma lesao<br>ou restrição?</div>
-      <div class="ob-sub">Seu plano vai considerar isso para evitar agravar lesoes.</div>
+      <div class="ob-title">${t('ob_injuries_title').replace(/\n/g,'<br>')}</div>
+      <div class="ob-sub">${t('ob_injuries_sub')}</div>
       <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
         ${lesoes.map(les=>{
           const sel=obData.lesoes.includes(les.v);
@@ -8442,7 +8759,7 @@ function renderObLesoes(c){
       </div>`:''}
     </div>
     <div style="padding:24px">
-      <button class="ob-btn" onclick="obNext()">CONTINUAR</button>
+      <button class="ob-btn" onclick="obNext()">${t('btn_continuar')}</button>
     </div>`;
 }
 
@@ -8468,8 +8785,8 @@ function renderObStrava(c){
   const igHandle=localStorage.getItem('mytri_ig_handle')||'';
   c.innerHTML=`
     <div style="padding:32px 24px 0">
-      <div class="ob-title">Conecte<br>suas redes</div>
-      <div class="ob-sub">Importamos treinos e fotos automaticamente.</div>
+      <div class="ob-title">${t('ob_strava_title').replace(/\n/g,'<br>')}</div>
+      <div class="ob-sub">${t('ob_strava_sub')}</div>
       <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:14px;margin-top:24px">
         ${connected?`
           <div style="display:flex;align-items:center;gap:16px;padding:20px;background:rgba(252,76,2,.1);border:2px solid #FC4C02;border-radius:8px">
@@ -8503,7 +8820,7 @@ function renderObStrava(c){
           </button>
         `}
 
-        <button class="ob-btn" onclick="obNext()" style="margin-top:8px">CONTINUAR</button>
+        <button class="ob-btn" onclick="obNext()" style="margin-top:8px">${t('btn_continuar')}</button>
         <button class="ob-btn-skip" onclick="obNext()" style="margin-top:4px">Não uso Strava nem Instagram &middot; seguir sem conectar</button>
         <div style="font-family:var(--font-body);font-size:11px;color:var(--muted2);text-align:center;line-height:1.5;margin-top:8px">Conectar e opcional. Sem Strava, você marca e registra os treinos manualmente. Da para conectar depois no seu perfil.</div>
       </div>
@@ -8562,17 +8879,17 @@ function renderObFim(c){
   c.innerHTML=`
     <div style="flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;gap:16px;padding:40px 32px">
       <div style="font-size:64px"><svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.5"><path d="M4 4v16M4 8h12l-2-4M4 12h10l-2 4"/></svg></div>
-      <div style="font-family:var(--font-display);font-size:36px;letter-spacing:1px;line-height:1.1">Tudo pronto,<br>${nome.split(' ')[0]}!</div>
+      <div style="font-family:var(--font-display);font-size:36px;letter-spacing:1px;line-height:1.1">${t('ob_fim_title')}<br>${nome.split(' ')[0]}!</div>
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:20px;width:100%;text-align:left;margin-top:8px">
-        ${obData.raceName?`<div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;margin-bottom:4px">PROVA</div><div style="font-family:var(--font-body);font-size:14px;margin-bottom:12px">${obData.raceName}</div>`:''}
-        <div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;margin-bottom:4px">DISTANCIA</div>
+        ${obData.raceName?`<div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;margin-bottom:4px">${t('ob_fim_prova')}</div><div style="font-family:var(--font-body);font-size:14px;margin-bottom:12px">${obData.raceName}</div>`:''}
+        <div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;margin-bottom:4px">${t('ob_fim_dist')}</div>
         <div style="font-family:var(--font-body);font-size:14px;margin-bottom:12px">${dist.label} &middot; ${dist.sub||''}</div>
-        ${obData.raceDate?`<div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;margin-bottom:4px">DATA</div><div style="font-family:var(--font-body);font-size:14px;margin-bottom:12px">${new Date(obData.raceDate+'T12:00:00').toLocaleDateString('pt-BR',{day:'numeric',month:'long',year:'numeric'})}</div>`:''}
-        ${obData.goalTime?`<div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;margin-bottom:4px">META</div><div style="font-family:var(--font-body);font-size:14px">${obData.goalTime}</div>`:'<div style="font-family:var(--font-body);font-size:13px;color:var(--muted2)">Meta: completar a prova</div>'}
+        ${obData.raceDate?`<div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;margin-bottom:4px">${t('ob_fim_data')}</div><div style="font-family:var(--font-body);font-size:14px;margin-bottom:12px">${new Date(obData.raceDate+'T12:00:00').toLocaleDateString('pt-BR',{day:'numeric',month:'long',year:'numeric'})}</div>`:''}
+        ${obData.goalTime?`<div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;margin-bottom:4px">${t('ob_fim_meta')}</div><div style="font-family:var(--font-body);font-size:14px">${obData.goalTime}</div>`:`<div style="font-family:var(--font-body);font-size:13px;color:var(--muted2)">${t('ob_fim_meta_default')}</div>`}
       </div>
     </div>
     <div style="padding:0 24px 24px">
-      <button class="ob-btn" onclick="obFinish()">ENTRAR NO MYTRI</button>
+      <button class="ob-btn" onclick="obFinish()">${t('ob_fim_cta')}</button>
     </div>`;
 }
 
@@ -8947,6 +9264,13 @@ function renderBikeFitText(el, text){
 initPlan();
 // Sync primeiro, depois GPS sobrescreve cidade inválida
 syncProfileFromSupabase().finally(()=>detectGPSLocation());
+// Aplica o idioma atual na navegacao inferior (o resto do app ainda le direto do PT fixo —
+// ver comentario no bloco I18N mais acima sobre cobertura atual).
+function applyNavLang(){
+  const map={perfil:'nav_perfil',agenda:'nav_agenda',stats:'nav_stats',hist:'nav_hist',fit:'nav_fit',club:'nav_club'};
+  Object.entries(map).forEach(([id,key])=>{ const el=document.getElementById('bnav-'+id); if(el)el.textContent=t(key); });
+}
+applyNavLang();
 checkOnboarding();
 // Inicializa aba AGENDA
 renderAgenda();
