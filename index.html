@@ -1840,11 +1840,10 @@ function renderAuthScreen(){
   }
   const isLogin=authMode==='login';
   el.innerHTML=`
-    <div style="flex:1;display:flex;flex-direction:column;padding:14vh 28px 32px;max-width:420px;margin:0 auto;width:100%;box-sizing:border-box">
-      <div style="text-align:center;margin-bottom:36px;position:relative">
-        <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:200px;height:200px;background:radial-gradient(circle,rgba(0,230,118,0.14) 0%,transparent 70%);pointer-events:none"></div>
-        <img src="logo.png" style="position:relative;height:52px;margin-bottom:18px;object-fit:contain">
-        <div style="position:relative;font-family:var(--font-ui);font-size:13px;color:var(--muted2);letter-spacing:.5px">${isLogin?'Entre na sua conta':'Crie sua conta'}</div>
+    <div style="flex:1;display:flex;flex-direction:column;padding:11vh 28px 32px;max-width:420px;margin:0 auto;width:100%;box-sizing:border-box">
+      <div style="text-align:center;margin-bottom:40px">
+        <img src="logo.png" style="width:100%;max-width:340px;height:auto;object-fit:contain;margin-bottom:22px">
+        <div style="font-family:var(--font-ui);font-size:14px;color:var(--muted2);letter-spacing:1px">${isLogin?'Entre na sua conta':'Crie sua conta'}</div>
       </div>
       <div id="auth-error" style="display:none;background:rgba(224,92,42,0.1);border:1px solid rgba(224,92,42,0.4);color:#e05c2a;font-family:var(--font-body);font-size:13px;padding:12px 14px;border-radius:8px;margin-bottom:16px"></div>
       <div id="auth-info" style="display:none;background:rgba(0,230,118,0.1);border:1px solid rgba(0,230,118,0.4);color:var(--accent);font-family:var(--font-body);font-size:13px;padding:12px 14px;border-radius:8px;margin-bottom:16px"></div>
@@ -8695,6 +8694,7 @@ function obGoalFromTriLeg(el,leg,d){
   const hr=Math.floor(totalSec/3600), min=Math.round((totalSec%3600)/60);
   obData.goalHr=hr; obData.goalMin=min;
   obData.goalTime=`${String(hr).padStart(2,'0')}:${String(min).padStart(2,'0')}`;
+  obData.goalTimeExactSec=totalSec;
   const hrEl=document.getElementById('ob-goal-hr-display'); if(hrEl)hrEl.textContent=String(hr).padStart(2,'0');
   const minEl=document.getElementById('ob-goal-min-display'); if(minEl)minEl.textContent=String(min).padStart(2,'0');
 }
@@ -8719,6 +8719,10 @@ function obGoalFromPace(el,distKm){
   const min=Math.round((totalSec%3600)/60);
   obData.goalHr=hr; obData.goalMin=min;
   obData.goalTime=`${String(hr).padStart(2,'0')}:${String(min).padStart(2,'0')}`;
+  // Guarda o tempo EXATO (com segundos) por baixo do arredondamento — o seletor visual so
+  // mostra HORAS:MINUTOS, mas sem isso o pace "necessario" calculado depois vinha sempre
+  // arredondado pro minuto cheio (ex: digitou 5:35/km, virava 5:36/km no relatorio).
+  obData.goalTimeExactSec=totalSec;
   const hrEl=document.getElementById('ob-goal-hr-display'); if(hrEl)hrEl.textContent=String(hr).padStart(2,'0');
   const minEl=document.getElementById('ob-goal-min-display'); if(minEl)minEl.textContent=String(min).padStart(2,'0');
 }
@@ -8727,6 +8731,9 @@ function obAdjust(field,delta){
   // parecia funcionar subindo por coincidencia de fluxo — descendo travava em 00).
   // Agora minuto e hora ficam corretamente correlacionados nos dois sentidos.
   let hr=obData.goalHr||0, min=obData.goalMin||0;
+  // Ajuste manual pelas setas descarta a precisao de segundos guardada pelo pace —
+  // a partir daqui o tempo-alvo passa a ser exatamente o que as setas mostram.
+  obData.goalTimeExactSec=null;
   if(field==='hr'){
     hr=hr+delta;
   }else{
@@ -8772,7 +8779,7 @@ function renderObModalidades(c){
       sub:'Onde você se encontra hoje.',
       sections:[
         {key:'runLevel',label:'CORRIDA',color:'#00e676',levels,
-         extra:`<input id="ob-run-pace" type="tel" inputmode="numeric" placeholder="ex: 5:30" oninput="obFormatPace(this)" value="${obData.runPace||''}" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px"><div style="font-family:var(--font-body);font-size:10px;color:var(--muted);margin-top:5px;line-height:1.4">Ex: 5:30 = 5min30s por km percorrido</div>`},
+         extra:`<input id="ob-run-pace" type="tel" inputmode="numeric" placeholder="ex: 5:30" oninput="obData.runPace=obFormatPace(this)" value="${obData.runPace||''}" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px"><div style="font-family:var(--font-body);font-size:10px;color:var(--muted);margin-top:5px;line-height:1.4">Ex: 5:30 = 5min30s por km percorrido</div>`},
       ]
     },
     ciclismo:{
@@ -9252,6 +9259,7 @@ function obFinish(){
       if(obData.raceName && d && d>=today) return d;
       return ''; })(),
     goalTime:obData.goalTime||'',
+    goalTimeExactSec:obData.goalTimeExactSec||null,
     weeklyHours:obData.weeklyHours||'3-4',
     swimLevel:obData.swimLevel||'beginner',
     bikeLevel:obData.bikeLevel||'beginner',
@@ -9313,9 +9321,15 @@ const RACE_KM_META={
 function calcPaceNecessarioMeta(profile){
   try{
     if(!profile.goalTime||!profile.raceDist)return '';
-    const parts=String(profile.goalTime).split(':');
-    if(parts.length!==2)return '';
-    const totalSec=(parseInt(parts[0])||0)*3600+(parseInt(parts[1])||0)*60;
+    // Usa o tempo EXATO (com segundos) quando disponivel — o HH:MM sozinho arredonda pro
+    // minuto cheio e distorcia o pace calculado de volta (ex: digitou 5:35/km, o relatorio
+    // mostrava 5:36/km porque só tinha o tempo ja arredondado pra trabalhar).
+    let totalSec=profile.goalTimeExactSec;
+    if(!totalSec){
+      const parts=String(profile.goalTime).split(':');
+      if(parts.length!==2)return '';
+      totalSec=(parseInt(parts[0])||0)*3600+(parseInt(parts[1])||0)*60;
+    }
     if(totalSec<=0)return '';
     const d=RACE_KM_META[profile.raceDist]; if(!d)return '';
     const soCorrida=d.r&&!d.s&&!d.b, soBike=d.b&&!d.s&&!d.r, soNado=d.s&&!d.b&&!d.r;
