@@ -372,6 +372,9 @@ body.onboarding-active .bottom-nav,body.onboarding-active .app-header{display:no
 
 /* ── ONBOARDING ── */
 #view-onboard{display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:600;background:var(--bg);overflow:hidden;flex-direction:column}
+.view-auth{display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:900;background:var(--bg);overflow-y:auto;flex-direction:column}
+.view-auth.active{display:flex}
+body.auth-active .bottom-nav,body.auth-active .app-header,body.auth-active #consult-fab{display:none!important}
 #view-onboard.active{display:flex}
 .ob-progress{display:flex;gap:4px;padding:52px 24px 0}
 .ob-progress-bar{flex:1;height:3px;border-radius:2px;background:var(--border);transition:background .3s}
@@ -449,6 +452,7 @@ summary span:last-child{transition:transform .2s;display:inline-block}
   </div>
 </div>
 
+<div id="view-auth" class="view-auth"></div>
 <div id="view-onboard"></div>
 <div id="view-plan-summary"></div>
 <div id="session-analysis-modal"></div>
@@ -773,6 +777,42 @@ const I18N={
 function getLang(){ const l=localStorage.getItem('mytri_lang'); return SUPPORTED_LANGS.includes(l)?l:'pt'; }
 function setLang(l){ if(!SUPPORTED_LANGS.includes(l))return; localStorage.setItem('mytri_lang',l); location.reload(); }
 function t(key){ const lang=getLang(); return (I18N[lang]&&I18N[lang][key])||I18N.pt[key]||key; }
+
+// Card visual de idioma com bandeira + dropdown — substitui a fileira de botoes PT/EN/ES/ZH
+// (que parecia sub-aba) por algo mais claro de bater o olho e escolher.
+const LANG_FLAG={pt:'\u{1F1E7}\u{1F1F7}',en:'\u{1F1FA}\u{1F1F8}',es:'\u{1F1EA}\u{1F1F8}',zh:'\u{1F1E8}\u{1F1F3}'};
+function renderLangCard(cardId){
+  const cur=getLang();
+  return `<div style="position:relative" id="${cardId}">
+    <div onclick="toggleLangDropdown('${cardId}')" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--surface);border:1px solid var(--border);border-radius:10px;cursor:pointer">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:22px;line-height:1">${LANG_FLAG[cur]}</span>
+        <span style="font-family:var(--font-ui);font-size:13px;color:var(--text);letter-spacing:.5px">${LANG_LABELS[cur]}</span>
+      </div>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+    </div>
+    <div class="lang-dropdown" style="display:none;position:absolute;top:calc(100% + 6px);left:0;right:0;background:var(--surface2);border:1px solid var(--border);border-radius:10px;overflow:hidden;z-index:80;box-shadow:0 8px 24px rgba(0,0,0,0.5)">
+      ${SUPPORTED_LANGS.map(l=>`<div onclick="setLang('${l}')" style="display:flex;align-items:center;gap:10px;padding:13px 16px;cursor:pointer;background:${l===cur?'rgba(0,230,118,0.08)':'transparent'}">
+        <span style="font-size:20px;line-height:1">${LANG_FLAG[l]}</span>
+        <span style="font-family:var(--font-ui);font-size:13px;color:${l===cur?'var(--accent)':'var(--text)'}">${LANG_LABELS[l]}</span>
+        ${l===cur?'<span style="margin-left:auto;color:var(--accent);font-size:15px">&#10003;</span>':''}
+      </div>`).join('')}
+    </div>
+  </div>`;
+}
+function toggleLangDropdown(cardId){
+  const card=document.getElementById(cardId);
+  if(!card)return;
+  const dd=card.querySelector('.lang-dropdown');
+  if(!dd)return;
+  const opening=dd.style.display==='none'||!dd.style.display;
+  // Fecha qualquer outro dropdown de idioma aberto (caso haja mais de um card na tela)
+  document.querySelectorAll('.lang-dropdown').forEach(el=>el.style.display='none');
+  dd.style.display=opening?'block':'none';
+}
+document.addEventListener('click',(e)=>{
+  if(!e.target.closest('[id^="lang-card"]')) document.querySelectorAll('.lang-dropdown').forEach(el=>el.style.display='none');
+});
 
 // ── CONSTANTS ──
 const SWIM='swim',BIKE='bike',RUN='run',BRICK='brick',GYM='gym',REST='rest',TENNIS='tennis';
@@ -1626,16 +1666,47 @@ function initPlan() {
 }
 
 // ── SUPABASE SYNC ──
+// Link da loja/storefront do Nano na Amazon (creator page). Vazio = botao fica desabilitado.
+const MY_STORE_URL='https://www.amazon.com.br/?tag=mytriapp-20';
+// Equipamentos do Nano com link de afiliado (tag=mytriapp-20) ja aplicado a cada busca.
+const MY_PRODUCTS=[
+  {name:'Zone3 Venator-X (oculos natacao)', q:'Zone3+Venator-X'},
+  {name:'Olympikus Corre 5 (tenis)', q:'Olympikus+Corre+5'},
+  {name:'Apple AirTag', q:'Apple+AirTag'},
+  {name:'Bontrager DuoTrap S (sensor)', q:'Bontrager+DuoTrap+S'},
+  {name:'K-Edge Garmin Mount', q:'K-Edge+Garmin'},
+  {name:'Robert Axle Project TRA213', q:'Robert+Axle+Project+TRA213'},
+  {name:'Wahoo KICKR Core (rolo)', q:'Wahoo+KICKR+Core'},
+  {name:'Aerobar 31,8mm carbono', q:'aerobar+31.8+carbono'},
+  {name:'Cadarco elastico triathlon', q:'triathlon+elastic+laces'},
+  {name:'Touca Adidas natacao', q:'adidas+swim+cap'},
+  {name:'Garmin Edge 850', q:'Garmin+Edge+850'},
+  {name:'Garmin Forerunner 255', q:'Garmin+Forerunner+255'},
+  {name:'Garmin Speed Sensor 2', q:'Garmin+Speed+Sensor+2'},
+  {name:'Shimano PD-R7000 SPD-SL (pedal)', q:'Shimano+PD-R7000'},
+  {name:'Shimano RC302 (sapatilha)', q:'Shimano+RC302'},
+  {name:'Favero Assioma Uno (medidor potencia)', q:'Favero+Assioma+Uno'},
+  {name:'Shokz OpenSwim Pro', q:'Shokz+OpenSwim+Pro'},
+].map(p=>({name:p.name, url:`https://www.amazon.com.br/s?k=${p.q}&tag=mytriapp-20`}));
 const SB_URL='https://dlahyvsrqouxlalqexrp.supabase.co';
 const SB_KEY='sb_publishable_mVgR-2qjgAGzEBeitJ8SAg_DTFYuw-t';
-const SB_HEADERS={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'};
+// CLC item 2: antes o Authorization mandava a propria chave publica como "bearer", entao toda
+// chamada era anonima pro Supabase (RLS nao tinha como saber QUEM era o usuario). Agora manda o
+// token de sessao da pessoa logada — e isso que permite RLS por user_id funcionar de verdade.
+function sbHeaders(extra){
+  const s=getSession();
+  const token=(s&&s.access_token)||SB_KEY;
+  return {'apikey':SB_KEY,'Authorization':'Bearer '+token,'Content-Type':'application/json',...(extra||{})};
+}
 
 let _syncReady=false;
 let _syncPending=false;
 
 async function sbGet(key){
   try{
-    const r=await fetch(`${SB_URL}/rest/v1/nano_sync?key=eq.${encodeURIComponent(key)}&select=value`,{headers:SB_HEADERS});
+    const uid=currentUserId();
+    if(!uid) return null; // sem sessao, sem dado — nao ha mais "dado global" pra ler
+    const r=await fetch(`${SB_URL}/rest/v1/nano_sync?key=eq.${encodeURIComponent(key)}&user_id=eq.${uid}&select=value`,{headers:sbHeaders()});
     if(!r.ok)return null;
     const d=await r.json();
     return d&&d[0]?JSON.parse(d[0].value):null;
@@ -1644,18 +1715,223 @@ async function sbGet(key){
 
 async function sbSet(key,value){
   try{
-    await fetch(`${SB_URL}/rest/v1/nano_sync`,{
+    const uid=currentUserId();
+    if(!uid) return;
+    await fetch(`${SB_URL}/rest/v1/nano_sync?on_conflict=user_id,key`,{
       method:'POST',
-      headers:{...SB_HEADERS,'Prefer':'resolution=merge-duplicates'},
-      body:JSON.stringify({key,value:JSON.stringify(value),updated_at:new Date().toISOString()})
+      headers:sbHeaders({'Prefer':'resolution=merge-duplicates'}),
+      body:JSON.stringify({key,value:JSON.stringify(value),user_id:uid,updated_at:new Date().toISOString()})
     });
   }catch(e){}
 }
 
-async function sbInit(){
-  // Tentar criar tabela via RPC (se não existir)
+// ── SUPABASE AUTH (GoTrue REST — CLC item 1) ──
+const AUTH_SESSION_KEY='mytri_session';
+function getSession(){ try{ return JSON.parse(localStorage.getItem(AUTH_SESSION_KEY)||'null'); }catch(e){ return null; } }
+function saveSession(session){ try{ localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(session)); }catch(e){} }
+function clearSession(){ try{ localStorage.removeItem(AUTH_SESSION_KEY); }catch(e){} }
+function isLoggedIn(){ const s=getSession(); return !!(s&&s.access_token&&s.user); }
+function currentUserId(){ const s=getSession(); return (s&&s.user&&s.user.id)||null; }
+function _authNormalizeSession(data){
+  return {access_token:data.access_token,refresh_token:data.refresh_token,expires_at:Date.now()+((data.expires_in||3600)*1000),user:data.user};
+}
+async function sbSignUp(email,password){
+  const r=await fetch(`${SB_URL}/auth/v1/signup`,{method:'POST',headers:{'apikey':SB_KEY,'Content-Type':'application/json'},body:JSON.stringify({email,password})});
+  const data=await r.json();
+  if(!r.ok) throw new Error(data.error_description||data.msg||data.error||'Erro ao criar conta.');
+  return data;
+}
+async function sbSignIn(email,password){
+  const r=await fetch(`${SB_URL}/auth/v1/token?grant_type=password`,{method:'POST',headers:{'apikey':SB_KEY,'Content-Type':'application/json'},body:JSON.stringify({email,password})});
+  const data=await r.json();
+  if(!r.ok) throw new Error(data.error_description||data.msg||'Email ou senha incorretos.');
+  return data;
+}
+async function sbRefreshSession(){
+  const s=getSession();
+  if(!s||!s.refresh_token) return null;
   try{
-    await fetch(`${SB_URL}/rest/v1/nano_sync?limit=1`,{headers:SB_HEADERS});
+    const r=await fetch(`${SB_URL}/auth/v1/token?grant_type=refresh_token`,{method:'POST',headers:{'apikey':SB_KEY,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:s.refresh_token})});
+    if(!r.ok){ clearSession(); return null; }
+    const data=await r.json();
+    const session=_authNormalizeSession(data);
+    saveSession(session);
+    return session;
+  }catch(e){ return null; }
+}
+async function ensureValidSession(){
+  const s=getSession();
+  if(!s) return null;
+  if(!s.expires_at||Date.now()>s.expires_at-5*60*1000) return await sbRefreshSession();
+  return s;
+}
+async function sbSignOut(){
+  const s=getSession();
+  try{ if(s&&s.access_token) await fetch(`${SB_URL}/auth/v1/logout`,{method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+s.access_token}}); }catch(e){}
+  clearSession();
+  location.reload();
+}
+async function sbRecoverPassword(email){
+  const r=await fetch(`${SB_URL}/auth/v1/recover`,{method:'POST',headers:{'apikey':SB_KEY,'Content-Type':'application/json'},body:JSON.stringify({email})});
+  if(!r.ok){ const data=await r.json().catch(()=>({})); throw new Error(data.error_description||data.msg||'Nao consegui enviar o email agora.'); }
+}
+async function sbSetNewPassword(recoveryToken,newPassword){
+  const r=await fetch(`${SB_URL}/auth/v1/user`,{method:'PUT',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+recoveryToken,'Content-Type':'application/json'},body:JSON.stringify({password:newPassword})});
+  const data=await r.json();
+  if(!r.ok) throw new Error(data.error_description||data.msg||'Nao consegui redefinir a senha.');
+  return data;
+}
+
+// Detecta link de recuperacao de senha (o Supabase redireciona com #access_token=...&type=recovery)
+function checkRecoveryRedirect(){
+  const hash=window.location.hash;
+  if(hash&&hash.includes('type=recovery')&&hash.includes('access_token=')){
+    const params=new URLSearchParams(hash.slice(1));
+    const accessToken=params.get('access_token');
+    if(accessToken){
+      window._recoveryToken=accessToken;
+      history.replaceState(null,'',window.location.pathname);
+      return true;
+    }
+  }
+  return false;
+}
+
+let authMode='login'; // 'login' | 'signup' | 'reset'
+function showAuthScreen(){
+  document.body.classList.add('auth-active');
+  const el=document.getElementById('view-auth');
+  if(el)el.classList.add('active');
+  renderAuthScreen();
+}
+function hideAuthScreen(){
+  document.body.classList.remove('auth-active');
+  const el=document.getElementById('view-auth');
+  if(el)el.classList.remove('active');
+}
+function authToggleMode(){ authMode=authMode==='login'?'signup':'login'; renderAuthScreen(); }
+function _authShowError(msg){
+  const el=document.getElementById('auth-error'), info=document.getElementById('auth-info');
+  if(info)info.style.display='none';
+  if(el){ el.textContent=msg; el.style.display='block'; }
+}
+function _authShowInfo(msg){
+  const el=document.getElementById('auth-info'), err=document.getElementById('auth-error');
+  if(err)err.style.display='none';
+  if(el){ el.textContent=msg; el.style.display='block'; }
+}
+function renderAuthScreen(){
+  const el=document.getElementById('view-auth');
+  if(!el)return;
+  if(authMode==='reset'){
+    el.innerHTML=`
+      <div style="flex:1;display:flex;flex-direction:column;justify-content:center;padding:32px 28px;max-width:420px;margin:0 auto;width:100%">
+        <div style="text-align:center;margin-bottom:32px">
+          <div style="font-family:var(--font-display);font-size:28px;letter-spacing:1px;margin-bottom:8px">Nova senha</div>
+          <div style="font-family:var(--font-ui);font-size:13px;color:var(--muted2)">Defina uma nova senha pra sua conta.</div>
+        </div>
+        <div id="auth-error" style="display:none;background:rgba(224,92,42,0.1);border:1px solid rgba(224,92,42,0.4);color:#e05c2a;font-family:var(--font-body);font-size:13px;padding:12px 14px;border-radius:8px;margin-bottom:16px"></div>
+        <div id="auth-info" style="display:none;background:rgba(0,230,118,0.1);border:1px solid rgba(0,230,118,0.4);color:var(--accent);font-family:var(--font-body);font-size:13px;padding:12px 14px;border-radius:8px;margin-bottom:16px"></div>
+        <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;display:block;margin-bottom:6px">NOVA SENHA</label>
+        <input id="auth-password" type="password" autocomplete="new-password" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:14px;border-radius:8px;margin-bottom:20px">
+        <button id="auth-submit-btn" onclick="authSubmitReset()" style="width:100%;padding:16px;background:var(--accent);color:#000;border:none;border-radius:8px;font-family:var(--font-ui);font-size:14px;font-weight:700;letter-spacing:1.5px;cursor:pointer">SALVAR NOVA SENHA</button>
+      </div>`;
+    return;
+  }
+  const isLogin=authMode==='login';
+  el.innerHTML=`
+    <div style="flex:1;display:flex;flex-direction:column;justify-content:center;padding:32px 28px;max-width:420px;margin:0 auto;width:100%">
+      <div style="text-align:center;margin-bottom:32px">
+        <img src="logo.png" style="height:44px;margin-bottom:20px;object-fit:contain">
+        <div style="font-family:var(--font-ui);font-size:13px;color:var(--muted2);letter-spacing:.5px">${isLogin?'Entre na sua conta':'Crie sua conta'}</div>
+      </div>
+      <div id="auth-error" style="display:none;background:rgba(224,92,42,0.1);border:1px solid rgba(224,92,42,0.4);color:#e05c2a;font-family:var(--font-body);font-size:13px;padding:12px 14px;border-radius:8px;margin-bottom:16px"></div>
+      <div id="auth-info" style="display:none;background:rgba(0,230,118,0.1);border:1px solid rgba(0,230,118,0.4);color:var(--accent);font-family:var(--font-body);font-size:13px;padding:12px 14px;border-radius:8px;margin-bottom:16px"></div>
+      <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;display:block;margin-bottom:6px">EMAIL</label>
+      <input id="auth-email" type="email" autocomplete="email" inputmode="email" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:14px;border-radius:8px;margin-bottom:16px">
+      <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;display:block;margin-bottom:6px">SENHA</label>
+      <input id="auth-password" type="password" autocomplete="${isLogin?'current-password':'new-password'}" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:14px;border-radius:8px;margin-bottom:8px">
+      ${isLogin?`<div onclick="authForgotPassword()" style="text-align:right;font-family:var(--font-ui);font-size:11px;color:var(--muted);cursor:pointer;margin-bottom:20px">Esqueci minha senha</div>`:'<div style="margin-bottom:20px"></div>'}
+      <button id="auth-submit-btn" onclick="authSubmit()" style="width:100%;padding:16px;background:var(--accent);color:#000;border:none;border-radius:8px;font-family:var(--font-ui);font-size:14px;font-weight:700;letter-spacing:1.5px;cursor:pointer;margin-bottom:16px">${isLogin?'ENTRAR':'CRIAR CONTA'}</button>
+      <div style="text-align:center;font-family:var(--font-body);font-size:13px;color:var(--muted2)">
+        ${isLogin?'Ainda nao tem conta?':'Ja tem conta?'}
+        <span onclick="authToggleMode()" style="color:var(--accent);cursor:pointer;font-weight:600">${isLogin?'Criar conta':'Entrar'}</span>
+      </div>
+    </div>`;
+}
+async function authSubmit(){
+  const email=(document.getElementById('auth-email').value||'').trim();
+  const password=document.getElementById('auth-password').value||'';
+  if(!email||!password){ _authShowError('Preenche email e senha.'); return; }
+  if(!isLogin_authMode()&&password.length<6){ _authShowError('Senha precisa ter pelo menos 6 caracteres.'); return; }
+  const btn=document.getElementById('auth-submit-btn');
+  const origText=btn.textContent;
+  btn.disabled=true; btn.style.opacity='0.6'; btn.textContent='...';
+  try{
+    if(authMode==='login'){
+      const data=await sbSignIn(email,password);
+      saveSession(_authNormalizeSession(data));
+      afterAuthSuccess();
+    }else{
+      const data=await sbSignUp(email,password);
+      if(data.access_token){
+        saveSession(_authNormalizeSession(data));
+        afterAuthSuccess();
+      }else{
+        authMode='login';
+        renderAuthScreen();
+        _authShowInfo('Conta criada! Confira seu email pra confirmar antes de entrar.');
+      }
+    }
+  }catch(e){
+    _authShowError(e.message||'Algo deu errado. Tenta de novo.');
+    btn.disabled=false; btn.style.opacity='1'; btn.textContent=origText;
+  }
+}
+function isLogin_authMode(){ return authMode==='login'; }
+async function authForgotPassword(){
+  const email=(document.getElementById('auth-email').value||'').trim();
+  if(!email){ _authShowError('Digita seu email primeiro.'); return; }
+  try{
+    await sbRecoverPassword(email);
+    _authShowInfo('Se esse email tiver uma conta, mandamos um link de redefinicao de senha.');
+  }catch(e){
+    _authShowError(e.message||'Nao consegui enviar agora. Tenta de novo em instantes.');
+  }
+}
+async function authSubmitReset(){
+  const password=document.getElementById('auth-password').value||'';
+  if(!password||password.length<6){ _authShowError('Senha precisa ter pelo menos 6 caracteres.'); return; }
+  const btn=document.getElementById('auth-submit-btn');
+  btn.disabled=true; btn.style.opacity='0.6';
+  try{
+    await sbSetNewPassword(window._recoveryToken,password);
+    _authShowInfo('Senha redefinida! Entrando...');
+    // O token de recuperacao ja e um access_token valido — usa ele pra logar direto.
+    try{
+      const userResp=await fetch(`${SB_URL}/auth/v1/user`,{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+window._recoveryToken}});
+      const user=await userResp.json();
+      saveSession({access_token:window._recoveryToken,refresh_token:null,expires_at:Date.now()+3600*1000,user});
+    }catch(e){}
+    setTimeout(()=>{ authMode='login'; afterAuthSuccess(); },1200);
+  }catch(e){
+    _authShowError(e.message||'Nao consegui redefinir. Tenta pedir o link de novo.');
+    btn.disabled=false; btn.style.opacity='1';
+  }
+}
+function authConfirmLogout(){
+  if(confirm('Sair da conta? Voce vai precisar entrar de novo pra acessar o app.')) sbSignOut();
+}
+function afterAuthSuccess(){
+  hideAuthScreen();
+  checkOnboarding();
+}
+
+async function sbInit(){
+  // So tenta sincronizar se tiver usuario logado (CLC item 2 — sync sempre por conta real agora)
+  if(!currentUserId()){ _syncReady=false; return; }
+  try{
+    await fetch(`${SB_URL}/rest/v1/nano_sync?limit=1`,{headers:sbHeaders()});
     _syncReady=true;
     // Carregar dados da nuvem e mesclar com local
     await syncFromCloud();
@@ -7395,12 +7671,33 @@ function renderProfile(){
       <button onclick="closeProfile();showPlanSummary(getMytriProfile())" style="width:100%;padding:14px;background:rgba(0,230,118,.08);border:1px solid var(--accent);color:var(--accent);font-family:var(--font-ui);font-size:11px;letter-spacing:1.5px;border-radius:4px;cursor:pointer;margin-bottom:16px">VER RESUMO DO PLANO</button>
     </div>
     <div class="profile-section" style="margin-top:8px">
+      <div class="profile-section-title" style="color:var(--muted)">Loja</div>
+      <div style="margin-bottom:16px;padding:16px;background:var(--surface);border:1px solid var(--border);border-radius:10px;display:flex;align-items:center;gap:14px">
+        <div style="width:44px;height:44px;border-radius:10px;background:rgba(255,153,0,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#ff9900"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2l1.5 4h9L18 2"/><path d="M3 6h18l-1.5 13a2 2 0 0 1-2 2H6.5a2 2 0 0 1-2-2L3 6z"/><path d="M9 10a3 3 0 0 0 6 0"/></svg></div>
+        <div style="flex:1">
+          <div style="font-family:var(--font-ui);font-size:13px;font-weight:700;color:var(--text);letter-spacing:.3px;margin-bottom:2px">MINHA LOJA</div>
+          <div style="font-family:var(--font-body);font-size:12px;color:var(--muted2);line-height:1.4">Os equipamentos que eu uso, direto na Amazon.</div>
+        </div>
+      </div>
+      <button onclick="window.open('${MY_STORE_URL}','_blank')" ${MY_STORE_URL?'':'disabled'} style="width:100%;padding:14px;background:${MY_STORE_URL?'rgba(255,153,0,0.1)':'var(--surface)'};border:1px solid ${MY_STORE_URL?'rgba(255,153,0,0.4)':'var(--border)'};color:${MY_STORE_URL?'#ff9900':'var(--muted)'};font-family:var(--font-ui);font-size:11px;letter-spacing:1.5px;border-radius:4px;cursor:${MY_STORE_URL?'pointer':'not-allowed'};margin-bottom:12px">VER NA AMAZON</button>
+      ${MY_PRODUCTS.length?`<div style="border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:24px">
+        ${MY_PRODUCTS.map((p,i)=>`<div onclick="window.open('${p.url}','_blank')" style="display:flex;align-items:center;justify-content:space-between;padding:13px 16px;cursor:pointer;${i<MY_PRODUCTS.length-1?'border-bottom:1px solid var(--border)':''}">
+          <span style="font-family:var(--font-body);font-size:13px;color:var(--text)">${p.name}</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ff9900" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-left:10px"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg>
+        </div>`).join('')}
+      </div>`:''}
+
       <div class="profile-section-title" style="color:var(--muted)">Zona de desenvolvimento</div>
       <div style="margin-bottom:16px">
         <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;display:block;margin-bottom:8px">${t('lang_picker_title')}</label>
-        <div style="display:flex;gap:6px;flex-wrap:wrap">
-          ${SUPPORTED_LANGS.map(l=>`<button onclick="setLang('${l}')" style="flex:1;min-width:70px;padding:10px;border-radius:6px;border:1px solid ${getLang()===l?'var(--accent)':'var(--border)'};background:${getLang()===l?'rgba(0,230,118,0.12)':'var(--surface)'};color:${getLang()===l?'var(--accent)':'var(--muted2)'};font-family:var(--font-ui);font-size:11px;letter-spacing:.5px;cursor:pointer">${LANG_LABELS[l]}</button>`).join('')}
+        ${renderLangCard('lang-card-perfil')}
+      </div>
+      <div style="margin-bottom:16px;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:8px;display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:2px">CONTA</div>
+          <div style="font-family:var(--font-body);font-size:12px;color:var(--muted2)">${(getSession()&&getSession().user&&getSession().user.email)||''}</div>
         </div>
+        <button onclick="authConfirmLogout()" style="background:none;border:1px solid var(--border);color:var(--muted2);font-family:var(--font-ui);font-size:10px;letter-spacing:1px;padding:8px 12px;border-radius:6px;cursor:pointer">SAIR</button>
       </div>
       <button onclick="regeneratePlanClean()" style="width:100%;padding:14px;background:rgba(0,230,118,0.08);border:1px solid rgba(0,230,118,0.35);color:var(--accent);font-family:var(--font-ui);font-size:11px;letter-spacing:1.5px;border-radius:4px;cursor:pointer;margin-bottom:8px">REGENERAR PLANO (LIMPAR DADOS ANTIGOS)</button>
       <button onclick="resetOnboarding()" style="width:100%;padding:14px;background:none;border:1px solid var(--border);color:var(--muted);font-family:var(--font-ui);font-size:11px;letter-spacing:1.5px;border-radius:4px;cursor:pointer;margin-bottom:8px">RESETAR ONBOARDING</button>
@@ -7893,8 +8190,8 @@ function renderObWelcome(c){
 function renderObIntro(c){
   c.innerHTML=`
     <div style="padding:64px 28px 40px;display:flex;flex-direction:column">
-      <div style="display:flex;justify-content:flex-end;gap:6px;margin-bottom:16px">
-        ${SUPPORTED_LANGS.map(l=>`<button onclick="setLang('${l}')" style="padding:6px 10px;border-radius:6px;border:1px solid ${getLang()===l?'var(--accent)':'var(--border)'};background:${getLang()===l?'rgba(0,230,118,0.12)':'none'};color:${getLang()===l?'var(--accent)':'var(--muted)'};font-family:var(--font-ui);font-size:10px;letter-spacing:1px;cursor:pointer">${l.toUpperCase()}</button>`).join('')}
+      <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
+        <div style="width:170px">${renderLangCard('lang-card-intro')}</div>
       </div>
       <div class="ob-title" style="margin-bottom:8px">${t('ob_intro_title').replace(/\n/g,'<br>')}</div>
       <div class="ob-sub" style="margin-bottom:28px">${t('ob_intro_sub')}</div>
@@ -9271,7 +9568,23 @@ function applyNavLang(){
   Object.entries(map).forEach(([id,key])=>{ const el=document.getElementById('bnav-'+id); if(el)el.textContent=t(key); });
 }
 applyNavLang();
-checkOnboarding();
+// Auth gate: precisa de sessao valida antes de mostrar onboarding ou o app. Trata primeiro o
+// link de recuperacao de senha (se a pessoa clicou em "esqueci minha senha" no email), senao
+// verifica/renova a sessao salva, senao mostra a tela de login/cadastro.
+(async function initAuthGate(){
+  if(checkRecoveryRedirect()){
+    authMode='reset';
+    showAuthScreen();
+    return;
+  }
+  const session=await ensureValidSession();
+  if(session&&session.access_token){
+    checkOnboarding();
+  }else{
+    authMode='login';
+    showAuthScreen();
+  }
+})();
 // Inicializa aba AGENDA
 renderAgenda();
 // Pop-up automático de recalibração no fechamento da semana (1x por semana)
