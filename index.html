@@ -3886,6 +3886,9 @@ function _saveComplete(w,d,si,key,skipData){
   if(ov && (ov.stravaData||ov.manualData)){
     const sess=getEffectiveSessions(w,d).find(s=>s._origin==='plan'&&s._si===si);
     if(sess) setTimeout(()=>maybeShowSessionAnalysis(key,sess,w,d),500);
+    // Meia Branca: check-in automatico em todos os grupos que participo — sem precisar
+    // abrir a aba Club e apertar nada. E o que o GymRats NAO faz (e a maior reclamacao dele).
+    if(sess) autoCheckinAllGroups(sess,key);
   }
 }
 
@@ -6160,6 +6163,13 @@ async function stravaSyncActivities(){
       }
     }
 
+    // Meia Branca: check-in automatico com o dado real dessa atividade, em todos os grupos
+    // que participo — cobre tanto sessao do plano quanto extra (atividade sem sessao planejada).
+    try{
+      const _ckSess={type:targetType, dist:targetType===SWIM?(actDistSwimFmt||actTime||''):(actDistKmFmt||actTime||''), _stravaTime:actTime};
+      autoCheckinAllGroups(_ckSess,'strava_'+act.id);
+    }catch(e){}
+
     // Salva os checks e overrides SEMPRE (não só quando matched>0), para não perder dados salvos.
     saveChecks(checks);
     try{ if(typeof refreshHoje==='function') refreshHoje(); }catch(e){}
@@ -6676,58 +6686,71 @@ function renderClubReal(){
 }
 
 // ═══════════════ CLUBE DA MEIA BRANCA (grupos/desafios, estilo GymRats) ═══════════════
-// NOTA IMPORTANTE: por enquanto isso guarda estado só localmente (localStorage). Um grupo de
-// verdade precisa ser visivel pros OUTROS membros — isso exige tabelas novas no Supabase com
-// RLS por membership (nao da pra reaproveitar o nano_sync, que e isolado por usuario). Essa
-// migracao ainda nao foi feita; essa versao e a camada de interface/UX pra validar o conceito.
-let meiaBrancaState={ myGroups:[] };
-try{
-  const saved=JSON.parse(localStorage.getItem('mytri_meia_branca')||'{}');
-  if(Array.isArray(saved.myGroups))meiaBrancaState=saved;
-}catch(e){}
-function saveMeiaBrancaState(){ localStorage.setItem('mytri_meia_branca',JSON.stringify(meiaBrancaState)); }
+// Agora conectado de verdade nas tabelas mytri_groups / mytri_group_members /
+// mytri_group_checkins do Supabase (RLS por membership) — grupo visivel entre usuarios reais.
+let meiaBrancaState={ myGroups:null, _openGroup:null, _openMembers:null };
+
+async function mbFetchMyGroups(){
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/mytri_groups?select=*&order=created_at.desc`,{headers:sbHeaders()});
+    if(!r.ok)return [];
+    return await r.json();
+  }catch(e){ return []; }
+}
+async function mbFetchMembers(groupId){
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/mytri_group_members?group_id=eq.${groupId}&select=*&order=pontos.desc`,{headers:sbHeaders()});
+    if(!r.ok)return [];
+    return await r.json();
+  }catch(e){ return []; }
+}
 
 function renderMeiaBranca(c){
   c.innerHTML='';
   c.style.cssText='padding-bottom:80px;min-height:100vh;background:var(--bg)';
-  c.innerHTML=`<div style="padding:14px 16px 0"><div onclick="backToClubLanding()" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-family:var(--font-ui);font-size:11px;color:var(--muted2);letter-spacing:1px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> CLUBES</div></div>`;
+  c.innerHTML=`<div style="padding:14px 16px 0"><div onclick="backToClubLanding()" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-family:var(--font-ui);font-size:11px;color:var(--muted2);letter-spacing:1px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> CLUBES</div></div>
+  <div id="mb-body" style="padding:16px"><div style="text-align:center;padding:60px 0;font-family:var(--font-ui);font-size:11px;color:var(--muted);letter-spacing:1px">CARREGANDO...</div></div>`;
 
-  if(meiaBrancaState._openGroupIdx!=null && meiaBrancaState.myGroups[meiaBrancaState._openGroupIdx]){
-    renderMeiaBrancaGroup(c);
+  if(meiaBrancaState._openGroup){
+    renderMeiaBrancaGroup();
     return;
   }
-
-  const body=document.createElement('div');
-  body.style.cssText='padding:16px';
-  if(!meiaBrancaState.myGroups.length){
-    body.innerHTML=`
-      <div style="text-align:center;padding:40px 20px">
-        <div style="width:64px;height:64px;border-radius:16px;background:rgba(240,242,245,0.08);display:flex;align-items:center;justify-content:center;margin:0 auto 18px">
-          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--text)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        </div>
-        <div style="font-family:var(--font-display);font-size:20px;margin-bottom:8px">Voce ainda nao esta em nenhum grupo</div>
-        <div style="font-family:var(--font-body);font-size:13px;color:var(--muted2);line-height:1.5">Crie um grupo e convide sua equipe, ou entre com um codigo de convite.</div>
-      </div>
-      <button onclick="openCreateGroupForm()" style="width:100%;padding:16px;background:var(--text);color:#000;border:none;border-radius:8px;font-family:var(--font-ui);font-size:13px;font-weight:700;letter-spacing:1.5px;cursor:pointer;margin-bottom:10px">CRIAR GRUPO</button>
-      <button onclick="openJoinGroupForm()" style="width:100%;padding:16px;background:none;border:1px solid var(--border);color:var(--text);border-radius:8px;font-family:var(--font-ui);font-size:13px;font-weight:700;letter-spacing:1.5px;cursor:pointer">ENTRAR COM CODIGO</button>
-    `;
-  }else{
-    body.innerHTML=`
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-        <div style="font-family:var(--font-ui);font-size:11px;color:var(--muted);letter-spacing:1.5px">MEUS GRUPOS</div>
-        <button onclick="openCreateGroupForm()" style="background:none;border:1px solid var(--border);color:var(--text);font-family:var(--font-ui);font-size:10px;letter-spacing:1px;padding:8px 12px;border-radius:6px;cursor:pointer">+ NOVO</button>
-      </div>
-      ${meiaBrancaState.myGroups.map((g,i)=>`
-        <div onclick="openGroupDetail(${i})" style="cursor:pointer;padding:16px;background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between">
-          <div>
-            <div style="font-family:var(--font-ui);font-size:14px;font-weight:700;color:var(--text);margin-bottom:3px">${g.nome}</div>
-            <div style="font-family:var(--font-body);font-size:11px;color:var(--muted2)">${g.foco||'Todas as modalidades'} &middot; ${(g.membros||[]).length} membro${(g.membros||[]).length===1?'':'s'}</div>
+  mbFetchMyGroups().then(groups=>{
+    meiaBrancaState.myGroups=groups;
+    const body=document.getElementById('mb-body');
+    if(!body)return; // usuario ja navegou pra outro lugar
+    if(!groups.length){
+      body.innerHTML=`
+        <div style="text-align:center;padding:40px 20px">
+          <div style="width:64px;height:64px;border-radius:16px;background:rgba(240,242,245,0.08);display:flex;align-items:center;justify-content:center;margin:0 auto 18px">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--text)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           </div>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
-        </div>`).join('')}
-    `;
-  }
-  c.appendChild(body);
+          <div style="font-family:var(--font-display);font-size:20px;margin-bottom:8px">Voce ainda nao esta em nenhum grupo</div>
+          <div style="font-family:var(--font-body);font-size:13px;color:var(--muted2);line-height:1.5">Crie um grupo e convide sua equipe, ou entre com um codigo de convite.</div>
+        </div>
+        <button onclick="openCreateGroupForm()" style="width:100%;padding:16px;background:var(--text);color:#000;border:none;border-radius:8px;font-family:var(--font-ui);font-size:13px;font-weight:700;letter-spacing:1.5px;cursor:pointer;margin-bottom:10px">CRIAR GRUPO</button>
+        <button onclick="openJoinGroupForm()" style="width:100%;padding:16px;background:none;border:1px solid var(--border);color:var(--text);border-radius:8px;font-family:var(--font-ui);font-size:13px;font-weight:700;letter-spacing:1.5px;cursor:pointer">ENTRAR COM CODIGO</button>
+      `;
+    }else{
+      body.innerHTML=`
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <div style="font-family:var(--font-ui);font-size:11px;color:var(--muted);letter-spacing:1.5px">MEUS GRUPOS</div>
+          <div style="display:flex;gap:8px">
+            <button onclick="openJoinGroupForm()" style="background:none;border:1px solid var(--border);color:var(--text);font-family:var(--font-ui);font-size:10px;letter-spacing:1px;padding:8px 12px;border-radius:6px;cursor:pointer">CODIGO</button>
+            <button onclick="openCreateGroupForm()" style="background:none;border:1px solid var(--border);color:var(--text);font-family:var(--font-ui);font-size:10px;letter-spacing:1px;padding:8px 12px;border-radius:6px;cursor:pointer">+ NOVO</button>
+          </div>
+        </div>
+        ${groups.map(g=>`
+          <div onclick='openGroupDetail(${JSON.stringify(g.id)})' style="cursor:pointer;padding:16px;background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between">
+            <div>
+              <div style="font-family:var(--font-ui);font-size:14px;font-weight:700;color:var(--text);margin-bottom:3px">${g.nome}</div>
+              <div style="font-family:var(--font-body);font-size:11px;color:var(--muted2)">${g.foco||'Todas as modalidades'} &middot; codigo ${g.codigo}</div>
+            </div>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+          </div>`).join('')}
+      `;
+    }
+  });
 }
 
 function openCreateGroupForm(){
@@ -6743,7 +6766,7 @@ function openCreateGroupForm(){
     <div style="display:flex;gap:8px;margin-bottom:24px" id="mb-scoring">
       ${['Numero de treinos','Distancia (km)','Minutos'].map((l,i)=>`<div onclick="_mbSelectScoring(${i})" data-i="${i}" class="mb-score-opt" style="flex:1;text-align:center;padding:12px 6px;border-radius:8px;border:1px solid ${i===0?'var(--accent)':'var(--border)'};background:${i===0?'rgba(0,230,118,0.1)':'var(--surface)'};color:${i===0?'var(--accent)':'var(--muted2)'};font-family:var(--font-ui);font-size:10px;letter-spacing:.5px;cursor:pointer">${l}</div>`).join('')}
     </div>
-    <button onclick="submitCreateGroup()" style="width:100%;padding:16px;background:var(--text);color:#000;border:none;border-radius:8px;font-family:var(--font-ui);font-size:13px;font-weight:700;letter-spacing:1.5px;cursor:pointer">CRIAR</button>
+    <button id="mb-create-btn" onclick="submitCreateGroup()" style="width:100%;padding:16px;background:var(--text);color:#000;border:none;border-radius:8px;font-family:var(--font-ui);font-size:13px;font-weight:700;letter-spacing:1.5px;cursor:pointer">CRIAR</button>
   </div>`;
   window._mbScoring=0;
 }
@@ -6756,58 +6779,292 @@ function _mbSelectScoring(i){
     el.style.color=active?'var(--accent)':'var(--muted2)';
   });
 }
-function submitCreateGroup(){
+async function submitCreateGroup(){
   const nome=(document.getElementById('mb-nome').value||'').trim();
   if(!nome){ alert('Da um nome pro grupo primeiro.'); return; }
   const foco=(document.getElementById('mb-foco').value||'').trim();
   const scoringLabels=['Numero de treinos','Distancia (km)','Minutos'];
-  const prof=getMytriProfile();
+  const scoring=scoringLabels[window._mbScoring||0];
+  const uid=currentUserId();
+  if(!uid){ alert('Precisa estar logado.'); return; }
+  const btn=document.getElementById('mb-create-btn');
+  if(btn){ btn.disabled=true; btn.textContent='CRIANDO...'; }
   const codigo=Math.random().toString(36).slice(2,8).toUpperCase();
-  meiaBrancaState.myGroups.push({
-    nome, foco, scoring:scoringLabels[window._mbScoring||0], codigo,
-    membros:[{nome:prof.name||'Voce', pontos:0}],
-    checkins:[],
-  });
-  saveMeiaBrancaState();
-  meiaBrancaState._openGroupIdx=meiaBrancaState.myGroups.length-1;
-  saveMeiaBrancaState();
-  renderClub();
+  const prof=getMytriProfile();
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/mytri_groups`,{
+      method:'POST',
+      headers:sbHeaders({'Prefer':'return=representation'}),
+      body:JSON.stringify({nome,foco,scoring,codigo,owner_id:uid})
+    });
+    const rows=await r.json();
+    if(!r.ok||!rows||!rows[0]){ throw new Error((rows&&rows.message)||'Erro ao criar grupo'); }
+    const group=rows[0];
+    // Dono entra como primeiro membro automaticamente.
+    await fetch(`${SB_URL}/rest/v1/mytri_group_members`,{
+      method:'POST',
+      headers:sbHeaders(),
+      body:JSON.stringify({group_id:group.id,user_id:uid,nome_exibicao:prof.name||'Voce'})
+    });
+    meiaBrancaState._openGroup=group;
+    renderClub();
+  }catch(e){
+    alert('Nao consegui criar o grupo agora. Tenta de novo.');
+    if(btn){ btn.disabled=false; btn.textContent='CRIAR'; }
+  }
 }
 function openJoinGroupForm(){
   const codigo=prompt('Digite o codigo do grupo:');
   if(!codigo)return;
-  // TODO: quando existir backend compartilhado, buscar o grupo pelo codigo de verdade.
-  alert('Entrar por codigo ainda depende da parte de backend compartilhado (grupos visiveis entre usuarios). Por enquanto, só criar grupo funciona de ponta a ponta.');
+  const prof=getMytriProfile();
+  fetch(`${SB_URL}/rest/v1/rpc/join_group_by_code`,{
+    method:'POST',
+    headers:sbHeaders(),
+    body:JSON.stringify({p_codigo:codigo.trim(),p_nome:prof.name||'Voce'})
+  }).then(async r=>{
+    if(!r.ok){
+      const err=await r.json().catch(()=>({}));
+      alert(err.message&&err.message.includes('Codigo invalido')?'Codigo invalido.':'Nao consegui entrar no grupo. Confere o codigo.');
+      return;
+    }
+    renderClub();
+  }).catch(()=>alert('Erro de conexao. Tenta de novo.'));
 }
-function openGroupDetail(i){ meiaBrancaState._openGroupIdx=i; saveMeiaBrancaState(); renderClub(); }
-function renderMeiaBrancaGroup(c){
-  const g=meiaBrancaState.myGroups[meiaBrancaState._openGroupIdx];
-  const body=document.createElement('div');
-  body.style.cssText='padding:16px';
-  const ranked=[...(g.membros||[])].sort((a,b)=>b.pontos-a.pontos);
-  body.innerHTML=`
-    <div onclick="meiaBrancaState._openGroupIdx=null;saveMeiaBrancaState();renderClub()" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-family:var(--font-ui);font-size:11px;color:var(--muted2);letter-spacing:1px;margin-bottom:14px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> MEUS GRUPOS</div>
-    <div style="font-family:var(--font-display);font-size:24px;margin-bottom:2px">${g.nome}</div>
-    <div style="font-family:var(--font-body);font-size:12px;color:var(--muted2);margin-bottom:18px">${g.foco||'Todas as modalidades'} &middot; pontua por ${g.scoring.toLowerCase()}</div>
+function openGroupDetail(groupId){
+  const g=(meiaBrancaState.myGroups||[]).find(x=>x.id===groupId);
+  if(!g)return;
+  meiaBrancaState._openGroup=g;
+  renderClub();
+}
+function renderMeiaBrancaGroup(){
+  const g=meiaBrancaState._openGroup;
+  const body=document.getElementById('mb-body');
+  if(!body)return;
+  Promise.all([
+    mbFetchMembers(g.id),
+    fetch(`${SB_URL}/rest/v1/mytri_group_checkins?group_id=eq.${g.id}&select=*&order=created_at.desc&limit=20`,{headers:sbHeaders()}).then(r=>r.ok?r.json():[]).catch(()=>[])
+  ]).then(([members,checkins])=>{
+    meiaBrancaState._openMembers=members;
+    const myUid=currentUserId();
+    const nomeById={}; members.forEach(m=>{ nomeById[m.user_id]=m.nome_exibicao||'Atleta'; });
+    body.innerHTML=`
+      <div onclick="meiaBrancaState._openGroup=null;renderClub()" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-family:var(--font-ui);font-size:11px;color:var(--muted2);letter-spacing:1px;margin-bottom:14px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> MEUS GRUPOS</div>
+      <div style="font-family:var(--font-display);font-size:24px;margin-bottom:2px">${g.nome}</div>
+      <div style="font-family:var(--font-body);font-size:12px;color:var(--muted2);margin-bottom:18px">${g.foco||'Todas as modalidades'} &middot; pontua por ${g.scoring.toLowerCase()}</div>
 
-    <div style="padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between">
-      <div>
-        <div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:2px">CODIGO DO GRUPO</div>
-        <div style="font-family:var(--font-display);font-size:18px;letter-spacing:2px">${g.codigo}</div>
+      <div style="padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:2px">CODIGO DO GRUPO</div>
+          <div style="font-family:var(--font-display);font-size:18px;letter-spacing:2px">${g.codigo}</div>
+        </div>
+        <button onclick="navigator.clipboard&&navigator.clipboard.writeText('${g.codigo}');this.textContent='COPIADO'" style="background:none;border:1px solid var(--border);color:var(--text);font-family:var(--font-ui);font-size:10px;letter-spacing:1px;padding:8px 12px;border-radius:6px;cursor:pointer">COPIAR</button>
       </div>
-      <button onclick="navigator.clipboard&&navigator.clipboard.writeText('${g.codigo}');this.textContent='COPIADO'" style="background:none;border:1px solid var(--border);color:var(--text);font-family:var(--font-ui);font-size:10px;letter-spacing:1px;padding:8px 12px;border-radius:6px;cursor:pointer">COPIAR</button>
-    </div>
 
-    <div style="font-family:var(--font-ui);font-size:11px;color:var(--muted);letter-spacing:1.5px;margin-bottom:10px">RANKING</div>
-    ${ranked.map((m,i)=>`<div style="display:flex;align-items:center;gap:12px;padding:12px 4px;border-bottom:1px solid var(--border)">
-      <div style="width:22px;font-family:var(--font-display);font-size:14px;color:${i===0?'var(--accent)':'var(--muted)'}">${i+1}</div>
-      <div style="flex:1;font-family:var(--font-body);font-size:13px;color:var(--text)">${m.nome}</div>
-      <div style="font-family:var(--font-ui);font-size:13px;color:var(--text)">${m.pontos}</div>
+      <div style="font-family:var(--font-ui);font-size:11px;color:var(--muted);letter-spacing:1.5px;margin-bottom:10px">RANKING (${members.length} membro${members.length===1?'':'s'})</div>
+      ${members.map((m,i)=>`<div style="display:flex;align-items:center;gap:12px;padding:12px 4px;border-bottom:1px solid var(--border);${m.user_id===myUid?'background:rgba(0,230,118,0.05)':''}">
+        <div style="width:22px;font-family:var(--font-display);font-size:14px;color:${i===0?'var(--accent)':'var(--muted)'}">${i+1}</div>
+        <div style="flex:1;font-family:var(--font-body);font-size:13px;color:var(--text)">${m.nome_exibicao||'Atleta'}${m.user_id===myUid?' (voce)':''}</div>
+        <div style="font-family:var(--font-ui);font-size:13px;color:var(--text)">${m.pontos}</div>
+      </div>`).join('')}
+
+      <button onclick="submitCheckin('${g.id}')" style="width:100%;margin-top:20px;padding:16px;background:var(--accent);color:#000;border:none;border-radius:8px;font-family:var(--font-ui);font-size:13px;font-weight:700;letter-spacing:1.5px;cursor:pointer">FAZER CHECK-IN</button>
+      <div style="font-family:var(--font-body);font-size:11px;color:var(--muted);text-align:center;margin-top:10px">Usa o treino real de hoje (concluido na Agenda) — pontua conforme o tipo do grupo: ${g.scoring.toLowerCase()}.</div>
+
+      ${checkins.length?`<div style="font-family:var(--font-ui);font-size:11px;color:var(--muted);letter-spacing:1.5px;margin:26px 0 10px">ATIVIDADE RECENTE</div>
+      ${checkins.map(ck=>`<div style="display:flex;gap:12px;padding:10px 4px;border-bottom:1px solid var(--border)">
+        ${ck.foto_url?`<img src="${ck.foto_url}" style="width:52px;height:52px;border-radius:8px;object-fit:cover;flex-shrink:0">`:`<div style="width:52px;height:52px;border-radius:8px;background:var(--surface);border:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.8"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>`}
+        <div style="flex:1;min-width:0">
+          <div style="font-family:var(--font-ui);font-size:12px;color:var(--text);font-weight:700">${nomeById[ck.user_id]||'Atleta'} <span style="color:var(--accent);font-weight:400">+${ck.pontos}</span></div>
+          <div style="font-family:var(--font-body);font-size:11px;color:var(--muted2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${ck.nota||''}</div>
+        </div>
+      </div>`).join('')}`:''}
+
+      ${g.owner_id===myUid?
+        `<button onclick="deleteGroup('${g.id}')" style="width:100%;margin-top:24px;padding:14px;background:none;border:1px solid rgba(224,92,42,0.4);color:#e05c2a;border-radius:8px;font-family:var(--font-ui);font-size:11px;letter-spacing:1.5px;cursor:pointer">APAGAR GRUPO</button>`
+        :`<button onclick="leaveGroup('${g.id}')" style="width:100%;margin-top:24px;padding:14px;background:none;border:1px solid var(--border);color:var(--muted2);border-radius:8px;font-family:var(--font-ui);font-size:11px;letter-spacing:1.5px;cursor:pointer">SAIR DO GRUPO</button>`}
+    `;
+  });
+}
+function leaveGroup(groupId){
+  if(!confirm('Sair desse grupo? Voce perde seu ranking e precisa de um novo convite pra voltar.'))return;
+  const uid=currentUserId();
+  fetch(`${SB_URL}/rest/v1/mytri_group_members?group_id=eq.${groupId}&user_id=eq.${uid}`,{method:'DELETE',headers:sbHeaders()})
+    .then(()=>{ meiaBrancaState._openGroup=null; renderClub(); })
+    .catch(()=>alert('Nao consegui sair do grupo agora.'));
+}
+function deleteGroup(groupId){
+  if(!confirm('Apagar esse grupo pra sempre? Todos os membros perdem acesso e o historico e apagado. Essa acao nao pode ser desfeita.'))return;
+  fetch(`${SB_URL}/rest/v1/mytri_groups?id=eq.${groupId}`,{method:'DELETE',headers:sbHeaders()})
+    .then(()=>{ meiaBrancaState._openGroup=null; renderClub(); })
+    .catch(()=>alert('Nao consegui apagar o grupo agora.'));
+}
+// Puxa os treinos de HOJE que ja foram concluidos com dado real (Strava ou manual) — e disso
+// que o check-in agora se alimenta, em vez de um botao generico que so somava +1 sempre.
+function getTodayCompletedSessions(){
+  try{
+    const {w,d}=getCurrentWeekAndDay();
+    const checks=loadChecks();
+    const sessions=getEffectiveSessions(w,d)||[];
+    return sessions.filter(s=>{
+      if(s._origin==='plan') return checks[ck(w,d,s._si)]&&(s._realExecuted||s.dist);
+      return s._origin==='extra'; // extra so existe pq o Strava sincronizou algo real
+    });
+  }catch(e){ return []; }
+}
+function _ckExtractKm(sess){
+  const str=sess.dist||'';
+  let m=String(str).match(/([\d.]+)\s*km/i);
+  if(m)return parseFloat(m[1]);
+  m=String(str).match(/([\d.]+)\s*m\b/i);
+  if(m)return parseFloat(m[1])/1000;
+  return 0;
+}
+function _ckExtractMin(sess){
+  const sources=[sess._stravaTime,sess.dist,sess.note].filter(Boolean);
+  for(const raw of sources){
+    const str=String(raw);
+    let m=str.match(/(\d+)h\s*(\d+)?/i);
+    if(m)return parseInt(m[1])*60+(parseInt(m[2])||0);
+    m=str.match(/(\d+)\s*min/i);
+    if(m)return parseInt(m[1]);
+  }
+  return 0;
+}
+function _ckPointsFor(sess,scoring){
+  if(scoring==='Distancia (km)')return Math.round(_ckExtractKm(sess)*10)/10;
+  if(scoring==='Minutos')return _ckExtractMin(sess);
+  return 1; // "Numero de treinos"
+}
+const TIPO_NOME_CK={swim:'Natacao',bike:'Bike',run:'Corrida',brick:'Tijolo',gym:'Forca',tennis:'Tenis'};
+
+// Check-in AUTOMATICO em todos os grupos da Meia Branca que o atleta participa, disparado
+// assim que um treino e concluido (manual ou Strava) — sem precisar abrir a aba do Clube.
+// "sourceKey" identifica o treino (ex: "w1_d2_s0" ou "strava_123456") pra nao duplicar o
+// check-in se o mesmo treino disparar esse gatilho mais de uma vez.
+async function autoCheckinAllGroups(sess,sourceKey){
+  try{
+    const uid=currentUserId();
+    if(!uid||!sourceKey)return;
+    const done=JSON.parse(localStorage.getItem('mytri_autocheckin_done')||'[]');
+    if(done.includes(sourceKey))return;
+    const groups=await mbFetchMyGroups();
+    if(!groups.length)return;
+    for(const g of groups){
+      const pontos=_ckPointsFor(sess,g.scoring);
+      const nota=`${TIPO_NOME_CK[sess.type]||sess.type||'Treino'}${sess.dist?' - '+sess.dist:''} (auto)`;
+      try{
+        await fetch(`${SB_URL}/rest/v1/mytri_group_checkins`,{method:'POST',headers:sbHeaders(),body:JSON.stringify({group_id:g.id,user_id:uid,pontos,nota})});
+        const rMe=await fetch(`${SB_URL}/rest/v1/mytri_group_members?group_id=eq.${g.id}&user_id=eq.${uid}&select=pontos`,{headers:sbHeaders()});
+        const meRows=await rMe.json();
+        const atual=(meRows&&meRows[0]&&meRows[0].pontos)||0;
+        await fetch(`${SB_URL}/rest/v1/mytri_group_members?group_id=eq.${g.id}&user_id=eq.${uid}`,{method:'PATCH',headers:sbHeaders(),body:JSON.stringify({pontos:atual+pontos})});
+      }catch(e){} // um grupo falhar nao deve impedir os outros
+    }
+    done.push(sourceKey);
+    localStorage.setItem('mytri_autocheckin_done',JSON.stringify(done.slice(-300)));
+  }catch(e){}
+}
+
+function submitCheckin(groupId){
+  const sessions=getTodayCompletedSessions();
+  if(!sessions.length){
+    alert('Nenhum treino concluido hoje ainda. Complete um treino na Agenda e volte aqui pra fazer o check-in.');
+    return;
+  }
+  const g=meiaBrancaState._openGroup;
+  if(sessions.length===1){
+    _showCheckinConfirm(groupId,sessions[0]);
+    return;
+  }
+  // Mais de um treino hoje: deixa escolher qual check-in vale.
+  const body=document.getElementById('mb-body');
+  if(!body)return;
+  body.innerHTML=`
+    <div onclick="renderMeiaBrancaGroup()" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-family:var(--font-ui);font-size:11px;color:var(--muted2);letter-spacing:1px;margin-bottom:14px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> VOLTAR</div>
+    <div style="font-family:var(--font-display);font-size:20px;margin-bottom:4px">Qual treino?</div>
+    <div style="font-family:var(--font-body);font-size:12px;color:var(--muted2);margin-bottom:18px">Escolhe qual treino de hoje vale o check-in nesse grupo.</div>
+    ${sessions.map((s,i)=>`<div onclick='_confirmCheckinByIdx(${JSON.stringify(groupId)},${i})' style="cursor:pointer;padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:8px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
+      <div style="font-family:var(--font-body);font-size:13px;color:var(--text)">${TIPO_NOME_CK[s.type]||s.type||'Treino'} &middot; ${s.dist||''}</div>
+      <div style="font-family:var(--font-ui);font-size:12px;color:var(--accent)">+${_ckPointsFor(s,g.scoring)}</div>
     </div>`).join('')}
-
-    <button onclick="alert('Check-in com foto ainda vai ser implementado junto com o backend compartilhado do grupo.')" style="width:100%;margin-top:20px;padding:16px;background:var(--accent);color:#000;border:none;border-radius:8px;font-family:var(--font-ui);font-size:13px;font-weight:700;letter-spacing:1.5px;cursor:pointer">FAZER CHECK-IN</button>
   `;
-  c.appendChild(body);
+  window._ckTodaySessions=sessions;
+}
+function _confirmCheckinByIdx(groupId,idx){ _showCheckinConfirm(groupId, window._ckTodaySessions[idx]); }
+
+// Tela de confirmacao com foto opcional, antes de gravar o check-in de verdade.
+function _showCheckinConfirm(groupId,sess){
+  const g=meiaBrancaState._openGroup;
+  const pontos=_ckPointsFor(sess,g.scoring);
+  const body=document.getElementById('mb-body');
+  if(!body)return;
+  window._ckinSess=sess; window._ckinFile=null; window._ckinGroupId=groupId;
+  body.innerHTML=`
+    <div onclick="renderMeiaBrancaGroup()" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-family:var(--font-ui);font-size:11px;color:var(--muted2);letter-spacing:1px;margin-bottom:14px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> VOLTAR</div>
+    <div style="font-family:var(--font-display);font-size:20px;margin-bottom:4px">Confirmar check-in</div>
+    <div style="font-family:var(--font-body);font-size:13px;color:var(--muted2);margin-bottom:20px">${TIPO_NOME_CK[sess.type]||sess.type||'Treino'}${sess.dist?' · '+sess.dist:''} — vale <span style="color:var(--accent)">+${pontos}</span> nesse grupo</div>
+
+    <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;display:block;margin-bottom:8px">FOTO (OPCIONAL)</label>
+    <div id="ckin-photo-preview" onclick="document.getElementById('ckin-photo-input').click()" style="width:100%;height:180px;background:var(--surface);border:1px dashed var(--border2);border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;margin-bottom:20px;overflow:hidden">
+      <span style="font-family:var(--font-ui);font-size:11px;color:var(--muted);letter-spacing:1px">TOQUE PRA ADICIONAR FOTO</span>
+    </div>
+    <input type="file" id="ckin-photo-input" accept="image/*" capture="environment" style="display:none" onchange="_ckinPhotoSelected(event)">
+
+    <button id="ckin-confirm-btn" onclick="_finalizeCheckin()" style="width:100%;padding:16px;background:var(--accent);color:#000;border:none;border-radius:8px;font-family:var(--font-ui);font-size:13px;font-weight:700;letter-spacing:1.5px;cursor:pointer">CONFIRMAR CHECK-IN</button>
+  `;
+}
+function _ckinPhotoSelected(e){
+  const file=e.target.files[0];
+  if(!file)return;
+  window._ckinFile=file;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    const preview=document.getElementById('ckin-photo-preview');
+    if(preview)preview.innerHTML=`<img src="${ev.target.result}" style="width:100%;height:100%;object-fit:cover">`;
+  };
+  reader.readAsDataURL(file);
+}
+async function _uploadCheckinPhoto(file,uid){
+  const s=getSession();
+  const token=(s&&s.access_token)||'';
+  const path=`${uid}/${Date.now()}_${Math.random().toString(36).slice(2,8)}.jpg`;
+  const r=await fetch(`${SB_URL}/storage/v1/object/checkins/${path}`,{
+    method:'POST',
+    headers:{'apikey':SB_KEY,'Authorization':'Bearer '+token,'Content-Type':file.type||'image/jpeg'},
+    body:file
+  });
+  if(!r.ok) throw new Error('upload falhou');
+  return `${SB_URL}/storage/v1/object/public/checkins/${path}`;
+}
+async function _finalizeCheckin(){
+  const sess=window._ckinSess, file=window._ckinFile, groupId=window._ckinGroupId;
+  const uid=currentUserId();
+  if(!uid||!sess)return;
+  const g=meiaBrancaState._openGroup;
+  const pontos=_ckPointsFor(sess,g.scoring);
+  const nota=`${TIPO_NOME_CK[sess.type]||sess.type||'Treino'}${sess.dist?' - '+sess.dist:''}`;
+  const btn=document.getElementById('ckin-confirm-btn');
+  if(btn){ btn.disabled=true; btn.textContent='ENVIANDO...'; }
+  try{
+    let fotoUrl=null;
+    if(file) fotoUrl=await _uploadCheckinPhoto(file,uid);
+    await fetch(`${SB_URL}/rest/v1/mytri_group_checkins`,{
+      method:'POST', headers:sbHeaders(),
+      body:JSON.stringify({group_id:groupId,user_id:uid,pontos,nota,foto_url:fotoUrl})
+    });
+    // Le o ponto atual e incrementa (RLS so deixa editar a propria linha de membro).
+    const rMe=await fetch(`${SB_URL}/rest/v1/mytri_group_members?group_id=eq.${groupId}&user_id=eq.${uid}&select=pontos`,{headers:sbHeaders()});
+    const meRows=await rMe.json();
+    const atual=(meRows&&meRows[0]&&meRows[0].pontos)||0;
+    await fetch(`${SB_URL}/rest/v1/mytri_group_members?group_id=eq.${groupId}&user_id=eq.${uid}`,{
+      method:'PATCH', headers:sbHeaders(),
+      body:JSON.stringify({pontos:atual+pontos})
+    });
+    renderMeiaBrancaGroup();
+  }catch(e){
+    alert('Nao consegui registrar o check-in agora.');
+    if(btn){ btn.disabled=false; btn.textContent='CONFIRMAR CHECK-IN'; }
+  }
 }
 function renderClubMyProfile(c){
   const _prof=getMytriProfile();
@@ -9588,15 +9845,42 @@ function calcDistanciasProva(profile){
 // aqui e mandando o veredito pronto, a IA só precisa repetir a frase, não julgar os números.
 function calcComparacaoPace(profile, paceNecessario){
   try{
-    if(!paceNecessario||profile.sport!=='corrida'||!profile.pace)return '';
+    if(!paceNecessario)return '';
     const toSec=(s)=>{ const p=String(s).replace(/[^0-9:]/g,'').split(':'); if(p.length!==2)return null; return (parseInt(p[0])||0)*60+(parseInt(p[1])||0); };
-    const atualSec=toSec(profile.pace);
-    const necSec=toSec(paceNecessario);
-    if(atualSec==null||necSec==null)return '';
-    if(atualSec<=necSec){
-      return `O pace ATUAL do atleta (${profile.pace}/km) ja e MAIS RÁPIDO (ou igual) que o pace NECESSARIO pra bater a meta (${paceNecessario}). Isso significa que o atleta JA TEM velocidade suficiente — o foco do plano deve ser resistencia especifica, consistencia e chegar saudavel na largada, NÃO ganho de velocidade.`;
+
+    // CORRIDA: comparacao exata, pace atual vs pace necessario pra bater a meta.
+    if(profile.sport==='corrida'&&profile.pace){
+      const atualSec=toSec(profile.pace), necSec=toSec(paceNecessario);
+      if(atualSec==null||necSec==null)return '';
+      if(atualSec<=necSec) return `O pace ATUAL do atleta (${profile.pace}/km) ja e MAIS RÁPIDO (ou igual) que o pace NECESSARIO pra bater a meta (${paceNecessario}). Isso significa que o atleta JA TEM velocidade suficiente — o foco do plano deve ser resistencia especifica, consistencia e chegar saudavel na largada, NÃO ganho de velocidade.`;
+      return `O pace ATUAL do atleta (${profile.pace}/km) e MAIS LENTO que o pace NECESSARIO pra bater a meta (${paceNecessario}). O atleta precisa GANHAR velocidade — esse e um foco real do plano.`;
     }
-    return `O pace ATUAL do atleta (${profile.pace}/km) e MAIS LENTO que o pace NECESSARIO pra bater a meta (${paceNecessario}). O atleta precisa GANHAR velocidade — esse e um foco real do plano.`;
+
+    // NATACAO: mesma logica, mas por 100m.
+    if(profile.sport==='natacao'&&profile.swim){
+      const atualSec=toSec(profile.swim), necSec=toSec(paceNecessario);
+      if(atualSec==null||necSec==null)return '';
+      if(atualSec<=necSec) return `O pace ATUAL de nado do atleta (${profile.swim}/100m) ja e MAIS RÁPIDO (ou igual) que o pace NECESSARIO pra bater a meta (${paceNecessario}). O atleta JA TEM velocidade suficiente — o foco deve ser resistencia e tecnica, NÃO ganho de velocidade.`;
+      return `O pace ATUAL de nado do atleta (${profile.swim}/100m) e MAIS LENTO que o pace NECESSARIO pra bater a meta (${paceNecessario}). O atleta precisa GANHAR velocidade de nado — esse e um foco real do plano.`;
+    }
+
+    // TRIATHLON/DUATHLON: o "pace necessario" aqui e so uma ESTIMATIVA da perna de corrida
+    // (dividindo o tempo total pela regra aproximada de 42%), entao a comparacao tambem e
+    // aproximada — mas ainda assim precisa ser dita explicitamente, senao a IA monta a propria
+    // conta (e erra) do mesmo jeito que fazia antes so pra corrida.
+    if((profile.sport==='triathlon'||profile.sport==='duathlon')&&profile.pace){
+      const necMatch=String(paceNecessario).match(/(\d+):(\d{2})/);
+      if(necMatch){
+        const necSec=parseInt(necMatch[1])*60+parseInt(necMatch[2]);
+        const atualSec=toSec(profile.pace);
+        if(atualSec!=null){
+          const cmp=atualSec<=necSec?'JA E MAIS RÁPIDO (ou igual) que':'e MAIS LENTO que';
+          return `ESTIMATIVA (a perna de corrida do triathlon representa aproximadamente 42% do tempo total — nao e uma conta exata): o pace ATUAL de corrida do atleta (${profile.pace}/km) ${cmp} a estimativa de pace necessario pra essa perna dentro da meta total (${paceNecessario}). Trate isso como uma referencia aproximada, nao um numero cravado — mas USE essa direcao (precisa melhorar ou ja tem capacidade) em vez de calcular voce mesmo.`;
+        }
+      }
+    }
+
+    return '';
   }catch(e){ return ''; }
 }
 
