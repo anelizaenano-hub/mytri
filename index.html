@@ -6785,10 +6785,19 @@ async function submitCreateGroup(){
   const foco=(document.getElementById('mb-foco').value||'').trim();
   const scoringLabels=['Numero de treinos','Distancia (km)','Minutos'];
   const scoring=scoringLabels[window._mbScoring||0];
-  const uid=currentUserId();
-  if(!uid){ alert('Precisa estar logado.'); return; }
   const btn=document.getElementById('mb-create-btn');
   if(btn){ btn.disabled=true; btn.textContent='CRIANDO...'; }
+  // Garante que o token de sessao esta fresco antes de uma escrita critica — se a sessao
+  // tivesse expirado sem renovar, o INSERT falhava na regra "auth.uid() = owner_id" com um
+  // erro generico, sem explicar o motivo real.
+  const session=await ensureValidSession();
+  if(!session){
+    alert('Sua sessao expirou. Vamos te levar pra tela de login de novo.');
+    showAuthScreen();
+    return;
+  }
+  const uid=currentUserId();
+  if(!uid){ alert('Precisa estar logado.'); return; }
   const codigo=Math.random().toString(36).slice(2,8).toUpperCase();
   const prof=getMytriProfile();
   try{
@@ -6798,7 +6807,10 @@ async function submitCreateGroup(){
       body:JSON.stringify({nome,foco,scoring,codigo,owner_id:uid})
     });
     const rows=await r.json();
-    if(!r.ok||!rows||!rows[0]){ throw new Error((rows&&rows.message)||'Erro ao criar grupo'); }
+    if(!r.ok||!rows||!rows[0]){
+      console.error('Erro ao criar grupo:',r.status,rows);
+      throw new Error((rows&&(rows.message||rows.hint||rows.details))||`HTTP ${r.status}`);
+    }
     const group=rows[0];
     // Dono entra como primeiro membro automaticamente.
     await fetch(`${SB_URL}/rest/v1/mytri_group_members`,{
@@ -6809,13 +6821,15 @@ async function submitCreateGroup(){
     meiaBrancaState._openGroup=group;
     renderClub();
   }catch(e){
-    alert('Nao consegui criar o grupo agora. Tenta de novo.');
+    alert('Nao consegui criar o grupo agora: '+(e.message||'erro desconhecido'));
     if(btn){ btn.disabled=false; btn.textContent='CRIAR'; }
   }
 }
-function openJoinGroupForm(){
+async function openJoinGroupForm(){
   const codigo=prompt('Digite o codigo do grupo:');
   if(!codigo)return;
+  const session=await ensureValidSession();
+  if(!session){ alert('Sua sessao expirou. Vamos te levar pra tela de login de novo.'); showAuthScreen(); return; }
   const prof=getMytriProfile();
   fetch(`${SB_URL}/rest/v1/rpc/join_group_by_code`,{
     method:'POST',
@@ -6824,6 +6838,7 @@ function openJoinGroupForm(){
   }).then(async r=>{
     if(!r.ok){
       const err=await r.json().catch(()=>({}));
+      console.error('Erro ao entrar no grupo:',r.status,err);
       alert(err.message&&err.message.includes('Codigo invalido')?'Codigo invalido.':'Nao consegui entrar no grupo. Confere o codigo.');
       return;
     }
@@ -7040,11 +7055,13 @@ async function _finalizeCheckin(){
   const sess=window._ckinSess, file=window._ckinFile, groupId=window._ckinGroupId;
   const uid=currentUserId();
   if(!uid||!sess)return;
+  const btn=document.getElementById('ckin-confirm-btn');
+  if(btn){ btn.disabled=true; btn.textContent='ENVIANDO...'; }
+  const session=await ensureValidSession();
+  if(!session){ alert('Sua sessao expirou. Vamos te levar pra tela de login de novo.'); showAuthScreen(); return; }
   const g=meiaBrancaState._openGroup;
   const pontos=_ckPointsFor(sess,g.scoring);
   const nota=`${TIPO_NOME_CK[sess.type]||sess.type||'Treino'}${sess.dist?' - '+sess.dist:''}`;
-  const btn=document.getElementById('ckin-confirm-btn');
-  if(btn){ btn.disabled=true; btn.textContent='ENVIANDO...'; }
   try{
     let fotoUrl=null;
     if(file) fotoUrl=await _uploadCheckinPhoto(file,uid);
