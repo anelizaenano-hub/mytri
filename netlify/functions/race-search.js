@@ -91,9 +91,11 @@ O atleta está atualmente perto de "${regionStr}", mas NÃO necessariamente mora
 
 Não limite a busca só a provas grandes/famosas — provas pequenas de circuito/assessoria contam tanto quanto as grandes, e são frequentemente as mais relevantes pro atleta por serem mais perto. Não limite também só à cidade exata do atleta — cubra o estado inteiro e a região.
 
-Para cada prova, encontre: nome oficial (incluindo o nome da etapa/circuito se aplicável), data (formato AAAA-MM-DD), cidade/país, e o link OFICIAL de inscrição.
+CRÍTICO — onde provas pequenas/regionais realmente estão cadastradas: a maioria das provas de circuito/assessoria NÃO tem site próprio — elas são cadastradas em plataformas brasileiras de inscrição de corrida. Faça buscas especificas usando "site:" ou mencionando essas plataformas diretamente no termo de busca, por exemplo: "site:minhasinscricoes.com.br triathlon [estado/cidade] 2026", "site:ticketsports.com.br triathlon [estado] 2026", "triathlon sprint [cidade] inscrição minhas inscricoes", "circuito triathlon [regiao] ticket sports". As plataformas mais comuns no Brasil pra esse tipo de prova são: minhasinscricoes.com.br, ticketsports.com.br, sympla.com.br, corridaperfeita.com, ativo.com. Pelo menos 1 das suas buscas deve mirar direto numa dessas plataformas por nome.
 
-IMPORTANTE: faça ATE 6 buscas web diferentes, variando os termos (não repita a mesma busca) — pelo menos 2 delas devem ser especificamente atrás de circuitos/assessorias regionais, não só provas nacionais grandes. Depois RESPONDA. Não continue buscando indefinidamente — é melhor responder com as provas que já encontrou do que estourar o tempo.
+Para cada prova, encontre: nome oficial (incluindo o nome da etapa/circuito se aplicável), data (formato AAAA-MM-DD), cidade/país, e o link OFICIAL de inscrição — de preferência o link direto da pagina de inscricao na plataforma (minhasinscricoes.com.br/Evento/..., ticketsports.com.br/e/..., etc), nao so a home do site.
+
+IMPORTANTE: faça ATE 8 buscas web diferentes, variando os termos (não repita a mesma busca) — pelo menos 2 delas devem ser especificamente atrás de circuitos/assessorias regionais, e pelo menos 1 deve mirar direto numa plataforma de inscrição conhecida (minhasinscricoes.com.br, ticketsports.com.br, etc). Depois RESPONDA. Não continue buscando indefinidamente — é melhor responder com as provas que já encontrou do que estourar o tempo.
 
 Sua ÚLTIMA mensagem deve conter APENAS um JSON válido (sem markdown, sem crases, sem texto antes ou depois) neste formato exato:
 {"races":[{"name":"...","date":"AAAA-MM-DD","local":"Cidade, UF/País","url":"https://...","scope":"nacional"}]}
