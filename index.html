@@ -474,7 +474,7 @@ summary span:last-child{transition:transform .2s;display:inline-block}
 </div>
 
 <!-- Modal Consultoria -->
-<div id="consult-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;height:100dvh;z-index:495;background:var(--bg);flex-direction:column">
+<div id="consult-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;height:100dvh;z-index:490;background:var(--bg);flex-direction:column">
   <div style="padding:16px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--surface)">
     <div style="display:flex;align-items:center;gap:10px">
       <div style="width:34px;height:34px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center">
@@ -492,7 +492,7 @@ summary span:last-child{transition:transform .2s;display:inline-block}
   </div>
   <div id="consult-messages" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:18px 16px;display:flex;flex-direction:column;gap:12px"></div>
   <div id="consult-suggestions" style="padding:0 12px 8px;display:flex;gap:8px;flex-wrap:wrap"></div>
-  <div style="padding:12px 14px;border-top:1px solid var(--border);background:var(--surface);display:flex;gap:10px;align-items:flex-end;flex-shrink:0;padding-bottom:calc(16px + env(safe-area-inset-bottom))">
+  <div style="padding:12px 14px;border-top:1px solid var(--border);background:var(--surface);display:flex;gap:10px;align-items:flex-end;flex-shrink:0;padding-bottom:calc(16px + env(safe-area-inset-bottom) + 66px)">
     <textarea id="consult-input" rows="1" placeholder="Pergunte sobre seu treino..." style="flex:1;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:11px 14px;border-radius:20px;resize:none;max-height:100px;line-height:1.3"></textarea>
     <button id="consult-send" onclick="sendConsult()" style="width:44px;height:44px;border-radius:50%;background:var(--accent);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
@@ -775,7 +775,13 @@ const I18N={
   },
 };
 function getLang(){ const l=localStorage.getItem('mytri_lang'); return SUPPORTED_LANGS.includes(l)?l:'pt'; }
-function setLang(l){ if(!SUPPORTED_LANGS.includes(l))return; localStorage.setItem('mytri_lang',l); location.reload(); }
+function setLang(l){
+  if(!SUPPORTED_LANGS.includes(l))return;
+  localStorage.setItem('mytri_lang',l);
+  // Idioma tambem acompanha a conta agora, nao só o aparelho (CLC item 4).
+  try{ sbSet('mytri_lang', l).catch(()=>{}); }catch(e){}
+  location.reload();
+}
 function t(key){ const lang=getLang(); return (I18N[lang]&&I18N[lang][key])||I18N.pt[key]||key; }
 
 // Card visual de idioma com bandeira + dropdown — substitui a fileira de botoes PT/EN/ES/ZH
@@ -1950,6 +1956,15 @@ async function sbInit(){
     _syncReady=true;
     // Carregar dados da nuvem e mesclar com local
     await syncFromCloud();
+    _loadConsultHistoryFromCloud();
+    // Idioma: se a conta tem uma preferencia salva na nuvem diferente da local (ex: trocou de
+    // aparelho), aplica a da nuvem.
+    sbGet('mytri_lang').then(cloudLang=>{
+      if(cloudLang&&SUPPORTED_LANGS.includes(cloudLang)&&cloudLang!==localStorage.getItem('mytri_lang')){
+        localStorage.setItem('mytri_lang',cloudLang);
+        applyNavLang();
+      }
+    }).catch(()=>{});
   }catch(e){
 
   }
@@ -2159,6 +2174,10 @@ function switchTab(tab){
     const el=document.getElementById(id);
     if(el) el.classList.remove('active');
   });
+  // Tocar em qualquer aba (ex: Perfil) sai da Consultoria Live direto, sem precisar fechar
+  // com o X antes — nav continua clicavel por cima do chat exatamente pra isso.
+  closeConsult();
+  if(tab!=='club')clubTabView=null;
   if(tab==='perfil'){
     openProfile();
     return;
@@ -4219,6 +4238,22 @@ const CONSULT_HISTORY_KEY='mytri_consult_history';
 try{ _consultHistory=JSON.parse(localStorage.getItem(CONSULT_HISTORY_KEY)||'[]'); }catch(e){ _consultHistory=[]; }
 function _saveConsultHistory(){
   try{ localStorage.setItem(CONSULT_HISTORY_KEY, JSON.stringify(_consultHistory.slice(-40))); }catch(e){}
+  // CLC item 4: historico da consultoria tambem vai pra nuvem agora — antes ficava só no
+  // aparelho, e trocar de celular ou limpar o navegador perdia a conversa inteira com o coach.
+  sbSet('mytri_consult_history', _consultHistory.slice(-40)).catch(()=>{});
+}
+async function _loadConsultHistoryFromCloud(){
+  try{
+    const cloud=await sbGet('mytri_consult_history');
+    if(Array.isArray(cloud)&&cloud.length){
+      _consultHistory=cloud;
+      localStorage.setItem(CONSULT_HISTORY_KEY, JSON.stringify(_consultHistory));
+    }else if(_consultHistory.length){
+      // Primeira sincronizacao: tinha historico só local (de antes dessa migracao) e nada na
+      // nuvem ainda — manda o que já existe pra nao perder a conversa.
+      sbSet('mytri_consult_history', _consultHistory).catch(()=>{});
+    }
+  }catch(e){}
 }
 const _consultSuggestions=[
   'Como está minha evolução?',
@@ -6530,12 +6565,58 @@ function saveClubState(){
   localStorage.setItem('mytri_club',JSON.stringify(clubState));
 }
 
+let clubTabView=null; // null = tela de entrada (2 banners) | 'branca' | 'azul'
+
 function renderClub(){
-  if(localStorage.getItem('mytri_club_terms')!=='1'){
-    showClubDisclaimer();
+  const c=document.getElementById('view-club');
+  if(!c)return;
+  if(!clubTabView){
+    renderClubLanding(c);
     return;
   }
-  renderClubReal();
+  if(clubTabView==='azul'){
+    if(localStorage.getItem('mytri_club_terms')!=='1'){
+      showClubDisclaimer();
+      return;
+    }
+    renderClubReal();
+  }else if(clubTabView==='branca'){
+    renderMeiaBranca(c);
+  }
+}
+
+function openMeiaBranca(){ clubTabView='branca'; renderClub(); }
+function openMeiaAzul(){ clubTabView='azul'; renderClub(); }
+function backToClubLanding(){ clubTabView=null; renderClub(); }
+
+function renderClubLanding(c){
+  c.innerHTML='';
+  c.style.cssText='padding:20px 16px 100px;min-height:100vh;background:var(--bg)';
+  const _clubCount=(clubState.matches||[]).length;
+  c.innerHTML=`
+    <div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:2px;margin-bottom:4px">CLUBE MYTRI</div>
+    <div style="font-family:var(--font-display);font-size:28px;letter-spacing:.5px;margin-bottom:20px">Escolha seu clube</div>
+
+    <div onclick="openMeiaBranca()" style="cursor:pointer;position:relative;border-radius:16px;overflow:hidden;margin-bottom:16px;background:linear-gradient(135deg,#f0f2f5,#c9ced6);padding:22px;min-height:130px;display:flex;flex-direction:column;justify-content:flex-end">
+      <div style="position:absolute;top:18px;right:18px;width:44px;height:44px;border-radius:12px;background:rgba(0,0,0,0.08);display:flex;align-items:center;justify-content:center">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/><path d="M12 11l1.5 1.5L16 10"/></svg>
+      </div>
+      <div style="font-family:var(--font-display);font-size:22px;color:#0a0a0a;letter-spacing:.5px;margin-bottom:4px">CLUBE DA MEIA BRANCA</div>
+      <div style="font-family:var(--font-body);font-size:12px;color:#3a3f4a;line-height:1.4;max-width:80%">Grupos e desafios coletivos. Treine com sua equipe, registre check-ins e suba no ranking.</div>
+      <div style="margin-top:10px;font-family:var(--font-ui);font-size:9px;color:#0a0a0a;letter-spacing:1.5px;display:flex;align-items:center;gap:4px">NOVO <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0a0a0a" stroke-width="3"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+    </div>
+
+    <div onclick="openMeiaAzul()" style="cursor:pointer;position:relative;border-radius:16px;overflow:hidden;background:linear-gradient(135deg,#1a6cf0,#0d3a8f);padding:22px;min-height:130px;display:flex;flex-direction:column;justify-content:flex-end">
+      <div style="position:absolute;top:18px;right:18px;width:44px;height:44px;border-radius:12px;background:rgba(255,255,255,0.12);display:flex;align-items:center;justify-content:center">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+      </div>
+      <div style="font-family:var(--font-display);font-size:22px;color:#fff;letter-spacing:.5px;margin-bottom:4px">CLUBE DA MEIA AZUL</div>
+      <div style="font-family:var(--font-body);font-size:12px;color:rgba(255,255,255,0.75);line-height:1.4;max-width:80%">Conecte com outros triatletas. Combine treinos, troque experiencias.</div>
+      ${_clubCount?`<div style="margin-top:10px;font-family:var(--font-ui);font-size:9px;color:#fff;letter-spacing:1.5px">${_clubCount} CONEXA${_clubCount>1?'ES':'O'}</div>`:''}
+    </div>
+
+    <div style="margin-top:20px;font-family:var(--font-body);font-size:11px;color:var(--muted);line-height:1.5;text-align:center">Recursos sociais opcionais, exclusivos pra maiores de 18 anos.</div>
+  `;
 }
 
 function showClubDisclaimer(){
@@ -6558,7 +6639,7 @@ function showClubDisclaimer(){
         <span>Concordo com os <strong style="color:var(--text)">termos de uso</strong> e entendo que o MyTri não realiza verificacao de identidade dos usuarios</span>
       </label>
       <button class="disclaimer-btn" id="club-disc-btn" onclick="acceptClubTerms()">ENTRAR NO CLUBE</button>
-      <button class="disclaimer-btn-cancel" onclick="document.getElementById('club-disclaimer').remove();switchTab('hoje')">Cancelar</button>
+      <button class="disclaimer-btn-cancel" onclick="document.getElementById('club-disclaimer').remove();backToClubLanding()">Cancelar</button>
     </div>`;
   document.body.appendChild(overlay);
 }
@@ -6589,8 +6670,145 @@ function renderClubReal(){
   }else{
     renderClubSwipe(c);
   }
+  // Prepende DEPOIS do sub-render, ja que cada tela interna substitui o innerHTML inteiro —
+  // se adicionasse antes, esse botao seria apagado junto.
+  c.insertAdjacentHTML('afterbegin', `<div style="padding:14px 16px 0"><div onclick="backToClubLanding()" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-family:var(--font-ui);font-size:11px;color:var(--muted2);letter-spacing:1px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> CLUBES</div></div>`);
 }
 
+// ═══════════════ CLUBE DA MEIA BRANCA (grupos/desafios, estilo GymRats) ═══════════════
+// NOTA IMPORTANTE: por enquanto isso guarda estado só localmente (localStorage). Um grupo de
+// verdade precisa ser visivel pros OUTROS membros — isso exige tabelas novas no Supabase com
+// RLS por membership (nao da pra reaproveitar o nano_sync, que e isolado por usuario). Essa
+// migracao ainda nao foi feita; essa versao e a camada de interface/UX pra validar o conceito.
+let meiaBrancaState={ myGroups:[] };
+try{
+  const saved=JSON.parse(localStorage.getItem('mytri_meia_branca')||'{}');
+  if(Array.isArray(saved.myGroups))meiaBrancaState=saved;
+}catch(e){}
+function saveMeiaBrancaState(){ localStorage.setItem('mytri_meia_branca',JSON.stringify(meiaBrancaState)); }
+
+function renderMeiaBranca(c){
+  c.innerHTML='';
+  c.style.cssText='padding-bottom:80px;min-height:100vh;background:var(--bg)';
+  c.innerHTML=`<div style="padding:14px 16px 0"><div onclick="backToClubLanding()" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-family:var(--font-ui);font-size:11px;color:var(--muted2);letter-spacing:1px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> CLUBES</div></div>`;
+
+  if(meiaBrancaState._openGroupIdx!=null && meiaBrancaState.myGroups[meiaBrancaState._openGroupIdx]){
+    renderMeiaBrancaGroup(c);
+    return;
+  }
+
+  const body=document.createElement('div');
+  body.style.cssText='padding:16px';
+  if(!meiaBrancaState.myGroups.length){
+    body.innerHTML=`
+      <div style="text-align:center;padding:40px 20px">
+        <div style="width:64px;height:64px;border-radius:16px;background:rgba(240,242,245,0.08);display:flex;align-items:center;justify-content:center;margin:0 auto 18px">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--text)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </div>
+        <div style="font-family:var(--font-display);font-size:20px;margin-bottom:8px">Voce ainda nao esta em nenhum grupo</div>
+        <div style="font-family:var(--font-body);font-size:13px;color:var(--muted2);line-height:1.5">Crie um grupo e convide sua equipe, ou entre com um codigo de convite.</div>
+      </div>
+      <button onclick="openCreateGroupForm()" style="width:100%;padding:16px;background:var(--text);color:#000;border:none;border-radius:8px;font-family:var(--font-ui);font-size:13px;font-weight:700;letter-spacing:1.5px;cursor:pointer;margin-bottom:10px">CRIAR GRUPO</button>
+      <button onclick="openJoinGroupForm()" style="width:100%;padding:16px;background:none;border:1px solid var(--border);color:var(--text);border-radius:8px;font-family:var(--font-ui);font-size:13px;font-weight:700;letter-spacing:1.5px;cursor:pointer">ENTRAR COM CODIGO</button>
+    `;
+  }else{
+    body.innerHTML=`
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <div style="font-family:var(--font-ui);font-size:11px;color:var(--muted);letter-spacing:1.5px">MEUS GRUPOS</div>
+        <button onclick="openCreateGroupForm()" style="background:none;border:1px solid var(--border);color:var(--text);font-family:var(--font-ui);font-size:10px;letter-spacing:1px;padding:8px 12px;border-radius:6px;cursor:pointer">+ NOVO</button>
+      </div>
+      ${meiaBrancaState.myGroups.map((g,i)=>`
+        <div onclick="openGroupDetail(${i})" style="cursor:pointer;padding:16px;background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <div style="font-family:var(--font-ui);font-size:14px;font-weight:700;color:var(--text);margin-bottom:3px">${g.nome}</div>
+            <div style="font-family:var(--font-body);font-size:11px;color:var(--muted2)">${g.foco||'Todas as modalidades'} &middot; ${(g.membros||[]).length} membro${(g.membros||[]).length===1?'':'s'}</div>
+          </div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+        </div>`).join('')}
+    `;
+  }
+  c.appendChild(body);
+}
+
+function openCreateGroupForm(){
+  const c=document.getElementById('view-club');
+  c.innerHTML=`<div style="padding:14px 16px 0"><div onclick="renderClub()" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-family:var(--font-ui);font-size:11px;color:var(--muted2);letter-spacing:1px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> VOLTAR</div></div>
+  <div style="padding:20px 16px">
+    <div style="font-family:var(--font-display);font-size:22px;margin-bottom:20px">Criar grupo</div>
+    <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;display:block;margin-bottom:6px">NOME DO GRUPO</label>
+    <input id="mb-nome" placeholder="Ex: Equipe Sub21" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:13px;border-radius:8px;margin-bottom:16px">
+    <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;display:block;margin-bottom:6px">FOCO (OPCIONAL)</label>
+    <input id="mb-foco" placeholder="Ex: Corrida, Triathlon..." style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:13px;border-radius:8px;margin-bottom:16px">
+    <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;display:block;margin-bottom:6px">COMO PONTUA?</label>
+    <div style="display:flex;gap:8px;margin-bottom:24px" id="mb-scoring">
+      ${['Numero de treinos','Distancia (km)','Minutos'].map((l,i)=>`<div onclick="_mbSelectScoring(${i})" data-i="${i}" class="mb-score-opt" style="flex:1;text-align:center;padding:12px 6px;border-radius:8px;border:1px solid ${i===0?'var(--accent)':'var(--border)'};background:${i===0?'rgba(0,230,118,0.1)':'var(--surface)'};color:${i===0?'var(--accent)':'var(--muted2)'};font-family:var(--font-ui);font-size:10px;letter-spacing:.5px;cursor:pointer">${l}</div>`).join('')}
+    </div>
+    <button onclick="submitCreateGroup()" style="width:100%;padding:16px;background:var(--text);color:#000;border:none;border-radius:8px;font-family:var(--font-ui);font-size:13px;font-weight:700;letter-spacing:1.5px;cursor:pointer">CRIAR</button>
+  </div>`;
+  window._mbScoring=0;
+}
+function _mbSelectScoring(i){
+  window._mbScoring=i;
+  document.querySelectorAll('.mb-score-opt').forEach(el=>{
+    const active=Number(el.dataset.i)===i;
+    el.style.borderColor=active?'var(--accent)':'var(--border)';
+    el.style.background=active?'rgba(0,230,118,0.1)':'var(--surface)';
+    el.style.color=active?'var(--accent)':'var(--muted2)';
+  });
+}
+function submitCreateGroup(){
+  const nome=(document.getElementById('mb-nome').value||'').trim();
+  if(!nome){ alert('Da um nome pro grupo primeiro.'); return; }
+  const foco=(document.getElementById('mb-foco').value||'').trim();
+  const scoringLabels=['Numero de treinos','Distancia (km)','Minutos'];
+  const prof=getMytriProfile();
+  const codigo=Math.random().toString(36).slice(2,8).toUpperCase();
+  meiaBrancaState.myGroups.push({
+    nome, foco, scoring:scoringLabels[window._mbScoring||0], codigo,
+    membros:[{nome:prof.name||'Voce', pontos:0}],
+    checkins:[],
+  });
+  saveMeiaBrancaState();
+  meiaBrancaState._openGroupIdx=meiaBrancaState.myGroups.length-1;
+  saveMeiaBrancaState();
+  renderClub();
+}
+function openJoinGroupForm(){
+  const codigo=prompt('Digite o codigo do grupo:');
+  if(!codigo)return;
+  // TODO: quando existir backend compartilhado, buscar o grupo pelo codigo de verdade.
+  alert('Entrar por codigo ainda depende da parte de backend compartilhado (grupos visiveis entre usuarios). Por enquanto, só criar grupo funciona de ponta a ponta.');
+}
+function openGroupDetail(i){ meiaBrancaState._openGroupIdx=i; saveMeiaBrancaState(); renderClub(); }
+function renderMeiaBrancaGroup(c){
+  const g=meiaBrancaState.myGroups[meiaBrancaState._openGroupIdx];
+  const body=document.createElement('div');
+  body.style.cssText='padding:16px';
+  const ranked=[...(g.membros||[])].sort((a,b)=>b.pontos-a.pontos);
+  body.innerHTML=`
+    <div onclick="meiaBrancaState._openGroupIdx=null;saveMeiaBrancaState();renderClub()" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-family:var(--font-ui);font-size:11px;color:var(--muted2);letter-spacing:1px;margin-bottom:14px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> MEUS GRUPOS</div>
+    <div style="font-family:var(--font-display);font-size:24px;margin-bottom:2px">${g.nome}</div>
+    <div style="font-family:var(--font-body);font-size:12px;color:var(--muted2);margin-bottom:18px">${g.foco||'Todas as modalidades'} &middot; pontua por ${g.scoring.toLowerCase()}</div>
+
+    <div style="padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:2px">CODIGO DO GRUPO</div>
+        <div style="font-family:var(--font-display);font-size:18px;letter-spacing:2px">${g.codigo}</div>
+      </div>
+      <button onclick="navigator.clipboard&&navigator.clipboard.writeText('${g.codigo}');this.textContent='COPIADO'" style="background:none;border:1px solid var(--border);color:var(--text);font-family:var(--font-ui);font-size:10px;letter-spacing:1px;padding:8px 12px;border-radius:6px;cursor:pointer">COPIAR</button>
+    </div>
+
+    <div style="font-family:var(--font-ui);font-size:11px;color:var(--muted);letter-spacing:1.5px;margin-bottom:10px">RANKING</div>
+    ${ranked.map((m,i)=>`<div style="display:flex;align-items:center;gap:12px;padding:12px 4px;border-bottom:1px solid var(--border)">
+      <div style="width:22px;font-family:var(--font-display);font-size:14px;color:${i===0?'var(--accent)':'var(--muted)'}">${i+1}</div>
+      <div style="flex:1;font-family:var(--font-body);font-size:13px;color:var(--text)">${m.nome}</div>
+      <div style="font-family:var(--font-ui);font-size:13px;color:var(--text)">${m.pontos}</div>
+    </div>`).join('')}
+
+    <button onclick="alert('Check-in com foto ainda vai ser implementado junto com o backend compartilhado do grupo.')" style="width:100%;margin-top:20px;padding:16px;background:var(--accent);color:#000;border:none;border-radius:8px;font-family:var(--font-ui);font-size:13px;font-weight:700;letter-spacing:1.5px;cursor:pointer">FAZER CHECK-IN</button>
+  `;
+  c.appendChild(body);
+}
 function renderClubMyProfile(c){
   const _prof=getMytriProfile();
   const _cs=clubState.myProfile||{};
