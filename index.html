@@ -6816,7 +6816,7 @@ async function submitCreateGroup(){
     await fetch(`${SB_URL}/rest/v1/mytri_group_members`,{
       method:'POST',
       headers:sbHeaders(),
-      body:JSON.stringify({group_id:group.id,user_id:uid,nome_exibicao:prof.name||'Voce'})
+      body:JSON.stringify({group_id:group.id,user_id:uid,nome_exibicao:prof.name||'Voce',foto_url:prof.photo||null})
     });
     meiaBrancaState._openGroup=group;
     renderClub();
@@ -6831,6 +6831,7 @@ async function openJoinGroupForm(){
   const session=await ensureValidSession();
   if(!session){ alert('Sua sessao expirou. Vamos te levar pra tela de login de novo.'); showAuthScreen(); return; }
   const prof=getMytriProfile();
+  const uid=currentUserId();
   fetch(`${SB_URL}/rest/v1/rpc/join_group_by_code`,{
     method:'POST',
     headers:sbHeaders(),
@@ -6841,6 +6842,14 @@ async function openJoinGroupForm(){
       console.error('Erro ao entrar no grupo:',r.status,err);
       alert(err.message&&err.message.includes('Codigo invalido')?'Codigo invalido.':'Nao consegui entrar no grupo. Confere o codigo.');
       return;
+    }
+    const groupId=await r.json().catch(()=>null);
+    // A funcao join_group_by_code nao aceita foto (RPC generica) — completa com um PATCH
+    // separado, que a regra "members_update_self" ja permite pro proprio membro.
+    if(groupId&&prof.photo&&uid){
+      fetch(`${SB_URL}/rest/v1/mytri_group_members?group_id=eq.${groupId}&user_id=eq.${uid}`,{
+        method:'PATCH', headers:sbHeaders(), body:JSON.stringify({foto_url:prof.photo})
+      }).catch(()=>{});
     }
     renderClub();
   }).catch(()=>alert('Erro de conexao. Tenta de novo.'));
@@ -6878,6 +6887,7 @@ function renderMeiaBrancaGroup(){
       <div style="font-family:var(--font-ui);font-size:11px;color:var(--muted);letter-spacing:1.5px;margin-bottom:10px">RANKING (${members.length} membro${members.length===1?'':'s'})</div>
       ${members.map((m,i)=>`<div style="display:flex;align-items:center;gap:12px;padding:12px 4px;border-bottom:1px solid var(--border);${m.user_id===myUid?'background:rgba(0,230,118,0.05)':''}">
         <div style="width:22px;font-family:var(--font-display);font-size:14px;color:${i===0?'var(--accent)':'var(--muted)'}">${i+1}</div>
+        ${m.foto_url?`<img src="${m.foto_url}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0">`:`<div style="width:32px;height:32px;border-radius:50%;background:var(--surface);border:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-family:var(--font-ui);font-size:12px;color:var(--muted2)">${(m.nome_exibicao||'A')[0].toUpperCase()}</div>`}
         <div style="flex:1;font-family:var(--font-body);font-size:13px;color:var(--text)">${m.nome_exibicao||'Atleta'}${m.user_id===myUid?' (voce)':''}</div>
         <div style="font-family:var(--font-ui);font-size:13px;color:var(--text)">${m.pontos}</div>
       </div>`).join('')}
@@ -8002,7 +8012,7 @@ function renderProfile(){
               ${igh?`<a href="https://instagram.com/${igh}" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:7px;text-decoration:none;background:rgba(225,48,108,0.1);border:1px solid rgba(225,48,108,0.35);border-radius:8px;padding:8px 12px">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="#E1306C"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.332.014 7.052.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.058-1.28.072-1.689.072-4.948 0-3.259-.014-3.667-.072-4.948-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
                 <span style="font-family:var(--font-ui);font-size:10px;font-weight:700;color:#E1306C;letter-spacing:.5px">@${igh}</span>
-              </a>`:`<div onclick="switchTab('perfil');setTimeout(()=>{const e=document.getElementById('ig-connect-btn');if(e)e.scrollIntoView({behavior:'smooth'});},100)" style="display:flex;align-items:center;gap:7px;background:var(--surface);border:1px dashed var(--border);border-radius:8px;padding:8px 12px;cursor:pointer">
+              </a>`:`<div onclick="obConnectInstagram()" style="display:flex;align-items:center;gap:7px;background:var(--surface);border:1px dashed var(--border);border-radius:8px;padding:8px 12px;cursor:pointer">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="var(--muted)"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.332.014 7.052.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.058-1.28.072-1.689.072-4.948 0-3.259-.014-3.667-.072-4.948-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
                 <span style="font-family:var(--font-ui);font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.5px">CONECTAR IG</span>
               </div>`}
@@ -9671,7 +9681,11 @@ function obSaveInstagram(){
   if(handle){
     localStorage.setItem('mytri_ig_handle',handle);
     document.getElementById('ig-modal-overlay')?.remove();
-    renderOnboarding();
+    // Re-renderiza a tela certa: se estiver no onboarding, continua o fluxo; se estiver no
+    // Perfil normal (uso fora do onboarding), so atualiza o Perfil no lugar.
+    const onboardActive=document.getElementById('view-onboard')?.classList.contains('active');
+    if(onboardActive) renderOnboarding();
+    else if(typeof openProfile==='function') openProfile();
   }
 }
 
