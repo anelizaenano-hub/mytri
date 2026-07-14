@@ -1783,7 +1783,12 @@ async function ensureValidSession(){
 async function sbSignOut(){
   const s=getSession();
   try{ if(s&&s.access_token) await fetch(`${SB_URL}/auth/v1/logout`,{method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+s.access_token}}); }catch(e){}
-  clearSession();
+  // BUG CRITICO corrigido aqui: antes so limpava o token de sessao, mas todo o resto (perfil,
+  // Strava conectado, handle do Instagram, plano, etc.) ficava intacto no localStorage. Se
+  // outra pessoa criasse uma conta nova no MESMO aparelho, ela "herdava" os dados de quem saiu
+  // — nome, foto, Strava conectado, ate os produtos da Amazon. Agora o logout limpa TUDO que e
+  // do MyTri, garantindo que a proxima conta comeca 100% do zero.
+  localStorage.clear();
   location.reload();
 }
 async function sbRecoverPassword(email){
@@ -1862,6 +1867,8 @@ function renderAuthScreen(){
       </div>
       <div id="auth-error" style="display:none;background:rgba(224,92,42,0.1);border:1px solid rgba(224,92,42,0.4);color:#e05c2a;font-family:var(--font-body);font-size:13px;padding:12px 14px;border-radius:8px;margin-bottom:16px"></div>
       <div id="auth-info" style="display:none;background:rgba(0,230,118,0.1);border:1px solid rgba(0,230,118,0.4);color:var(--accent);font-family:var(--font-body);font-size:13px;padding:12px 14px;border-radius:8px;margin-bottom:16px"></div>
+      ${isLogin?'':`<label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;display:block;margin-bottom:6px">NOME</label>
+      <input id="auth-name" type="text" autocomplete="name" placeholder="Seu nome completo" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:14px;border-radius:8px;margin-bottom:16px">`}
       <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;display:block;margin-bottom:6px">EMAIL</label>
       <input id="auth-email" type="email" autocomplete="email" inputmode="email" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:14px;border-radius:8px;margin-bottom:16px">
       <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;display:block;margin-bottom:6px">SENHA</label>
@@ -1877,8 +1884,12 @@ function renderAuthScreen(){
 async function authSubmit(){
   const email=(document.getElementById('auth-email').value||'').trim();
   const password=document.getElementById('auth-password').value||'';
+  const isSignup=!isLogin_authMode();
+  const nameEl=document.getElementById('auth-name');
+  const name=isSignup?(nameEl?.value||'').trim():'';
   if(!email||!password){ _authShowError('Preenche email e senha.'); return; }
-  if(!isLogin_authMode()&&password.length<6){ _authShowError('Senha precisa ter pelo menos 6 caracteres.'); return; }
+  if(isSignup&&!name){ _authShowError('Preenche seu nome.'); return; }
+  if(isSignup&&password.length<6){ _authShowError('Senha precisa ter pelo menos 6 caracteres.'); return; }
   const btn=document.getElementById('auth-submit-btn');
   const origText=btn.textContent;
   btn.disabled=true; btn.style.opacity='0.6'; btn.textContent='...';
@@ -1891,6 +1902,10 @@ async function authSubmit(){
       const data=await sbSignUp(email,password);
       if(data.access_token){
         saveSession(_authNormalizeSession(data));
+        // Guarda o nome digitado no cadastro — sem isso, o onboarding nunca pergunta o nome
+        // de jeito nenhum, e ficava puxando (errado) do Strava ou de cache antigo de outra conta.
+        obData.name=name;
+        fetch(`${SB_URL}/auth/v1/user`,{method:'PUT',headers:sbHeaders(),body:JSON.stringify({data:{full_name:name}})}).catch(()=>{});
         afterAuthSuccess();
       }else{
         authMode='login';
@@ -1937,8 +1952,24 @@ async function authSubmitReset(){
 function authConfirmLogout(){
   if(confirm('Sair da conta? Voce vai precisar entrar de novo pra acessar o app.')) sbSignOut();
 }
+// Garante que o cache local (perfil, Strava, Instagram, checks, tudo) nunca vaza de uma conta
+// pra outra no mesmo aparelho. Precisa rodar tanto no carregamento da pagina (initAuthGate)
+// quanto logo apos um login/cadastro dentro da MESMA sessao de pagina (afterAuthSuccess) —
+// so cobrir o reload nao bastava, porque criar conta nova nao recarrega a pagina.
+function enforceCacheOwnership(session){
+  if(!session||!session.user)return;
+  const uid=session.user.id;
+  const lastUid=localStorage.getItem('mytri_last_uid');
+  if(lastUid && uid && lastUid!==uid){
+    const token=session.access_token, refresh=session.refresh_token, user=session.user;
+    localStorage.clear();
+    saveSession({access_token:token,refresh_token:refresh,expires_at:Date.now()+3600*1000,user});
+  }
+  if(uid) localStorage.setItem('mytri_last_uid',uid);
+}
 function afterAuthSuccess(){
   hideAuthScreen();
+  enforceCacheOwnership(getSession());
   if(window._obResumeAfterAuth){
     window._obResumeAfterAuth=false;
     obStep=2; // ja passou por Welcome+Intro antes do login, continua direto pro Esporte
@@ -2166,6 +2197,7 @@ const TAB_ORDER=['perfil','agenda','stats','conquistas','bikefit','club'];
 let agendaSubTab='hoje';
 
 function switchTab(tab){
+  window.scrollTo(0,0);
   document.querySelectorAll('.bnav-item').forEach(b=>b.classList.remove('active'));
   const idx=TAB_ORDER.indexOf(tab==='hoje'||tab==='semana'||tab==='calendario'?'agenda':tab);
   if(idx>=0)document.querySelectorAll('.bnav-item')[idx].classList.add('active');
@@ -8225,13 +8257,15 @@ function renderProfile(){
 }
 
 function resetOnboarding(){
-  if(!confirm('Resetar onboarding?'))return;
-  localStorage.removeItem('mytri_onboard_done');
-  localStorage.removeItem('mytri_plan_cache');
+  if(!confirm('Resetar onboarding? Isso apaga seu perfil, plano e prova selecionada pra comecar do zero.'))return;
+  // Antes só limpava uma flag e o cache do resumo — o perfil (com a prova antiga, nome, Strava
+  // conectado etc.) continuava intacto, entao depois de "resetar" a prova antiga ainda aparecia
+  // presa e o app se comportava como se voce ja tivesse uma prova em andamento.
+  localStorage.clear();
   obStep=0;
   obData={};
   closeProfile();
-  showOnboarding();
+  location.reload();
 }
 
 // Regenera o plano do zero e LIMPA todo o estado de execução corrompido (overrides, extras,
@@ -9206,6 +9240,10 @@ function obGoalFromTriLeg(el,leg,d){
   obData.goalHr=hr; obData.goalMin=min;
   obData.goalTime=`${String(hr).padStart(2,'0')}:${String(min).padStart(2,'0')}`;
   obData.goalTimeExactSec=totalSec;
+  // Guarda o pace de corrida EXATO que ficou configurado (nao so o tempo total) — sem isso,
+  // o relatorio tinha que reestimar a perna de corrida como "42% do tempo total" de cabeca,
+  // o que podia ficar bem diferente do que a pessoa realmente configurou nos 3 campos.
+  if(d.r) obData.goalRunPaceSec=runSec/d.r;
   const hrEl=document.getElementById('ob-goal-hr-display'); if(hrEl)hrEl.textContent=String(hr).padStart(2,'0');
   const minEl=document.getElementById('ob-goal-min-display'); if(minEl)minEl.textContent=String(min).padStart(2,'0');
 }
@@ -10151,6 +10189,7 @@ applyNavLang();
   }
   const session=await ensureValidSession();
   if(session&&session.access_token){
+    enforceCacheOwnership(session);
     checkOnboarding();
   }else{
     // Sem sessao: comeca pelo onboarding normal (Welcome + Intro, que explicam o app) — o
