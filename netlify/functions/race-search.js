@@ -42,8 +42,28 @@ function extractRacesJson(text) {
   return null;
 }
 
+// CLC item 3: valida o token de sessao do Supabase antes de gastar credito de API/busca.
+const SUPABASE_URL = 'https://dlahyvsrqouxlalqexrp.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_mVgR-2qjgAGzEBeitJ8SAg_DTFYuw-t';
+async function verifyAuth(event) {
+  const auth = (event.headers && (event.headers.authorization || event.headers.Authorization)) || '';
+  const token = auth.replace(/^Bearer\s+/i, '');
+  if (!token) return null;
+  try {
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` }
+    });
+    if (!r.ok) return null;
+    const user = await r.json();
+    return (user && user.id) ? user : null;
+  } catch (e) { return null; }
+}
+
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Method Not Allowed' };
+
+  const user = await verifyAuth(event);
+  if (!user) return { statusCode: 401, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ races: [], error: 'Nao autenticado.' }) };
 
   if (!process.env.ANTHROPIC_API_KEY) {
     return { statusCode: 200, headers: { 'Content-Type': 'application/json' },

@@ -1,39 +1,89 @@
+// Netlify Function: session-analysis.js
+// Report pos-treino: analisa UMA sessao executada (dados reais do Strava/manual) contra o
+// que foi planejado, e devolve um comentario curto e util do coach.
+// Recebe { session:{type,text,dist,plannedDist,volComparison}, strava, profile, daysToRace, week, phase }
+// Retorna { text }
+
 const https = require('https');
 
+// CLC item 3: valida o token de sessao do Supabase antes de gastar credito de API.
+const SUPABASE_URL = 'https://dlahyvsrqouxlalqexrp.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_mVgR-2qjgAGzEBeitJ8SAg_DTFYuw-t';
+async function verifyAuth(event) {
+  const auth = (event.headers && (event.headers.authorization || event.headers.Authorization)) || '';
+  const token = auth.replace(/^Bearer\s+/i, '');
+  if (!token) return null;
+  try {
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` }
+    });
+    if (!r.ok) return null;
+    const user = await r.json();
+    return (user && user.id) ? user : null;
+  } catch (e) { return null; }
+}
+
 exports.handler = async (event) => {
-  if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, body: 'Method Not Allowed' };
-  }
+  const HEADERS = { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' };
+
+  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: HEADERS, body: '' };
+  if (event.httpMethod !== 'POST') return { statusCode: 405, headers: HEADERS, body: JSON.stringify({ error: 'Method not allowed' }) };
+
+  const user = await verifyAuth(event);
+  if (!user) return { statusCode: 401, headers: HEADERS, body: JSON.stringify({ error: 'Nao autenticado.' }) };
+
+  const API_KEY = process.env.ANTHROPIC_API_KEY;
+  if (!API_KEY) return { statusCode: 200, headers: HEADERS, body: JSON.stringify({ text: '', error: 'ANTHROPIC_API_KEY nao configurada' }) };
 
   let body;
-  try {
-    body = JSON.parse(event.body);
-  } catch {
-    return { statusCode: 400, body: 'Invalid JSON' };
-  }
+  try { body = JSON.parse(event.body || '{}'); }
+  catch (e) { return { statusCode: 400, headers: HEADERS, body: JSON.stringify({ error: 'JSON invalido' }) }; }
 
-  const { session, strava, profile, daysToRace, week, phase } = body;
+  const s = body.session || {};
+  const strava = (body.strava || '').toString().slice(0, 500);
+  const nome = ((body.profile && body.profile.name) || 'o atleta').toString().slice(0, 40);
+  // Lesoes/restricoes ATUAIS (vem sempre do perfil corrente, nunca de cache) — garante que o
+  // coach nunca comente sobre uma restricao antiga que o atleta ja atualizou no onboarding.
+  const injuries = (body.profile && Array.isArray(body.profile.injuries)) ? body.profile.injuries.filter(i=>i&&i!=='nenhuma') : [];
+  const injuryDetail = ((body.profile && body.profile.injuryDetail) || '').toString().slice(0, 200);
+  const daysToRace = body.daysToRace;
+  const phase = (body.phase || 'Base').toString().slice(0, 40);
+  const week = body.week;
 
-  const typeNames = {
-    swim: 'Natacao', bike: 'Bike', run: 'Corrida',
-    gym: 'Musculacao', brick: 'Tijolo', tennis: 'Tenis', rest: 'Descanso'
-  };
+  const tipoNome = { swim:'natacao', bike:'bike', run:'corrida', brick:'tijolo (bike+corrida)', gym:'forca', tennis:'tenis' }[s.type] || (s.type||'treino');
 
-  const typeName = typeNames[session?.type] || session?.type || 'Treino';
+  // Contexto do que foi planejado vs feito
+  const ctx = [];
+  ctx.push(`Modalidade: ${tipoNome}`);
+  if (s.text) ctx.push(`Sessao planejada: ${s.text}`);
+  if (s.plannedDist) ctx.push(`Distancia PLANEJADA: ${s.plannedDist}`);
+  ctx.push(`Dados REAIS executados: ${strava || 'sem dados detalhados'}`);
+  if (s.volComparison) ctx.push(`COMPARACAO VOLUME: ${s.volComparison}`);
+  if (phase) ctx.push(`Fase do plano: ${phase}`);
+  if (week) ctx.push(`Semana ${week}`);
+  if (daysToRace != null) ctx.push(`Faltam ${daysToRace} dias para a prova`);
+  if (injuries.length) ctx.push(`Lesoes/restricoes ATUAIS do atleta: ${injuries.join(', ')}${injuryDetail ? ' — ' + injuryDetail : ''}`);
+  else ctx.push(`Sem lesoes ou restricoes reportadas no momento.`);
 
-  const prompt = `Voce e o coach pessoal de ${profile?.name || 'Nano Garcia'}, 41 anos, 62kg, preparando para Sprint Triathlon em ${daysToRace} dias (750m nado / 20km bike / 5km corrida). Fraqueza principal: natacao em aguas abertas. Fase atual do plano: ${phase || 'Base'} (semana ${week || '?'} de 16).
+  const systemPrompt = `Voce e o coach do MyTri, um app brasileiro de treino para triathlon e endurance. Analise a sessao de treino que ${nome} acabou de executar e escreva um comentario CURTO e util, em portugues do Brasil, tom direto e motivador (nunca bajulador).
 
-O atleta acabou de completar um treino de ${typeName} com os seguintes dados do Garmin/Strava:
-${strava}
+REGRAS:
+- Maximo 3 a 4 frases curtas. Sem markdown, sem titulos, sem listas, sem emojis.
+- Se o atleta fez volume ACIMA do planejado: reconheca, mas comente o impacto na recuperacao e no restante da semana (nao incentive exagero cronico).
+- Se fez ABAIXO: comente de forma construtiva, sem culpa, focando em consistencia.
+- Se fez proximo do planejado: reforce a execucao consistente.
+- Considere a fase do plano e a proximidade da prova.
+- So mencione lesao/restricao se ela estiver EXPLICITAMENTE listada no contexto como atual — nunca cite uma lesao que nao esteja la, mesmo que pareca familiar.
+- Fale com o atleta na segunda pessoa (voce).
+- Nunca invente dados que nao estao no contexto.`;
 
-Sessao planejada: ${session?.text || typeName}${session?.dist ? ' - ' + session.dist : ''}
+  const userPrompt = `Contexto da sessao:\n${ctx.join('\n')}\n\nEscreva o comentario do coach sobre esta sessao.`;
 
-Escreva uma analise curta e motivacional desse treino especifico. Seja direto, objetivo e personalizado. Maximo 3 paragrafos curtos. Sem markdown, sem emojis, sem asteriscos, sem titulos. Texto corrido. Fale sobre o desempenho real (use os numeros), o que foi bom, e uma dica concreta para a proxima sessao similar. Leve em conta a lesao recuperada no iliotibial direito e a preparacao para o triathlon.`;
-
-  const requestBody = JSON.stringify({
+  const reqBody = JSON.stringify({
     model: 'claude-haiku-4-5',
     max_tokens: 400,
-    messages: [{ role: 'user', content: prompt }]
+    system: systemPrompt,
+    messages: [{ role: 'user', content: userPrompt }],
   });
 
   return new Promise((resolve) => {
@@ -43,29 +93,29 @@ Escreva uma analise curta e motivacional desse treino especifico. Seja direto, o
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY,
+        'x-api-key': API_KEY,
         'anthropic-version': '2023-06-01',
-        'Content-Length': Buffer.byteLength(requestBody)
-      }
+        'Content-Length': Buffer.byteLength(reqBody),
+      },
     }, (res) => {
       let data = '';
-      res.on('data', chunk => data += chunk);
+      res.on('data', c => data += c);
       res.on('end', () => {
         try {
           const parsed = JSON.parse(data);
-          const text = parsed?.content?.[0]?.text || '';
-          resolve({
-            statusCode: 200,
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text })
-          });
-        } catch {
-          resolve({ statusCode: 500, body: JSON.stringify({ text: '' }) });
+          if (parsed.type === 'error' || parsed.error) {
+            const msg = (parsed.error && (parsed.error.message || parsed.error.type)) || 'erro API';
+            return resolve({ statusCode: 200, headers: HEADERS, body: JSON.stringify({ text: '', error: msg }) });
+          }
+          const text = (parsed.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
+          resolve({ statusCode: 200, headers: HEADERS, body: JSON.stringify({ text }) });
+        } catch (e) {
+          resolve({ statusCode: 200, headers: HEADERS, body: JSON.stringify({ text: '', error: 'parse' }) });
         }
       });
     });
-    req.on('error', () => resolve({ statusCode: 500, body: JSON.stringify({ text: '' }) }));
-    req.write(requestBody);
+    req.on('error', (e) => resolve({ statusCode: 200, headers: HEADERS, body: JSON.stringify({ text: '', error: e.message }) }));
+    req.write(reqBody);
     req.end();
   });
 };

@@ -1,7 +1,27 @@
 const https = require('https');
 
+// CLC item 3: valida o token de sessao do Supabase antes de gastar credito de API — sem isso,
+// qualquer pessoa que descobrisse essa URL conseguia chamar direto, sem estar logada no app.
+const SUPABASE_URL = 'https://dlahyvsrqouxlalqexrp.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_mVgR-2qjgAGzEBeitJ8SAg_DTFYuw-t';
+async function verifyAuth(event) {
+  const auth = (event.headers && (event.headers.authorization || event.headers.Authorization)) || '';
+  const token = auth.replace(/^Bearer\s+/i, '');
+  if (!token) return null;
+  try {
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` }
+    });
+    if (!r.ok) return null;
+    const user = await r.json();
+    return (user && user.id) ? user : null;
+  } catch (e) { return null; }
+}
+
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Method Not Allowed' };
+  const user = await verifyAuth(event);
+  if (!user) return { statusCode: 401, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: 'Nao autenticado.' }) };
   let profile;
   try { profile = JSON.parse(event.body).profile; } catch { return { statusCode: 400, body: 'Invalid JSON' }; }
 
@@ -83,7 +103,7 @@ MENSAGEM DO COACH
 [Mensagem motivacional personalizada e especifica para este atleta e sua jornada]`;
 
   const requestBody = JSON.stringify({
-    model: 'claude-haiku-4-5',
+    model: 'claude-sonnet-4-5',
     max_tokens: 800,
     messages: [{ role: 'user', content: prompt }]
   });
