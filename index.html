@@ -27,7 +27,7 @@
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font-body);overflow-x:hidden;-webkit-font-smoothing:antialiased}
 /* iOS ignora maximum-scale no viewport por acessibilidade — o "zoom" ao tocar rápido nos
    botoes (setas de hora/minuto etc) e o gesto de double-tap-zoom do Safari, não pinch-zoom.
-   touch-action:manipulation desativa esse gesto especifico sem afetar scroll normal. */
+   touch-action:manipulation desativa esse gesto específico sem afetar scroll normal. */
 button,.mini-check,.mini-dot{touch-action:manipulation}
 
 /* ── HEADER ── */
@@ -513,15 +513,15 @@ summary span:last-child{transition:transform .2s;display:inline-block}
 // ══════════════════════════════════════════════════════════════════
 // I18N — infraestrutura de idiomas. Chave de design: t('chave') busca a
 // string no idioma atual, cai pro PT se faltar (nunca quebra mostrando
-// a chave crua). Troca de idioma recarrega a pagina (location.reload) em
+// a chave crua). Troca de idioma recarrega a página (location.reload) em
 // vez de tentar re-renderizar tudo ao vivo — o app inteiro e construido
-// com innerHTML imperativo por aba, nao um framework reativo, entao um
+// com innerHTML imperativo por aba, não um framework reativo, entao um
 // reload e muito mais seguro que tentar re-pintar cada tela na mao.
 //
 // COBERTURA ATUAL: infraestrutura completa + navegacao inferior + tela
 // de intro do onboarding (prova de conceito ponta a ponta). O resto do
-// app (milhares de strings) ainda esta soo em portugues fixo — migrar
-// tela por tela e o proximo trabalho, usando exatamente este padrao.
+// app (milhares de strings) ainda está soo em portugues fixo — migrar
+// tela por tela e o próximo trabalho, usando exatamente este padrao.
 const SUPPORTED_LANGS=['pt','en','es','zh'];
 const LANG_LABELS={pt:'Português',en:'English',es:'Español',zh:'中文'};
 const I18N={
@@ -564,9 +564,9 @@ const I18N={
     ob_fitness_title:'Dados\nfisicos',
     ob_fitness_sub:'Usamos para calcular suas zonas de treino.',
     ob_hours_title:'Quantas horas\ntreina por semana?',
-    ob_hours_sub:'Seu plano sera construido a partir do seu volume atual.',
+    ob_hours_sub:'Seu plano será construido a partir do seu volume atual.',
     ob_days_title:'Quais dias você\npode treinar?',
-    ob_days_sub:'Seu plano sera montado respeitando sua disponibilidade.',
+    ob_days_sub:'Seu plano será montado respeitando sua disponibilidade.',
     ob_injuries_title:'Alguma lesao\nou restrição?',
     ob_injuries_sub:'Seu plano vai considerar isso para evitar agravar lesoes.',
     ob_strava_title:'Conecte\nsuas redes',
@@ -579,7 +579,7 @@ const I18N={
     ob_fim_meta_default:'Meta: completar a prova',
     ob_fim_cta:'ENTRAR NO MYTRI',
     tab_hoje:'HOJE', tab_semana:'SEMANA', tab_fases:'FASES', tab_cal:'CAL',
-    day0:'Segunda', day1:'Terca', day2:'Quarta', day3:'Quinta', day4:'Sexta', day5:'Sabado', day6:'Domingo',
+    day0:'Segunda', day1:'Terca', day2:'Quarta', day3:'Quinta', day4:'Sexta', day5:'Sábado', day6:'Domingo',
     week_label:'SEMANA',
     countdown_prova_suffix:'D PROVA',
     countdown_livre:'LIVRE',
@@ -652,7 +652,7 @@ const I18N={
     ob_intro_title:'¿Qué es\nMyTri?',
     ob_intro_sub:'No es otra app de planilla generica.',
     ob_feat1_title:'PLAN 100% PERSONALIZADO',
-    ob_feat1_desc:'Cada entrenamiento generado segun tu carrera, distancia, nivel, lesiones y dias disponibles. Ningun plan es igual a otro.',
+    ob_feat1_desc:'Cada entrenamiento generado segun tu carrera, distancia, nível, lesiones y dias disponibles. Ningun plan es igual a otro.',
     ob_feat2_title:'CONECTA CON TUS APPS DE ENTRENAMIENTO',
     ob_feat2_desc:'Trae tus entrenamientos reales de otras plataformas y los compara con lo planeado. Un copiloto, no un sustituto.',
     ob_feat3_title:'TODO EN UN SOLO LUGAR',
@@ -673,7 +673,7 @@ const I18N={
     ob_sport_title:'¿Cual es\ntu deporte?',
     ob_sport_sub:'Vamos a personalizar todo segun tu disciplina.',
     ob_dist_title:'¿Que distancia\ntiene tu carrera?',
-    ob_dist_sub:'Selecciona el formato de tu proxima competencia.',
+    ob_dist_sub:'Selecciona el formato de tu próxima competencia.',
     ob_race_title:'¿Cual es\ntu carrera?',
     ob_race_sub:'Selecciona, busca carreras reales o agrega una manualmente.',
     ob_race_searching:'BUSCANDO TU PROXIMA CARRERA...',
@@ -701,7 +701,7 @@ const I18N={
     ob_fim_meta_default:'Meta: terminar la carrera',
     ob_fim_cta:'ENTRAR A MYTRI',
     tab_hoje:'HOY', tab_semana:'SEMANA', tab_fases:'FASES', tab_cal:'CAL',
-    day0:'Lunes', day1:'Martes', day2:'Miercoles', day3:'Jueves', day4:'Viernes', day5:'Sabado', day6:'Domingo',
+    day0:'Lunes', day1:'Martes', day2:'Miercoles', day3:'Jueves', day4:'Viernes', day5:'Sábado', day6:'Domingo',
     week_label:'SEMANA',
     countdown_prova_suffix:'D PARA LA CARRERA',
     countdown_livre:'LIBRE',
@@ -709,9 +709,9 @@ const I18N={
     locale_code:'es-ES',
   },
   zh:{
-    // Traducao preliminar (a revisar por falante nativo antes de lancar pra usuarios reais) —
-    // as fontes de titulo do app (Anton/Barlow Condensed) nao tem glifos chineses, entao essas
-    // telas caem numa fonte de sistema generica ate a gente ajustar a tipografia especificamente
+    // Traducao preliminar (a revisar por falante nativo antes de lancar pra usuários reais) —
+    // as fontes de titulo do app (Anton/Barlow Condensed) não tem glifos chineses, entao essas
+    // telas caem numa fonte de sistema generica até a gente ajustar a tipografia especificamente
     // pra esse idioma.
     nav_perfil:'个人资料', nav_agenda:'日程', nav_stats:'统计', nav_hist:'历史', nav_fit:'体测', nav_club:'俱乐部',
     ob_intro_title:'什么是\nMyTri？',
@@ -778,7 +778,7 @@ function getLang(){ const l=localStorage.getItem('mytri_lang'); return SUPPORTED
 function setLang(l){
   if(!SUPPORTED_LANGS.includes(l))return;
   localStorage.setItem('mytri_lang',l);
-  // Idioma tambem acompanha a conta agora, nao só o aparelho (CLC item 4).
+  // Idioma também acompanha a conta agora, não só o aparelho (CLC item 4).
   try{ sbSet('mytri_lang', l).catch(()=>{}); }catch(e){}
   location.reload();
 }
@@ -823,7 +823,7 @@ document.addEventListener('click',(e)=>{
 // ── CONSTANTS ──
 const SWIM='swim',BIKE='bike',RUN='run',BRICK='brick',GYM='gym',REST='rest',TENNIS='tennis';
 const DAY_NAMES=['SEG','TER','QUA','QUI','SEX','SAB','DOM'];
-const DAY_FULL=['Segunda','Terca','Quarta','Quinta','Sexta','Sabado','Domingo'];
+const DAY_FULL=['Segunda','Terca','Quarta','Quinta','Sexta','Sábado','Domingo'];
 // Datas do plano derivadas do plano ativo (não mais fixas).
 // getPlanStart(): início real da semana 1 (gravado em generatePlan como planStartISO).
 // getRaceDate(): data da prova do perfil. Fallbacks mantêm compatibilidade com dados antigos.
@@ -844,7 +844,7 @@ function getRaceDate(){
   }catch(e){}
   return _FALLBACK_RACE;
 }
-// hasRace(): existe prova real escolhida pelo usuario? (não inventa Guaruja)
+// hasRace(): existe prova real escolhida pelo usuário? (não inventa Guaruja)
 function hasRace(){
   try{
     const p=(getMytriProfile&&getMytriProfile())||{};
@@ -926,7 +926,7 @@ function calcZonesFTP(ftp) {
 
 const PACE_BASE = {
   // [min/km] pace de corrida base por nível
-  'não-nado':    null,
+  'nao-nado':    null,
   'beginner':    7.0,
   'intermediate':5.5,
   'advanced':    4.5,
@@ -983,7 +983,7 @@ function buildSession(type, fase, week, zones, paces, lesoes, level, raceDist) {
   // series por nível
   const SET = [2,3,4][lvl];               // 2, 3 ou 4 series
   const SET_CORE = [2,3,3][lvl];
-  // reps/tempo por nível para exercicios comuns
+  // reps/tempo por nível para exercícios comuns
   const R = {
     squat:   ['3x10','3x12','4x12'][lvl],
     lunge:   ['3x8','3x10','3x12'][lvl],
@@ -1010,7 +1010,7 @@ function buildSession(type, fase, week, zones, paces, lesoes, level, raceDist) {
   const faseLow = (fase||'').toLowerCase();
   const isBuildOrPeak = /build|constru|peak|pico/.test(faseLow);
 
-  // Reps ajustadas ao objetivo da prova (mesmo exercicio, dose diferente)
+  // Reps ajustadas ao objetivo da prova (mesmo exercício, dose diferente)
   // Endurance: mais reps, menos carga. Potencia: menos reps, mais explosao.
   function _rerep(base){
     // base ex '3x10'. endurance -> +reps; power -> -reps + nota explosiva
@@ -1023,11 +1023,11 @@ function buildSession(type, fase, week, zones, paces, lesoes, level, raceDist) {
   }
   const _powerNote = isPowerRace ? ' (explosivo na subida)' : (isEnduranceRace ? ' (cadencia controlada, foco resistencia)' : '');
 
-  // Pool de exercicios de força que ROTACIONA por semana (não repete sempre igual)
+  // Pool de exercícios de força que ROTACIONA por semana (não repete sempre igual)
   const _wIdx = ((week||1)-1);
   function _rot(arr){ return arr[_wIdx % arr.length]; }
 
-  // Blocos acessorios que entram em BUILD/PEAK (mais exercicios quando a carga sobe)
+  // Blocos acessorios que entram em BUILD/PEAK (mais exercícios quando a carga sobe)
   const _forcaExtra = isBuildOrPeak
     ? ` / ${_rot(['panturrilha em pe '+_rerep('3x15'),'ponte unilateral '+_rerep('3x12'),'agachamento isometrico 3x30s'])}`
     : '';
@@ -1291,10 +1291,10 @@ function buildSession(type, fase, week, zones, paces, lesoes, level, raceDist) {
 
 // Duração total (min) de uma sessão de força/mobilidade, somando os blocos da structure.
 // Usado para exibir o tempo dos treinos de "força funcional" nas abas (Semana/Fases/Cal),
-// ja que eles não tem distancia.
+// já que eles não tem distancia.
 function forceDurationMin(sess){
   if(!sess) return 0;
-  // Se ja foi executado (dado real do Strava), usa o tempo REAL em vez do planejado.
+  // Se já foi executado (dado real do Strava), usa o tempo REAL em vez do planejado.
   if(sess._stravaTime){
     const m=String(sess._stravaTime).match(/(\d+)h\s*(\d+)?min?|(\d+)min/);
     if(m) return m[1]?parseInt(m[1])*60+(parseInt(m[2])||0):parseInt(m[3]);
@@ -1530,7 +1530,7 @@ function generatePlan(profile) {
         };
       });
 
-      // ── MESCLA DE FORÇA NO MESMO DIA (decisao do usuario: sempre que fizer sentido) ──
+      // ── MESCLA DE FORÇA NO MESMO DIA (decisao do usuário: sempre que fizer sentido) ──
       // Modelo antigo: 1 dia = 1 sessão, força ocupava um dia inteiro. Agora a força
       // ACOMPANHA um treino aerobico no mesmo dia, em ordem funcional. Isso adensa a
       // semana e libera dias. Só mescla quando há um dia de treino aerobico compativel.
@@ -1558,7 +1558,7 @@ function generatePlan(profile) {
             const base = candidates.filter(d=>!isQuality(d));
             candidates = base.length? base : candidates;
           }
-          if(!candidates.length) return; // sem dia bom: força fica no proprio dia
+          if(!candidates.length) return; // sem dia bom: força fica no próprio dia
           // escolhe o candidato com menor carga (menos _durMin) pra equilibrar
           candidates.sort((a,b)=>{
             const da=a.sessions.reduce((s,x)=>s+(x._durMin||0),0);
@@ -1674,7 +1674,7 @@ function initPlan() {
 // ── SUPABASE SYNC ──
 // Link da loja/storefront do Nano na Amazon (creator page). Vazio = botao fica desabilitado.
 const MY_STORE_URL='https://www.amazon.com.br/?tag=mytriapp-20';
-// Equipamentos do Nano com link de afiliado (tag=mytriapp-20) ja aplicado a cada busca.
+// Equipamentos do Nano com link de afiliado (tag=mytriapp-20) já aplicado a cada busca.
 const MY_PRODUCTS=[
   {name:'Zone3 Venator-X (oculos natacao)', q:'Zone3+Venator-X'},
   {name:'Olympikus Corre 5 (tenis)', q:'Olympikus+Corre+5'},
@@ -1696,18 +1696,18 @@ const MY_PRODUCTS=[
 ].map(p=>({name:p.name, url:`https://www.amazon.com.br/s?k=${p.q}&tag=mytriapp-20`}));
 const SB_URL='https://dlahyvsrqouxlalqexrp.supabase.co';
 const SB_KEY='sb_publishable_mVgR-2qjgAGzEBeitJ8SAg_DTFYuw-t';
-// CLC item 2: antes o Authorization mandava a propria chave publica como "bearer", entao toda
-// chamada era anonima pro Supabase (RLS nao tinha como saber QUEM era o usuario). Agora manda o
-// token de sessao da pessoa logada — e isso que permite RLS por user_id funcionar de verdade.
+// CLC item 2: antes o Authorization mandava a própria chave publica como "bearer", entao toda
+// chamada era anonima pro Supabase (RLS não tinha como saber QUEM era o usuário). Agora manda o
+// token de sessão da pessoa logada — e isso que permite RLS por user_id funcionar de verdade.
 function sbHeaders(extra){
   const s=getSession();
   const token=(s&&s.access_token)||SB_KEY;
   return {'apikey':SB_KEY,'Authorization':'Bearer '+token,'Content-Type':'application/json',...(extra||{})};
 }
-// CLC item 3: toda chamada pras Netlify Functions (que gastam credito de API da Anthropic)
-// agora manda o token de sessao do usuario logado. As functions do lado do servidor validam
+// CLC item 3: toda chamada pras Netlify Functions (que gastam crédito de API da Anthropic)
+// agora manda o token de sessão do usuário logado. As functions do lado do servidor validam
 // esse token contra o Supabase antes de responder — sem isso, qualquer pessoa que descobrisse
-// a URL da function conseguia chamar direto e gastar credito sem nem estar logada no app.
+// a URL da function conseguia chamar direto e gastar crédito sem nem estar logada no app.
 function authedFetch(url, options){
   const s=getSession();
   const headers={...(options&&options.headers||{}), 'Authorization':'Bearer '+((s&&s.access_token)||'')};
@@ -1720,7 +1720,7 @@ let _syncPending=false;
 async function sbGet(key){
   try{
     const uid=currentUserId();
-    if(!uid) return null; // sem sessao, sem dado — nao ha mais "dado global" pra ler
+    if(!uid) return null; // sem sessão, sem dado — não ha mais "dado global" pra ler
     const r=await fetch(`${SB_URL}/rest/v1/nano_sync?key=eq.${encodeURIComponent(key)}&user_id=eq.${uid}&select=value`,{headers:sbHeaders()});
     if(!r.ok)return null;
     const d=await r.json();
@@ -1783,26 +1783,26 @@ async function ensureValidSession(){
 async function sbSignOut(){
   const s=getSession();
   try{ if(s&&s.access_token) await fetch(`${SB_URL}/auth/v1/logout`,{method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+s.access_token}}); }catch(e){}
-  // BUG CRITICO corrigido aqui: antes so limpava o token de sessao, mas todo o resto (perfil,
+  // BUG CRITICO corrigido aqui: antes só limpava o token de sessão, mas todo o resto (perfil,
   // Strava conectado, handle do Instagram, plano, etc.) ficava intacto no localStorage. Se
   // outra pessoa criasse uma conta nova no MESMO aparelho, ela "herdava" os dados de quem saiu
-  // — nome, foto, Strava conectado, ate os produtos da Amazon. Agora o logout limpa TUDO que e
-  // do MyTri, garantindo que a proxima conta comeca 100% do zero.
+  // — nome, foto, Strava conectado, até os produtos da Amazon. Agora o logout limpa TUDO que e
+  // do MyTri, garantindo que a próxima conta comeca 100% do zero.
   localStorage.clear();
   location.reload();
 }
 async function sbRecoverPassword(email){
   const r=await fetch(`${SB_URL}/auth/v1/recover`,{method:'POST',headers:{'apikey':SB_KEY,'Content-Type':'application/json'},body:JSON.stringify({email})});
-  if(!r.ok){ const data=await r.json().catch(()=>({})); throw new Error(data.error_description||data.msg||'Nao consegui enviar o email agora.'); }
+  if(!r.ok){ const data=await r.json().catch(()=>({})); throw new Error(data.error_description||data.msg||'Não consegui enviar o email agora.'); }
 }
 async function sbSetNewPassword(recoveryToken,newPassword){
   const r=await fetch(`${SB_URL}/auth/v1/user`,{method:'PUT',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+recoveryToken,'Content-Type':'application/json'},body:JSON.stringify({password:newPassword})});
   const data=await r.json();
-  if(!r.ok) throw new Error(data.error_description||data.msg||'Nao consegui redefinir a senha.');
+  if(!r.ok) throw new Error(data.error_description||data.msg||'Não consegui redefinir a senha.');
   return data;
 }
 
-// Detecta link de recuperacao de senha (o Supabase redireciona com #access_token=...&type=recovery)
+// Detecta link de recuperação de senha (o Supabase redireciona com #access_token=...&type=recovery)
 function checkRecoveryRedirect(){
   const hash=window.location.hash;
   if(hash&&hash.includes('type=recovery')&&hash.includes('access_token=')){
@@ -1876,7 +1876,7 @@ function renderAuthScreen(){
       ${isLogin?`<div onclick="authForgotPassword()" style="text-align:right;font-family:var(--font-ui);font-size:11px;color:var(--muted);cursor:pointer;margin-bottom:20px">Esqueci minha senha</div>`:'<div style="margin-bottom:20px"></div>'}
       <button id="auth-submit-btn" onclick="authSubmit()" style="width:100%;padding:16px;background:var(--accent);color:#000;border:none;border-radius:8px;font-family:var(--font-ui);font-size:14px;font-weight:700;letter-spacing:1.5px;cursor:pointer;margin-bottom:16px">${isLogin?'ENTRAR':'CRIAR CONTA'}</button>
       <div style="text-align:center;font-family:var(--font-body);font-size:13px;color:var(--muted2)">
-        ${isLogin?'Ainda nao tem conta?':'Ja tem conta?'}
+        ${isLogin?'Ainda não tem conta?':'Já tem conta?'}
         <span onclick="authToggleMode()" style="color:var(--accent);cursor:pointer;font-weight:600">${isLogin?'Criar conta':'Entrar'}</span>
       </div>
     </div>`;
@@ -1926,7 +1926,7 @@ async function authForgotPassword(){
     await sbRecoverPassword(email);
     _authShowInfo('Se esse email tiver uma conta, mandamos um link de redefinicao de senha.');
   }catch(e){
-    _authShowError(e.message||'Nao consegui enviar agora. Tenta de novo em instantes.');
+    _authShowError(e.message||'Não consegui enviar agora. Tenta de novo em instantes.');
   }
 }
 async function authSubmitReset(){
@@ -1937,7 +1937,7 @@ async function authSubmitReset(){
   try{
     await sbSetNewPassword(window._recoveryToken,password);
     _authShowInfo('Senha redefinida! Entrando...');
-    // O token de recuperacao ja e um access_token valido — usa ele pra logar direto.
+    // O token de recuperação já e um access_token valido — usa ele pra logar direto.
     try{
       const userResp=await fetch(`${SB_URL}/auth/v1/user`,{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+window._recoveryToken}});
       const user=await userResp.json();
@@ -1945,17 +1945,17 @@ async function authSubmitReset(){
     }catch(e){}
     setTimeout(()=>{ authMode='login'; afterAuthSuccess(); },1200);
   }catch(e){
-    _authShowError(e.message||'Nao consegui redefinir. Tenta pedir o link de novo.');
+    _authShowError(e.message||'Não consegui redefinir. Tenta pedir o link de novo.');
     btn.disabled=false; btn.style.opacity='1';
   }
 }
 function authConfirmLogout(){
-  if(confirm('Sair da conta? Voce vai precisar entrar de novo pra acessar o app.')) sbSignOut();
+  if(confirm('Sair da conta? Você vai precisar entrar de novo pra acessar o app.')) sbSignOut();
 }
 // Garante que o cache local (perfil, Strava, Instagram, checks, tudo) nunca vaza de uma conta
-// pra outra no mesmo aparelho. Precisa rodar tanto no carregamento da pagina (initAuthGate)
-// quanto logo apos um login/cadastro dentro da MESMA sessao de pagina (afterAuthSuccess) —
-// so cobrir o reload nao bastava, porque criar conta nova nao recarrega a pagina.
+// pra outra no mesmo aparelho. Precisa rodar tanto no carregamento da página (initAuthGate)
+// quanto logo após um login/cadastro dentro da MESMA sessão de página (afterAuthSuccess) —
+// só cobrir o reload não bastava, porque criar conta nova não recarrega a página.
 function enforceCacheOwnership(session){
   if(!session||!session.user)return;
   const uid=session.user.id;
@@ -1972,7 +1972,7 @@ function afterAuthSuccess(){
   enforceCacheOwnership(getSession());
   if(window._obResumeAfterAuth){
     window._obResumeAfterAuth=false;
-    obStep=2; // ja passou por Welcome+Intro antes do login, continua direto pro Esporte
+    obStep=2; // já passou por Welcome+Intro antes do login, continua direto pro Esporte
     renderOnboarding();
   }else{
     checkOnboarding();
@@ -1980,7 +1980,7 @@ function afterAuthSuccess(){
 }
 
 async function sbInit(){
-  // So tenta sincronizar se tiver usuario logado (CLC item 2 — sync sempre por conta real agora)
+  // Só tenta sincronizar se tiver usuário logado (CLC item 2 — sync sempre por conta real agora)
   if(!currentUserId()){ _syncReady=false; return; }
   try{
     await fetch(`${SB_URL}/rest/v1/nano_sync?limit=1`,{headers:sbHeaders()});
@@ -2233,6 +2233,10 @@ function switchTab(tab){
   else if(tab==='conquistas')renderConquistas();
   else if(tab==='bikefit')renderBikeFit();
   else if(tab==='club')renderClub();
+  // Chamar de novo DEPOIS do render — a chamada la em cima roda antes do conteudo da tela
+  // trocar, e no mobile isso as vezes não "gruda" direito. Com atraso curto garante que cola.
+  window.scrollTo(0,0);
+  setTimeout(()=>window.scrollTo(0,0),50);
 }
 
 function switchTabHoje(){
@@ -2272,8 +2276,23 @@ function updateCountdown(){
       if(hasRace()){
         const loc=p.raceLocal||p.city||'';
         sub.textContent=(p.raceName+(loc?' \u00b7 '+loc:'')).toUpperCase();
+        // Item 8: link direto de inscricao, quando a busca de provas achou um. O cabecalho e o
+        // lugar mais visivel/persistente do app pra colocar isso — aparece em toda tela da Agenda.
+        if(p.raceUrl){
+          sub.style.cursor='pointer';
+          sub.style.color='rgba(0,230,118,0.65)';
+          sub.style.textDecoration='underline';
+          sub.title='Abrir pagina de inscricao';
+          sub.onclick=()=>window.open(p.raceUrl,'_blank');
+        }else{
+          sub.style.cursor='';
+          sub.style.color='';
+          sub.style.textDecoration='';
+          sub.onclick=null;
+        }
       }else{
         sub.textContent=t('countdown_treino_livre');
+        sub.style.cursor=''; sub.style.color=''; sub.style.textDecoration=''; sub.onclick=null;
       }
     }
   }catch(e){}
@@ -2354,7 +2373,7 @@ function getEffectiveSessions(w,d){
     if(origSess.type===REST)return;
     const s=applyOverride(origSess,w,d,si);
     if(s===null)return;
-    // Aplica recalibração semanal ao volume PLANEJADO (não mexe em força nem no que ja foi executado)
+    // Aplica recalibração semanal ao volume PLANEJADO (não mexe em força nem no que já foi executado)
     let sAdj=s;
     if(_recalFactor && _recalFactor!==1 && origSess.type!=='FORCE'){
       const ov=getOverride(w,d,si);
@@ -2381,7 +2400,7 @@ function getEffectiveSessions(w,d){
 }
 
 // ── BIBLIOTECA DE EXERCICIOS (fotos reais, free-exercise-db, dominio público) ──
-// Imagens hospedadas no GitHub. Cada exercicio tem 2 fotos (0=inicio, 1=fim).
+// Imagens hospedadas no GitHub. Cada exercício tem 2 fotos (0=inicio, 1=fim).
 const EXDB_BASE='https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/';
 function _exImg(id,frame){ return EXDB_BASE+id+'/'+(frame||0)+'.jpg'; }
 
@@ -2467,7 +2486,7 @@ function openExerciseGuide(w,d,si){
         <div style="font-family:var(--font-body);font-size:12px;color:var(--text);line-height:1.2">${e.nome}</div>
         ${e.rep?`<div style="font-family:var(--font-ui);font-size:10px;color:var(--accent);letter-spacing:.5px;margin-top:2px">${e.rep}</div>`:''}
       </div>
-    </div>`).join('') : '<div style="grid-column:1/-1;text-align:center;color:var(--muted2);font-family:var(--font-body);font-size:13px;padding:20px">Sem exercicios reconhecidos para este treino.</div>';
+    </div>`).join('') : '<div style="grid-column:1/-1;text-align:center;color:var(--muted2);font-family:var(--font-body);font-size:13px;padding:20px">Sem exercícios reconhecidos para este treino.</div>';
 
   m.innerHTML=`
     <div style="background:var(--surface);border-top:1px solid var(--border);border-radius:16px 16px 0 0;width:100%;max-height:88vh;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 0 40px">
@@ -2487,10 +2506,10 @@ function openExerciseGuide(w,d,si){
   m.style.display='flex';
   m.onclick=(e)=>{ if(e.target===m) closeExerciseGuide(); };
   // Trava o scroll do body enquanto o modal está aberto — sem isso, no iOS, um swipe pra baixo
-  // dentro do modal as vezes "vaza" pro scroll da pagina de fundo e a tela parece travada
-  // (nem o modal nem a pagina respondem direito ao gesto).
+  // dentro do modal as vezes "vaza" pro scroll da página de fundo e a tela parece travada
+  // (nem o modal nem a página respondem direito ao gesto).
   document.body.style.overflow='hidden';
-  // Swipe pra baixo fecha o modal — e o gesto natural que o atleta ja tenta usar.
+  // Swipe pra baixo fecha o modal — e o gesto natural que o atleta já tenta usar.
   const _sheet=m.firstElementChild;
   if(_sheet){
     let _touchStartY=null;
@@ -2508,7 +2527,7 @@ function openExerciseGuide(w,d,si){
       const f1=img.getAttribute('data-f1');const f0=img.getAttribute('data-f0');
       const next=toggle?f1:f0;
       // Só troca o src se realmente mudou — reatribuir o mesmo src forcava recarregar/redecodar
-      // a imagem toda vez, o que com varios exercicios ao mesmo tempo deixava a tela pesada.
+      // a imagem toda vez, o que com varios exercícios ao mesmo tempo deixava a tela pesada.
       if(next&&img.src.indexOf(next)===-1)img.src=next;
     });
   },1200);
@@ -2527,7 +2546,7 @@ function loadRecal(){try{return JSON.parse(localStorage.getItem(RECAL_KEY)||'{}'
 function saveRecal(o){try{localStorage.setItem(RECAL_KEY,JSON.stringify(o));}catch(e){}}
 function getWeekAdjust(w){ const r=loadRecal(); return (r[w]&&typeof r[w].factor==='number')?r[w].factor:1; }
 
-// Analisa a semana w: aderencia, volume real vs planejado, sensacao media
+// Analisa a semana w: aderencia, volume real vs planejado, sensacao média
 function analyzeWeek(w){
   const checks=loadChecks();
   let planned=0,done=0,volPlanned=0,volDone=0;
@@ -2600,7 +2619,7 @@ function computeAdjustment(a, fase, lesoes){
   }
 
   // ── AJUSTE POR VOLUME REAL EXECUTADO (Strava/manual) ──
-  // Decisao do usuario: só conta se a diferença for CONSISTENTE (>=3 treinos na semana),
+  // Decisao do usuário: só conta se a diferença for CONSISTENTE (>=3 treinos na semana),
   // nunca um dia isolado. E sempre modulado pela sensacao, para não empurrar a lesao.
   // volRatio = volume real feito / volume planejado. >1.15 = fez bem mais; <0.85 = fez bem menos.
   if(a.done>=3 && a.volPlanned>0 && a.volRatio>0 && !isTaper){
@@ -2649,7 +2668,7 @@ function checkRecalPopup(){
     let recal=loadRecal()[cw];
     if(!recal){ recalibrateWeek(cw-1); recal=loadRecal()[cw]; }
     if(!recal || !recal.factor) return;
-    // ja mostrou o popup desta semana?
+    // já mostrou o popup desta semana?
     const shownKey='mytri_recal_popup_shown';
     let shown={}; try{ shown=JSON.parse(localStorage.getItem(shownKey)||'{}'); }catch(e){}
     if(shown[cw]) return;
@@ -2827,7 +2846,7 @@ function showWorkoutDetail(w,d,key){
     structHtml=`<div style="font-family:var(--font-body);font-size:13px;color:var(--muted2);padding:16px 0">Treino livre — siga o volume/distancia indicado no card.</div>`;
   }
   modal.innerHTML=`
-    <div style="background:var(--surface);border-top:1px solid var(--border);border-radius:16px 16px 0 0;width:100%;max-height:85vh;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 0 40px">
+    <div style="background:var(--surface);border-top:1px solid var(--border);border-radius:16px 16px 0 0;width:100%;max-height:85vh;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 0 calc(40px + env(safe-area-inset-bottom))">
       <div style="position:sticky;top:0;background:var(--surface);padding:20px 22px 14px;border-bottom:1px solid var(--border)">
         <div style="display:flex;align-items:center;justify-content:space-between">
           <div>
@@ -2839,7 +2858,7 @@ function showWorkoutDetail(w,d,key){
       </div>
       <div style="padding:8px 22px 0">
         ${(()=>{
-          // Calcula UMA vez se a sessão ja foi executada (real). Se sim: a pessoa ja fez o treino,
+          // Calcula UMA vez se a sessão já foi executada (real). Se sim: a pessoa já fez o treino,
           // então lidera com os STATS reais, sem repetir as instruções de execução (que só fazem
           // sentido pra quem ainda vai treinar). Se não: mostra o plano normalmente.
           const _ov=sess._origin==='plan'?getOverride(w,d,sess._si):null;
@@ -3778,7 +3797,7 @@ function _completeModalEl(){
 }
 function closeCompleteSession(){ const m=document.getElementById('complete-modal'); if(m) m.style.display='none'; }
 
-// Procura atividade do Strava que ja bateu com este treino (via override gravado no sync)
+// Procura atividade do Strava que já bateu com este treino (via override gravado no sync)
 function _findStravaMatch(w,d,si){
   try{
     const ov=getOverride(w,d,si);
@@ -3801,7 +3820,7 @@ function openCompleteSession(w,d,si,key){
   const isSwim=sess.type==='swim';
   const isSupport=sess.type==='FORCE'||/Força|Força|Core|Mobilidade|Alongamento/i.test(sess.text||'');
   const distLabel=isSwim?'Distancia (m)':'Distancia (km)';
-  const paceLabel=sess.type==='bike'?'Velocidade media (km/h)':'Pace medio (min/km)';
+  const paceLabel=sess.type==='bike'?'Velocidade média (km/h)':'Pace medio (min/km)';
 
   const zoneOpts=['Z1','Z2','Z3','Z4'].map(z=>`<button type="button" class="cmp-zone" data-zone="${z}" onclick="_cmpSelZone(this,'${z}')" style="flex:1;padding:10px 4px;background:var(--surface);border:1.5px solid var(--border);color:var(--muted2);font-family:var(--font-ui);font-size:11px;font-weight:700;border-radius:6px;cursor:pointer">${z}</button>`).join('');
 
@@ -3844,7 +3863,7 @@ function openCompleteSession(w,d,si,key){
           <div style="flex:1"><div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:5px">FC MEDIA (bpm)</div><input id="cmp-hr" type="number" inputmode="numeric" placeholder="ex: 135" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:11px;border-radius:6px"></div>
         </div>
         <div style="margin-bottom:14px"><div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:5px">FC MAX (bpm) — opcional</div><input id="cmp-hrmax" type="number" inputmode="numeric" placeholder="ex: 165" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:11px;border-radius:6px"></div>
-        ${sess.type==='bike'?`<div style="margin-bottom:14px"><div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:5px">POTENCIA MEDIA (watts) — opcional</div><input id="cmp-watts" type="number" inputmode="numeric" placeholder="ex: 210" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:11px;border-radius:6px"><div style="font-family:var(--font-body);font-size:11px;color:var(--muted2);margin-top:5px;line-height:1.4">Se você treina com medidor de potencia, informe a media. Deixa a analise do treino mais precisa que só a FC.</div></div>`:''}
+        ${sess.type==='bike'?`<div style="margin-bottom:14px"><div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:5px">POTENCIA MEDIA (watts) — opcional</div><input id="cmp-watts" type="number" inputmode="numeric" placeholder="ex: 210" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:11px;border-radius:6px"><div style="font-family:var(--font-body);font-size:11px;color:var(--muted2);margin-top:5px;line-height:1.4">Se você treina com medidor de potencia, informe a média. Deixa a analise do treino mais precisa que só a FC.</div></div>`:''}
         <div style="margin-bottom:14px">
           <div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:6px">ZONA FC PREDOMINANTE</div>
           <div style="display:flex;gap:8px">${zoneOpts}</div>
@@ -3861,7 +3880,7 @@ function openCompleteSession(w,d,si,key){
   m.style.display='flex';
   m.onclick=(e)=>{ if(e.target===m) closeCompleteSession(); };
   // Reseta o scroll do conteudo do modal — reaproveita o mesmo elemento a cada abertura, e sem
-  // isso podia reabrir ja rolado pra onde ficou da última vez, cortando o topo do card.
+  // isso podia reabrir já rolado pra onde ficou da última vez, cortando o topo do card.
   const _cmpInner=m.firstElementChild; if(_cmpInner)_cmpInner.scrollTop=0;
 
   // Pre-selecionar zona do strava
@@ -3894,7 +3913,7 @@ function _saveComplete(w,d,si,key,skipData){
     if(_cmpSense)parts.push(_cmpSense);
     const realData=parts.join(' · ');
     const patch={ manualData:realData };
-    if(realData)patch.stravaData=realData; // reusa o campo que ja e exibido/sobreposto
+    if(realData)patch.stravaData=realData; // reusa o campo que já e exibido/sobreposto
     if(dist)patch.stravaDist=isSwim?(dist+'m'):(dist+'km');
     if(_cmpZone)patch.manualZone=_cmpZone;
     if(_cmpSense)patch.sensacao=_cmpSense;
@@ -3918,7 +3937,7 @@ function _saveComplete(w,d,si,key,skipData){
   if(ov && (ov.stravaData||ov.manualData)){
     const sess=getEffectiveSessions(w,d).find(s=>s._origin==='plan'&&s._si===si);
     if(sess) setTimeout(()=>maybeShowSessionAnalysis(key,sess,w,d),500);
-    // Meia Branca: check-in automatico em todos os grupos que participo — sem precisar
+    // Meia Branca: check-in automático em todos os grupos que participo — sem precisar
     // abrir a aba Club e apertar nada. E o que o GymRats NAO faz (e a maior reclamacao dele).
     if(sess) autoCheckinAllGroups(sess,key);
   }
@@ -4036,7 +4055,7 @@ function _renderSemana(w){
     const adj=getWeekAdjust(w);
     const canRecalibrate=false; // agora e automático
 
-    // Se ja existe ajuste aplicado nesta semana, mostra o resultado
+    // Se já existe ajuste aplicado nesta semana, mostra o resultado
     if(recal && recal.factor && recal.factor!==1){
       const up=recal.factor>1;
       const pct=Math.round(Math.abs(recal.factor-1)*100);
@@ -4267,13 +4286,13 @@ function togglePhaseWeek(header){header.nextElementSibling.classList.toggle('ope
 // ── STATS ──
 // ── CONSULTORIA LIVE (chat com IA que conhece o perfil) ──
 let _consultHistory=[];
-// Historico persistido — antes era so uma variavel em memoria, perdia a conversa toda vez
+// Histórico persistido — antes era só uma variavel em memoria, perdia a conversa toda vez
 // que o app recarregava (fechar/abrir de novo, refresh). Agora salva e recarrega.
 const CONSULT_HISTORY_KEY='mytri_consult_history';
 try{ _consultHistory=JSON.parse(localStorage.getItem(CONSULT_HISTORY_KEY)||'[]'); }catch(e){ _consultHistory=[]; }
 function _saveConsultHistory(){
   try{ localStorage.setItem(CONSULT_HISTORY_KEY, JSON.stringify(_consultHistory.slice(-40))); }catch(e){}
-  // CLC item 4: historico da consultoria tambem vai pra nuvem agora — antes ficava só no
+  // CLC item 4: histórico da consultoria também vai pra nuvem agora — antes ficava só no
   // aparelho, e trocar de celular ou limpar o navegador perdia a conversa inteira com o coach.
   sbSet('mytri_consult_history', _consultHistory.slice(-40)).catch(()=>{});
 }
@@ -4284,8 +4303,8 @@ async function _loadConsultHistoryFromCloud(){
       _consultHistory=cloud;
       localStorage.setItem(CONSULT_HISTORY_KEY, JSON.stringify(_consultHistory));
     }else if(_consultHistory.length){
-      // Primeira sincronizacao: tinha historico só local (de antes dessa migracao) e nada na
-      // nuvem ainda — manda o que já existe pra nao perder a conversa.
+      // Primeira sincronizacao: tinha histórico só local (de antes dessa migracao) e nada na
+      // nuvem ainda — manda o que já existe pra não perder a conversa.
       sbSet('mytri_consult_history', _consultHistory).catch(()=>{});
     }
   }catch(e){}
@@ -4305,7 +4324,7 @@ function openConsult(){
   if(!_consultHistory.length){
     _renderConsultWelcome();
   }else{
-    // Reconstroi as bolhas a partir do historico salvo, em vez de mostrar so a saudacao de novo.
+    // Reconstroi as bolhas a partir do histórico salvo, em vez de mostrar só a saudacao de novo.
     const box=document.getElementById('consult-messages');
     box.innerHTML='';
     _consultHistory.forEach(m=>box.appendChild(_consultBubble(m.role,m.content)));
@@ -4327,7 +4346,7 @@ function _consultProfile(){
     const {w:curW}=getCurrentWeekAndDay();
     const totalW=planWeekCount()||16;
     const rawWeek=(getAllWeeks().find(wk=>wk.w===curW))||{};
-    // aderencia e volume recentes (via _reportData weekly, que ja existe)
+    // aderencia e volume recentes (via _reportData weekly, que já existe)
     let adherence=null,volume='';
     try{ const rd=_reportData('monthly'); adherence=rd.pct; volume=`natação ${rd.swimKm||0}km, bike ${rd.bikeKm||0}km, corrida ${rd.runKm||0}km (ult. 4 semanas)`; }catch(e){}
     const distLabels={'super-sprint':'Super Sprint','sprint':'Sprint','olimpico':'Olimpico','half':'Half','full':'Ironman','corrida-5k':'5km','corrida-10k':'10km','corrida-meia':'Meia Maratona','corrida-maratona':'Maratona'};
@@ -4384,7 +4403,7 @@ async function sendConsult(){
   if(!text)return;
   const box=document.getElementById('consult-messages');
   _clearSuggestions();
-  // bolha do usuario
+  // bolha do usuário
   box.appendChild(_consultBubble('user',text));
   _consultHistory.push({role:'user',content:text});
   _saveConsultHistory();
@@ -4570,7 +4589,7 @@ function computeConsistencyIndex(){
   return { index: Math.max(0,Math.min(100,idx)), avgAdh, streak:bestStreak, avgVol, weeks };
 }
 
-// Usuarios mock para o ranking (substituir por Supabase quando CLC/auth chegar).
+// Usuários mock para o ranking (substituir por Supabase quando CLC/auth chegar).
 // Agrupados por modalidade. Cada um tem um indice pre-calculado.
 function _mockRankingUsers(sport){
   const pools={
@@ -4932,7 +4951,7 @@ function renderStats(){
       </div>
       <div style="flex:1">
         <div style="font-family:var(--font-body);font-size:14px;color:var(--text);margin-bottom:4px">Você está em <span style="color:var(--accent);font-weight:700">${myPos}o</span> de ${rankUsers.length}</div>
-        <div style="font-family:var(--font-body);font-size:11px;color:var(--muted2);line-height:1.4">Sequencia: ${ci.streak} ${ci.streak===1?'semana':'semanas'} · Aderencia media: ${Math.round(ci.avgAdh*100)}%</div>
+        <div style="font-family:var(--font-body);font-size:11px;color:var(--muted2);line-height:1.4">Sequencia: ${ci.streak} ${ci.streak===1?'semana':'semanas'} · Aderencia média: ${Math.round(ci.avgAdh*100)}%</div>
       </div>
     </div>
 
@@ -4970,12 +4989,12 @@ function renderStats(){
         </div>
         <div style="margin-bottom:12px;padding-left:12px;border-left:2px solid rgba(0,230,118,0.4)">
           <div style="color:var(--accent);font-family:var(--font-ui);font-size:10px;letter-spacing:1px;margin-bottom:2px">VOLUME RELATIVO — 20%</div>
-          <div>O quanto você treinou em relacao ao seu proprio plano — não ao dos outros. Assim quem treina para um 5k compete de igual para igual com quem treina para um Ironman.</div>
+          <div>O quanto você treinou em relacao ao seu próprio plano — não ao dos outros. Assim quem treina para um 5k compete de igual para igual com quem treina para um Ironman.</div>
         </div>
         <p style="margin:0;color:var(--muted)">A ideia e simples: constancia vence intensidade. O atleta que aparece toda semana chega mais longe do que o que se esforca demais e desiste.</p>
       </div>
     </details>
-    <div style="font-family:var(--font-body);font-size:10px;color:var(--muted2);text-align:center;margin-top:14px;line-height:1.5">Outros atletas são ilustrativos nesta versao. Com a comunidade ativa, o ranking sera real e ao vivo.</div>
+    <div style="font-family:var(--font-body);font-size:10px;color:var(--muted2);text-align:center;margin-top:14px;line-height:1.5">Outros atletas são ilustrativos nesta versao. Com a comunidade ativa, o ranking será real e ao vivo.</div>
   `;
 
   container.appendChild(cd);container.appendChild(periodDiv);container.appendChild(rankCard);container.appendChild(distCard);container.appendChild(progressDiv);container.appendChild(volDiv);container.appendChild(zoneDiv);container.appendChild(muscDiv);
@@ -5176,7 +5195,7 @@ function encerrarCiclo(){
   const ov=document.createElement('div');
   ov.className='cycle-modal-overlay';
 
-  const suggested='sprint'; // sem sugestao automática — usuario escolhe livremente
+  const suggested='sprint'; // sem sugestao automática — usuário escolhe livremente
   let selectedType=suggested;
 
   function buildOptions(){
@@ -5307,7 +5326,7 @@ function encerrarCiclo(){
     updateCountdown();
     renderConquistas();
     switchTab('conquistas');
-    alert('Novo ciclo iniciado! O plano do '+ct2.label+' sera configurado em breve. Por enquanto o app exibira o plano Sprint como referência.');
+    alert('Novo ciclo iniciado! O plano do '+ct2.label+' será configurado em breve. Por enquanto o app exibira o plano Sprint como referência.');
   });
 }
 
@@ -5442,7 +5461,7 @@ function renderConquistas(){
     </div>`;
   tl.appendChild(activeItem);
 
-  // Próximos (futuros) — removido: não há progressao linear obrigatoria
+  // Próximos (futuros) — removido: não há progressao linear obrigatória
 
   section.appendChild(tl);
 
@@ -5829,7 +5848,7 @@ function calNav(dir){
 }
 
 function showCalDayModal(date,wd,checks){
-  const dayNames=['Domingo','Segunda','Terca','Quarta','Quinta','Sexta','Sabado'];
+  const dayNames=['Domingo','Segunda','Terca','Quarta','Quinta','Sexta','Sábado'];
   const monthNames=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
   const dow=dayNames[date.getDay()];
   const dateStr=`${dow}, ${date.getDate()} ${monthNames[date.getMonth()]} ${date.getFullYear()}`;
@@ -6001,7 +6020,7 @@ async function stravaSyncActivities(){
     // A API do Strava, SEM 'after', retorna as atividades mais RECENTES primeiro (ordem decrescente).
     // Com 'after', ela inverte e traz as mais antigas primeiro - por isso o treino de hoje ficava
     // fora das 100 primeiras quando havia muitas atividades no período. Buscamos as 50 mais recentes,
-    // que sempre incluem as de hoje, e filtramos por data no proprio codigo.
+    // que sempre incluem as de hoje, e filtramos por data no próprio código.
     const r=await fetch(`https://www.strava.com/api/v3/athlete/activities?per_page=50`,{
       headers:{Authorization:'Bearer '+token}
     });
@@ -6195,8 +6214,8 @@ async function stravaSyncActivities(){
       }
     }
 
-    // Meia Branca: check-in automatico com o dado real dessa atividade, em todos os grupos
-    // que participo — cobre tanto sessao do plano quanto extra (atividade sem sessao planejada).
+    // Meia Branca: check-in automático com o dado real dessa atividade, em todos os grupos
+    // que participo — cobre tanto sessão do plano quanto extra (atividade sem sessão planejada).
     try{
       const _ckSess={type:targetType, dist:targetType===SWIM?(actDistSwimFmt||actTime||''):(actDistKmFmt||actTime||''), _stravaTime:actTime};
       autoCheckinAllGroups(_ckSess,'strava_'+act.id);
@@ -6452,7 +6471,7 @@ async function runBikeFitAnalysis(){
   const photoPreview=document.getElementById('bf-photo-preview');
   const photoB64=photoPreview.dataset.b64||null;
 
-  // Se o atleta ja rodou uma analise antes, manda o que foi RECOMENDADO da última vez junto com
+  // Se o atleta já rodou uma analise antes, manda o que foi RECOMENDADO da última vez junto com
   // os valores ATUAIS que ele está digitando agora — se baterem, o coach pode confirmar que o
   // ajuste foi aplicado com sucesso, em vez de sempre tratar como uma bike fit do zero.
   let lastRec=null;
@@ -6508,7 +6527,7 @@ RESUMO_JSON:{"selim_atual":"${selim||''}","selim_ideal":"NUM","selim_recuo":"NUM
     // sem um resumo rápido de execução das alteracoes.
     let resumo=null;
     // Regex tolera JSON em varias linhas (balanceamento de chaves) — antes exigia tudo numa
-    // linha so, e se a IA formatava o JSON com quebra de linha o quadro-resumo sumia sem avisar.
+    // linha só, e se a IA formatava o JSON com quebra de linha o quadro-resumo sumia sem avisar.
     const _rm=(()=>{
       const key=text.indexOf('RESUMO_JSON:');
       if(key===-1)return null;
@@ -6628,33 +6647,108 @@ function renderClub(){
 }
 
 function openMeiaBranca(){ clubTabView='branca'; renderClub(); }
-function openMeiaAzul(){ clubTabView='azul'; renderClub(); }
+async function openMeiaAzul(){
+  clubTabView='azul';
+  const c=document.getElementById('view-club');
+  if(c) c.innerHTML='<div style="padding:80px 20px;text-align:center;font-family:var(--font-ui);font-size:11px;color:var(--muted);letter-spacing:1px">CARREGANDO...</div>';
+  const verified=await checkIdentityVerified();
+  if(!verified){ renderIdentityVerificationScreen(); return; }
+  renderClub();
+}
+async function checkIdentityVerified(){
+  try{
+    const uid=currentUserId();
+    if(!uid)return false;
+    const r=await fetch(`${SB_URL}/rest/v1/mytri_identity_verifications?user_id=eq.${uid}&select=verified,age,status`,{headers:sbHeaders()});
+    if(!r.ok)return false;
+    const rows=await r.json();
+    return !!(rows&&rows[0]&&rows[0].verified);
+  }catch(e){ return false; }
+}
+function renderIdentityVerificationScreen(){
+  const c=document.getElementById('view-club');
+  if(!c)return;
+  c.innerHTML=`
+    <div style="padding:14px 16px 0"><div onclick="backToClubLanding()" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-family:var(--font-ui);font-size:11px;color:var(--muted2);letter-spacing:1px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> CLUBES</div></div>
+    <div style="padding:50px 26px;text-align:center">
+      <div style="width:64px;height:64px;border-radius:16px;background:rgba(26,108,240,0.1);display:flex;align-items:center;justify-content:center;margin:0 auto 20px">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#1a6cf0" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+      </div>
+      <div style="font-family:var(--font-display);font-size:20px;margin-bottom:10px">Verificação de idade necessária</div>
+      <div style="font-family:var(--font-body);font-size:13px;color:var(--muted2);line-height:1.6;margin-bottom:28px">O Clube da Meia Azul é exclusivo pra maiores de 18 anos. Pra garantir isso de verdade, pedimos uma verificação rápida com documento (RG, CNH ou passaporte) + uma selfie — leva menos de 2 minutos.</div>
+      <button id="identity-verify-btn" onclick="startIdentityVerification()" style="width:100%;padding:16px;background:#1a6cf0;color:#fff;border:none;border-radius:8px;font-family:var(--font-ui);font-size:13px;font-weight:700;letter-spacing:1.5px;cursor:pointer;margin-bottom:16px">VERIFICAR AGORA</button>
+      <div style="font-family:var(--font-body);font-size:11px;color:var(--muted);line-height:1.5">A foto do seu documento não fica guardada no MyTri — só o resultado (verificado ou não, e sua idade).</div>
+    </div>`;
+}
+async function startIdentityVerification(){
+  const btn=document.getElementById('identity-verify-btn');
+  if(btn){ btn.disabled=true; btn.textContent='ABRINDO...'; }
+  try{
+    const r=await authedFetch('/.netlify/functions/create-verification-session',{method:'POST'});
+    const data=await r.json();
+    if(!data.url){
+      alert('Não consegui iniciar a verificação agora. '+(data.error||''));
+      if(btn){ btn.disabled=false; btn.textContent='VERIFICAR AGORA'; }
+      return;
+    }
+    window.open(data.url,'_blank');
+    renderIdentityWaitingScreen();
+  }catch(e){
+    alert('Erro de conexão. Tenta de novo.');
+    if(btn){ btn.disabled=false; btn.textContent='VERIFICAR AGORA'; }
+  }
+}
+function renderIdentityWaitingScreen(){
+  const c=document.getElementById('view-club');
+  if(!c)return;
+  c.innerHTML=`
+    <div style="padding:14px 16px 0"><div onclick="backToClubLanding()" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-family:var(--font-ui);font-size:11px;color:var(--muted2);letter-spacing:1px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> CLUBES</div></div>
+    <div style="padding:50px 26px;text-align:center">
+      <div style="font-family:var(--font-display);font-size:20px;margin-bottom:10px">Verificação em andamento</div>
+      <div style="font-family:var(--font-body);font-size:13px;color:var(--muted2);line-height:1.6;margin-bottom:24px">Termina a verificação na aba que abriu. Quando finalizar, volta aqui e confere.</div>
+      <button id="identity-recheck-btn" onclick="recheckVerification()" style="width:100%;padding:16px;background:var(--accent);color:#000;border:none;border-radius:8px;font-family:var(--font-ui);font-size:13px;font-weight:700;letter-spacing:1.5px;cursor:pointer">JÁ TERMINEI — CONFERIR</button>
+    </div>`;
+}
+async function recheckVerification(){
+  const btn=document.getElementById('identity-recheck-btn');
+  if(btn){ btn.disabled=true; btn.textContent='CONFERINDO...'; }
+  const verified=await checkIdentityVerified();
+  if(verified){ renderClub(); return; }
+  if(btn){ btn.disabled=false; btn.textContent='JÁ TERMINEI — CONFERIR'; }
+  alert('Ainda não aparece como verificado. Se acabou de terminar agora, espera uns segundos (o resultado leva um instante pra chegar) e tenta de novo.');
+}
 function backToClubLanding(){ clubTabView=null; renderClub(); }
 
 function renderClubLanding(c){
   c.innerHTML='';
   c.style.cssText='padding:20px 16px 100px;min-height:100vh;background:var(--bg)';
   const _clubCount=(clubState.matches||[]).length;
+  // Padrao de "raia de pista" sutil ao fundo dos banners — arte propria em CSS, sem depender
+  // de foto externa (evita link quebrado/licenciamento) mas ainda assim visualmente rico.
+  const laneBg='repeating-linear-gradient(115deg, rgba(0,0,0,0.05) 0px, rgba(0,0,0,0.05) 2px, transparent 2px, transparent 26px)';
+  const laneBgDark='repeating-linear-gradient(115deg, rgba(255,255,255,0.06) 0px, rgba(255,255,255,0.06) 2px, transparent 2px, transparent 26px)';
   c.innerHTML=`
     <div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:2px;margin-bottom:4px">CLUBE MYTRI</div>
     <div style="font-family:var(--font-display);font-size:28px;letter-spacing:.5px;margin-bottom:20px">Escolha seu clube</div>
 
-    <div onclick="openMeiaBranca()" style="cursor:pointer;position:relative;border-radius:16px;overflow:hidden;margin-bottom:16px;background:linear-gradient(135deg,#f0f2f5,#c9ced6);padding:22px;min-height:130px;display:flex;flex-direction:column;justify-content:flex-end">
+    <div onclick="openMeiaBranca()" style="cursor:pointer;position:relative;border-radius:16px;overflow:hidden;margin-bottom:16px;background:${laneBg},linear-gradient(135deg,#f0f2f5,#c9ced6);padding:24px;min-height:160px;display:flex;flex-direction:column;justify-content:flex-end">
+      <svg width="140" height="140" viewBox="0 0 24 24" fill="none" stroke="#0a0a0a" stroke-width="0.8" style="position:absolute;top:-20px;right:-24px;opacity:0.1;transform:rotate(-8deg)"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
       <div style="position:absolute;top:18px;right:18px;width:44px;height:44px;border-radius:12px;background:rgba(0,0,0,0.08);display:flex;align-items:center;justify-content:center">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/><path d="M12 11l1.5 1.5L16 10"/></svg>
       </div>
-      <div style="font-family:var(--font-display);font-size:22px;color:#0a0a0a;letter-spacing:.5px;margin-bottom:4px">CLUBE DA MEIA BRANCA</div>
-      <div style="font-family:var(--font-body);font-size:12px;color:#3a3f4a;line-height:1.4;max-width:80%">Grupos e desafios coletivos. Treine com sua equipe, registre check-ins e suba no ranking.</div>
-      <div style="margin-top:10px;font-family:var(--font-ui);font-size:9px;color:#0a0a0a;letter-spacing:1.5px;display:flex;align-items:center;gap:4px">NOVO <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0a0a0a" stroke-width="3"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+      <div style="position:relative;font-family:var(--font-display);font-size:24px;color:#0a0a0a;letter-spacing:.5px;margin-bottom:4px">CLUBE DA MEIA BRANCA</div>
+      <div style="position:relative;font-family:var(--font-body);font-size:12px;color:#3a3f4a;line-height:1.4;max-width:80%">Grupos e desafios coletivos. Treine com sua equipe, registre check-ins e suba no ranking.</div>
+      <div style="position:relative;margin-top:10px;font-family:var(--font-ui);font-size:9px;color:#0a0a0a;letter-spacing:1.5px;display:flex;align-items:center;gap:4px">NOVO <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0a0a0a" stroke-width="3"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
     </div>
 
-    <div onclick="openMeiaAzul()" style="cursor:pointer;position:relative;border-radius:16px;overflow:hidden;background:linear-gradient(135deg,#1a6cf0,#0d3a8f);padding:22px;min-height:130px;display:flex;flex-direction:column;justify-content:flex-end">
+    <div onclick="openMeiaAzul()" style="cursor:pointer;position:relative;border-radius:16px;overflow:hidden;background:${laneBgDark},linear-gradient(135deg,#1a6cf0,#0d3a8f);padding:24px;min-height:160px;display:flex;flex-direction:column;justify-content:flex-end">
+      <svg width="140" height="140" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="0.8" style="position:absolute;top:-20px;right:-24px;opacity:0.14;transform:rotate(8deg)"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
       <div style="position:absolute;top:18px;right:18px;width:44px;height:44px;border-radius:12px;background:rgba(255,255,255,0.12);display:flex;align-items:center;justify-content:center">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
       </div>
-      <div style="font-family:var(--font-display);font-size:22px;color:#fff;letter-spacing:.5px;margin-bottom:4px">CLUBE DA MEIA AZUL</div>
-      <div style="font-family:var(--font-body);font-size:12px;color:rgba(255,255,255,0.75);line-height:1.4;max-width:80%">Conecte com outros triatletas. Combine treinos, troque experiencias.</div>
-      ${_clubCount?`<div style="margin-top:10px;font-family:var(--font-ui);font-size:9px;color:#fff;letter-spacing:1.5px">${_clubCount} CONEXA${_clubCount>1?'ES':'O'}</div>`:''}
+      <div style="position:relative;font-family:var(--font-display);font-size:24px;color:#fff;letter-spacing:.5px;margin-bottom:4px">CLUBE DA MEIA AZUL</div>
+      <div style="position:relative;font-family:var(--font-body);font-size:12px;color:rgba(255,255,255,0.75);line-height:1.4;max-width:80%">Conecte com outros triatletas. Combine treinos, troque experiencias.</div>
+      ${_clubCount?`<div style="position:relative;margin-top:10px;font-family:var(--font-ui);font-size:9px;color:#fff;letter-spacing:1.5px">${_clubCount} CONEXA${_clubCount>1?'ES':'O'}</div>`:''}
     </div>
 
     <div style="margin-top:20px;font-family:var(--font-body);font-size:11px;color:var(--muted);line-height:1.5;text-align:center">Recursos sociais opcionais, exclusivos pra maiores de 18 anos.</div>
@@ -6678,7 +6772,7 @@ function showClubDisclaimer(){
       </label>
       <label class="disclaimer-check">
         <input type="checkbox" id="cb-terms" onchange="checkClubTerms()">
-        <span>Concordo com os <strong style="color:var(--text)">termos de uso</strong> e entendo que o MyTri não realiza verificacao de identidade dos usuarios</span>
+        <span>Concordo com os <strong style="color:var(--text)">termos de uso</strong> e entendo que o MyTri não realiza verificacao de identidade dos usuários</span>
       </label>
       <button class="disclaimer-btn" id="club-disc-btn" onclick="acceptClubTerms()">ENTRAR NO CLUBE</button>
       <button class="disclaimer-btn-cancel" onclick="document.getElementById('club-disclaimer').remove();backToClubLanding()">Cancelar</button>
@@ -6712,14 +6806,14 @@ function renderClubReal(){
   }else{
     renderClubSwipe(c);
   }
-  // Prepende DEPOIS do sub-render, ja que cada tela interna substitui o innerHTML inteiro —
+  // Prepende DEPOIS do sub-render, já que cada tela interna substitui o innerHTML inteiro —
   // se adicionasse antes, esse botao seria apagado junto.
   c.insertAdjacentHTML('afterbegin', `<div style="padding:14px 16px 0"><div onclick="backToClubLanding()" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-family:var(--font-ui);font-size:11px;color:var(--muted2);letter-spacing:1px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> CLUBES</div></div>`);
 }
 
 // ═══════════════ CLUBE DA MEIA BRANCA (grupos/desafios, estilo GymRats) ═══════════════
 // Agora conectado de verdade nas tabelas mytri_groups / mytri_group_members /
-// mytri_group_checkins do Supabase (RLS por membership) — grupo visivel entre usuarios reais.
+// mytri_group_checkins do Supabase (RLS por membership) — grupo visivel entre usuários reais.
 let meiaBrancaState={ myGroups:null, _openGroup:null, _openMembers:null };
 
 async function mbFetchMyGroups(){
@@ -6750,15 +6844,15 @@ function renderMeiaBranca(c){
   mbFetchMyGroups().then(groups=>{
     meiaBrancaState.myGroups=groups;
     const body=document.getElementById('mb-body');
-    if(!body)return; // usuario ja navegou pra outro lugar
+    if(!body)return; // usuário já navegou pra outro lugar
     if(!groups.length){
       body.innerHTML=`
         <div style="text-align:center;padding:40px 20px">
           <div style="width:64px;height:64px;border-radius:16px;background:rgba(240,242,245,0.08);display:flex;align-items:center;justify-content:center;margin:0 auto 18px">
             <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--text)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           </div>
-          <div style="font-family:var(--font-display);font-size:20px;margin-bottom:8px">Voce ainda nao esta em nenhum grupo</div>
-          <div style="font-family:var(--font-body);font-size:13px;color:var(--muted2);line-height:1.5">Crie um grupo e convide sua equipe, ou entre com um codigo de convite.</div>
+          <div style="font-family:var(--font-display);font-size:20px;margin-bottom:8px">Você ainda não está em nenhum grupo</div>
+          <div style="font-family:var(--font-body);font-size:13px;color:var(--muted2);line-height:1.5">Crie um grupo e convide sua equipe, ou entre com um código de convite.</div>
         </div>
         <button onclick="openCreateGroupForm()" style="width:100%;padding:16px;background:var(--text);color:#000;border:none;border-radius:8px;font-family:var(--font-ui);font-size:13px;font-weight:700;letter-spacing:1.5px;cursor:pointer;margin-bottom:10px">CRIAR GRUPO</button>
         <button onclick="openJoinGroupForm()" style="width:100%;padding:16px;background:none;border:1px solid var(--border);color:var(--text);border-radius:8px;font-family:var(--font-ui);font-size:13px;font-weight:700;letter-spacing:1.5px;cursor:pointer">ENTRAR COM CODIGO</button>
@@ -6776,7 +6870,7 @@ function renderMeiaBranca(c){
           <div onclick='openGroupDetail(${JSON.stringify(g.id)})' style="cursor:pointer;padding:16px;background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between">
             <div>
               <div style="font-family:var(--font-ui);font-size:14px;font-weight:700;color:var(--text);margin-bottom:3px">${g.nome}</div>
-              <div style="font-family:var(--font-body);font-size:11px;color:var(--muted2)">${g.foco||'Todas as modalidades'} &middot; codigo ${g.codigo}</div>
+              <div style="font-family:var(--font-body);font-size:11px;color:var(--muted2)">${g.foco||'Todas as modalidades'} &middot; código ${g.código}</div>
             </div>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
           </div>`).join('')}
@@ -6796,7 +6890,7 @@ function openCreateGroupForm(){
     <input id="mb-foco" placeholder="Ex: Corrida, Triathlon..." style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:13px;border-radius:8px;margin-bottom:16px">
     <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;display:block;margin-bottom:6px">COMO PONTUA?</label>
     <div style="display:flex;gap:8px;margin-bottom:24px" id="mb-scoring">
-      ${['Numero de treinos','Distancia (km)','Minutos'].map((l,i)=>`<div onclick="_mbSelectScoring(${i})" data-i="${i}" class="mb-score-opt" style="flex:1;text-align:center;padding:12px 6px;border-radius:8px;border:1px solid ${i===0?'var(--accent)':'var(--border)'};background:${i===0?'rgba(0,230,118,0.1)':'var(--surface)'};color:${i===0?'var(--accent)':'var(--muted2)'};font-family:var(--font-ui);font-size:10px;letter-spacing:.5px;cursor:pointer">${l}</div>`).join('')}
+      ${['Número de treinos','Distancia (km)','Minutos'].map((l,i)=>`<div onclick="_mbSelectScoring(${i})" data-i="${i}" class="mb-score-opt" style="flex:1;text-align:center;padding:12px 6px;border-radius:8px;border:1px solid ${i===0?'var(--accent)':'var(--border)'};background:${i===0?'rgba(0,230,118,0.1)':'var(--surface)'};color:${i===0?'var(--accent)':'var(--muted2)'};font-family:var(--font-ui);font-size:10px;letter-spacing:.5px;cursor:pointer">${l}</div>`).join('')}
     </div>
     <button id="mb-create-btn" onclick="submitCreateGroup()" style="width:100%;padding:16px;background:var(--text);color:#000;border:none;border-radius:8px;font-family:var(--font-ui);font-size:13px;font-weight:700;letter-spacing:1.5px;cursor:pointer">CRIAR</button>
   </div>`;
@@ -6815,28 +6909,28 @@ async function submitCreateGroup(){
   const nome=(document.getElementById('mb-nome').value||'').trim();
   if(!nome){ alert('Da um nome pro grupo primeiro.'); return; }
   const foco=(document.getElementById('mb-foco').value||'').trim();
-  const scoringLabels=['Numero de treinos','Distancia (km)','Minutos'];
+  const scoringLabels=['Número de treinos','Distancia (km)','Minutos'];
   const scoring=scoringLabels[window._mbScoring||0];
   const btn=document.getElementById('mb-create-btn');
   if(btn){ btn.disabled=true; btn.textContent='CRIANDO...'; }
-  // Garante que o token de sessao esta fresco antes de uma escrita critica — se a sessao
+  // Garante que o token de sessão está fresco antes de uma escrita critica — se a sessão
   // tivesse expirado sem renovar, o INSERT falhava na regra "auth.uid() = owner_id" com um
   // erro generico, sem explicar o motivo real.
   const session=await ensureValidSession();
   if(!session){
-    alert('Sua sessao expirou. Vamos te levar pra tela de login de novo.');
+    alert('Sua sessão expirou. Vamos te levar pra tela de login de novo.');
     showAuthScreen();
     return;
   }
   const uid=currentUserId();
   if(!uid){ alert('Precisa estar logado.'); return; }
-  const codigo=Math.random().toString(36).slice(2,8).toUpperCase();
+  const código=Math.random().toString(36).slice(2,8).toUpperCase();
   const prof=getMytriProfile();
   try{
     const r=await fetch(`${SB_URL}/rest/v1/mytri_groups`,{
       method:'POST',
       headers:sbHeaders({'Prefer':'return=representation'}),
-      body:JSON.stringify({nome,foco,scoring,codigo,owner_id:uid})
+      body:JSON.stringify({nome,foco,scoring,código,owner_id:uid})
     });
     const rows=await r.json();
     if(!r.ok||!rows||!rows[0]){
@@ -6848,36 +6942,36 @@ async function submitCreateGroup(){
     await fetch(`${SB_URL}/rest/v1/mytri_group_members`,{
       method:'POST',
       headers:sbHeaders(),
-      body:JSON.stringify({group_id:group.id,user_id:uid,nome_exibicao:prof.name||'Voce',foto_url:prof.photo||null})
+      body:JSON.stringify({group_id:group.id,user_id:uid,nome_exibicao:prof.name||'Você',foto_url:prof.photo||null})
     });
     meiaBrancaState._openGroup=group;
     renderClub();
   }catch(e){
-    alert('Nao consegui criar o grupo agora: '+(e.message||'erro desconhecido'));
+    alert('Não consegui criar o grupo agora: '+(e.message||'erro desconhecido'));
     if(btn){ btn.disabled=false; btn.textContent='CRIAR'; }
   }
 }
 async function openJoinGroupForm(){
-  const codigo=prompt('Digite o codigo do grupo:');
-  if(!codigo)return;
+  const código=prompt('Digite o código do grupo:');
+  if(!código)return;
   const session=await ensureValidSession();
-  if(!session){ alert('Sua sessao expirou. Vamos te levar pra tela de login de novo.'); showAuthScreen(); return; }
+  if(!session){ alert('Sua sessão expirou. Vamos te levar pra tela de login de novo.'); showAuthScreen(); return; }
   const prof=getMytriProfile();
   const uid=currentUserId();
   fetch(`${SB_URL}/rest/v1/rpc/join_group_by_code`,{
     method:'POST',
     headers:sbHeaders(),
-    body:JSON.stringify({p_codigo:codigo.trim(),p_nome:prof.name||'Voce'})
+    body:JSON.stringify({p_codigo:código.trim(),p_nome:prof.name||'Você'})
   }).then(async r=>{
     if(!r.ok){
       const err=await r.json().catch(()=>({}));
       console.error('Erro ao entrar no grupo:',r.status,err);
-      alert(err.message&&err.message.includes('Codigo invalido')?'Codigo invalido.':'Nao consegui entrar no grupo. Confere o codigo.');
+      alert(err.message&&err.message.includes('Código invalido')?'Código invalido.':'Não consegui entrar no grupo. Confere o código.');
       return;
     }
     const groupId=await r.json().catch(()=>null);
-    // A funcao join_group_by_code nao aceita foto (RPC generica) — completa com um PATCH
-    // separado, que a regra "members_update_self" ja permite pro proprio membro.
+    // A funcao join_group_by_code não aceita foto (RPC generica) — completa com um PATCH
+    // separado, que a regra "members_update_self" já permite pro próprio membro.
     if(groupId&&prof.photo&&uid){
       fetch(`${SB_URL}/rest/v1/mytri_group_members?group_id=eq.${groupId}&user_id=eq.${uid}`,{
         method:'PATCH', headers:sbHeaders(), body:JSON.stringify({foto_url:prof.photo})
@@ -6911,16 +7005,16 @@ function renderMeiaBrancaGroup(){
       <div style="padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between">
         <div>
           <div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:2px">CODIGO DO GRUPO</div>
-          <div style="font-family:var(--font-display);font-size:18px;letter-spacing:2px">${g.codigo}</div>
+          <div style="font-family:var(--font-display);font-size:18px;letter-spacing:2px">${g.código}</div>
         </div>
-        <button onclick="navigator.clipboard&&navigator.clipboard.writeText('${g.codigo}');this.textContent='COPIADO'" style="background:none;border:1px solid var(--border);color:var(--text);font-family:var(--font-ui);font-size:10px;letter-spacing:1px;padding:8px 12px;border-radius:6px;cursor:pointer">COPIAR</button>
+        <button onclick="navigator.clipboard&&navigator.clipboard.writeText('${g.código}');this.textContent='COPIADO'" style="background:none;border:1px solid var(--border);color:var(--text);font-family:var(--font-ui);font-size:10px;letter-spacing:1px;padding:8px 12px;border-radius:6px;cursor:pointer">COPIAR</button>
       </div>
 
       <div style="font-family:var(--font-ui);font-size:11px;color:var(--muted);letter-spacing:1.5px;margin-bottom:10px">RANKING (${members.length} membro${members.length===1?'':'s'})</div>
       ${members.map((m,i)=>`<div style="display:flex;align-items:center;gap:12px;padding:12px 4px;border-bottom:1px solid var(--border);${m.user_id===myUid?'background:rgba(0,230,118,0.05)':''}">
         <div style="width:22px;font-family:var(--font-display);font-size:14px;color:${i===0?'var(--accent)':'var(--muted)'}">${i+1}</div>
         ${m.foto_url?`<img src="${m.foto_url}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0">`:`<div style="width:32px;height:32px;border-radius:50%;background:var(--surface);border:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-family:var(--font-ui);font-size:12px;color:var(--muted2)">${(m.nome_exibicao||'A')[0].toUpperCase()}</div>`}
-        <div style="flex:1;font-family:var(--font-body);font-size:13px;color:var(--text)">${m.nome_exibicao||'Atleta'}${m.user_id===myUid?' (voce)':''}</div>
+        <div style="flex:1;font-family:var(--font-body);font-size:13px;color:var(--text)">${m.nome_exibicao||'Atleta'}${m.user_id===myUid?' (você)':''}</div>
         <div style="font-family:var(--font-ui);font-size:13px;color:var(--text)">${m.pontos}</div>
       </div>`).join('')}
 
@@ -6928,8 +7022,8 @@ function renderMeiaBrancaGroup(){
       <div style="font-family:var(--font-body);font-size:11px;color:var(--muted);text-align:center;margin-top:10px">Usa o treino real de hoje (concluido na Agenda) — pontua conforme o tipo do grupo: ${g.scoring.toLowerCase()}.</div>
 
       ${checkins.length?`<div style="font-family:var(--font-ui);font-size:11px;color:var(--muted);letter-spacing:1.5px;margin:26px 0 10px">ATIVIDADE RECENTE</div>
-      ${checkins.map(ck=>`<div style="display:flex;gap:12px;padding:10px 4px;border-bottom:1px solid var(--border)">
-        ${ck.foto_url?`<img src="${ck.foto_url}" style="width:52px;height:52px;border-radius:8px;object-fit:cover;flex-shrink:0">`:`<div style="width:52px;height:52px;border-radius:8px;background:var(--surface);border:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.8"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>`}
+      ${checkins.map((ck,i)=>`<div style="display:flex;gap:14px;padding:10px 4px;border-bottom:1px solid var(--border)">
+        ${ck.foto_url?`<img src="${ck.foto_url}" style="width:56px;height:56px;border-radius:4px;object-fit:cover;flex-shrink:0;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.35);transform:rotate(${i%2===0?'-3deg':'2deg'})">`:`<div style="width:52px;height:52px;border-radius:8px;background:var(--surface);border:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.8"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>`}
         <div style="flex:1;min-width:0">
           <div style="font-family:var(--font-ui);font-size:12px;color:var(--text);font-weight:700">${nomeById[ck.user_id]||'Atleta'} <span style="color:var(--accent);font-weight:400">+${ck.pontos}</span></div>
           <div style="font-family:var(--font-body);font-size:11px;color:var(--muted2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${ck.nota||''}</div>
@@ -6943,20 +7037,20 @@ function renderMeiaBrancaGroup(){
   });
 }
 function leaveGroup(groupId){
-  if(!confirm('Sair desse grupo? Voce perde seu ranking e precisa de um novo convite pra voltar.'))return;
+  if(!confirm('Sair desse grupo? Você perde seu ranking e precisa de um novo convite pra voltar.'))return;
   const uid=currentUserId();
   fetch(`${SB_URL}/rest/v1/mytri_group_members?group_id=eq.${groupId}&user_id=eq.${uid}`,{method:'DELETE',headers:sbHeaders()})
     .then(()=>{ meiaBrancaState._openGroup=null; renderClub(); })
-    .catch(()=>alert('Nao consegui sair do grupo agora.'));
+    .catch(()=>alert('Não consegui sair do grupo agora.'));
 }
 function deleteGroup(groupId){
-  if(!confirm('Apagar esse grupo pra sempre? Todos os membros perdem acesso e o historico e apagado. Essa acao nao pode ser desfeita.'))return;
+  if(!confirm('Apagar esse grupo pra sempre? Todos os membros perdem acesso e o histórico e apagado. Essa acao não pode ser desfeita.'))return;
   fetch(`${SB_URL}/rest/v1/mytri_groups?id=eq.${groupId}`,{method:'DELETE',headers:sbHeaders()})
     .then(()=>{ meiaBrancaState._openGroup=null; renderClub(); })
-    .catch(()=>alert('Nao consegui apagar o grupo agora.'));
+    .catch(()=>alert('Não consegui apagar o grupo agora.'));
 }
-// Puxa os treinos de HOJE que ja foram concluidos com dado real (Strava ou manual) — e disso
-// que o check-in agora se alimenta, em vez de um botao generico que so somava +1 sempre.
+// Puxa os treinos de HOJE que já foram concluidos com dado real (Strava ou manual) — e disso
+// que o check-in agora se alimenta, em vez de um botao generico que só somava +1 sempre.
 function getTodayCompletedSessions(){
   try{
     const {w,d}=getCurrentWeekAndDay();
@@ -6964,7 +7058,7 @@ function getTodayCompletedSessions(){
     const sessions=getEffectiveSessions(w,d)||[];
     return sessions.filter(s=>{
       if(s._origin==='plan') return checks[ck(w,d,s._si)]&&(s._realExecuted||s.dist);
-      return s._origin==='extra'; // extra so existe pq o Strava sincronizou algo real
+      return s._origin==='extra'; // extra só existe pq o Strava sincronizou algo real
     });
   }catch(e){ return []; }
 }
@@ -6990,13 +7084,13 @@ function _ckExtractMin(sess){
 function _ckPointsFor(sess,scoring){
   if(scoring==='Distancia (km)')return Math.round(_ckExtractKm(sess)*10)/10;
   if(scoring==='Minutos')return _ckExtractMin(sess);
-  return 1; // "Numero de treinos"
+  return 1; // "Número de treinos"
 }
 const TIPO_NOME_CK={swim:'Natacao',bike:'Bike',run:'Corrida',brick:'Tijolo',gym:'Forca',tennis:'Tenis'};
 
 // Check-in AUTOMATICO em todos os grupos da Meia Branca que o atleta participa, disparado
 // assim que um treino e concluido (manual ou Strava) — sem precisar abrir a aba do Clube.
-// "sourceKey" identifica o treino (ex: "w1_d2_s0" ou "strava_123456") pra nao duplicar o
+// "sourceKey" identifica o treino (ex: "w1_d2_s0" ou "strava_123456") pra não duplicar o
 // check-in se o mesmo treino disparar esse gatilho mais de uma vez.
 async function autoCheckinAllGroups(sess,sourceKey){
   try{
@@ -7015,7 +7109,7 @@ async function autoCheckinAllGroups(sess,sourceKey){
         const meRows=await rMe.json();
         const atual=(meRows&&meRows[0]&&meRows[0].pontos)||0;
         await fetch(`${SB_URL}/rest/v1/mytri_group_members?group_id=eq.${g.id}&user_id=eq.${uid}`,{method:'PATCH',headers:sbHeaders(),body:JSON.stringify({pontos:atual+pontos})});
-      }catch(e){} // um grupo falhar nao deve impedir os outros
+      }catch(e){} // um grupo falhar não deve impedir os outros
     }
     done.push(sourceKey);
     localStorage.setItem('mytri_autocheckin_done',JSON.stringify(done.slice(-300)));
@@ -7049,7 +7143,7 @@ function submitCheckin(groupId){
 }
 function _confirmCheckinByIdx(groupId,idx){ _showCheckinConfirm(groupId, window._ckTodaySessions[idx]); }
 
-// Tela de confirmacao com foto opcional, antes de gravar o check-in de verdade.
+// Tela de confirmação com foto opcional, antes de gravar o check-in de verdade.
 function _showCheckinConfirm(groupId,sess){
   const g=meiaBrancaState._openGroup;
   const pontos=_ckPointsFor(sess,g.scoring);
@@ -7061,10 +7155,12 @@ function _showCheckinConfirm(groupId,sess){
     <div style="font-family:var(--font-display);font-size:20px;margin-bottom:4px">Confirmar check-in</div>
     <div style="font-family:var(--font-body);font-size:13px;color:var(--muted2);margin-bottom:20px">${TIPO_NOME_CK[sess.type]||sess.type||'Treino'}${sess.dist?' · '+sess.dist:''} — vale <span style="color:var(--accent)">+${pontos}</span> nesse grupo</div>
 
-    <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;display:block;margin-bottom:8px">FOTO (OPCIONAL)</label>
-    <div id="ckin-photo-preview" onclick="document.getElementById('ckin-photo-input').click()" style="width:100%;height:180px;background:var(--surface);border:1px dashed var(--border2);border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;margin-bottom:20px;overflow:hidden">
-      <span style="font-family:var(--font-ui);font-size:11px;color:var(--muted);letter-spacing:1px">TOQUE PRA ADICIONAR FOTO</span>
+    <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;display:block;margin-bottom:8px">FOTO DO MOMENTO (OPCIONAL)</label>
+    <div id="ckin-photo-preview" onclick="document.getElementById('ckin-photo-input').click()" style="width:100%;height:200px;background:var(--surface);border:1px dashed var(--border2);border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;margin-bottom:8px;overflow:hidden;gap:8px">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.6"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      <span style="font-family:var(--font-ui);font-size:11px;color:var(--muted);letter-spacing:1px">TOQUE PRA TIRAR UMA FOTO</span>
     </div>
+    <div style="font-family:var(--font-body);font-size:11px;color:var(--muted);text-align:center;margin-bottom:20px;line-height:1.4">Sem edição, sem filtro — só o momento real do treino, igual um Instant.</div>
     <input type="file" id="ckin-photo-input" accept="image/*" capture="environment" style="display:none" onchange="_ckinPhotoSelected(event)">
 
     <button id="ckin-confirm-btn" onclick="_finalizeCheckin()" style="width:100%;padding:16px;background:var(--accent);color:#000;border:none;border-radius:8px;font-family:var(--font-ui);font-size:13px;font-weight:700;letter-spacing:1.5px;cursor:pointer">CONFIRMAR CHECK-IN</button>
@@ -7100,7 +7196,7 @@ async function _finalizeCheckin(){
   const btn=document.getElementById('ckin-confirm-btn');
   if(btn){ btn.disabled=true; btn.textContent='ENVIANDO...'; }
   const session=await ensureValidSession();
-  if(!session){ alert('Sua sessao expirou. Vamos te levar pra tela de login de novo.'); showAuthScreen(); return; }
+  if(!session){ alert('Sua sessão expirou. Vamos te levar pra tela de login de novo.'); showAuthScreen(); return; }
   const g=meiaBrancaState._openGroup;
   const pontos=_ckPointsFor(sess,g.scoring);
   const nota=`${TIPO_NOME_CK[sess.type]||sess.type||'Treino'}${sess.dist?' - '+sess.dist:''}`;
@@ -7111,7 +7207,7 @@ async function _finalizeCheckin(){
       method:'POST', headers:sbHeaders(),
       body:JSON.stringify({group_id:groupId,user_id:uid,pontos,nota,foto_url:fotoUrl})
     });
-    // Le o ponto atual e incrementa (RLS so deixa editar a propria linha de membro).
+    // Le o ponto atual e incrementa (RLS só deixa editar a própria linha de membro).
     const rMe=await fetch(`${SB_URL}/rest/v1/mytri_group_members?group_id=eq.${groupId}&user_id=eq.${uid}&select=pontos`,{headers:sbHeaders()});
     const meRows=await rMe.json();
     const atual=(meRows&&meRows[0]&&meRows[0].pontos)||0;
@@ -7121,7 +7217,7 @@ async function _finalizeCheckin(){
     });
     renderMeiaBrancaGroup();
   }catch(e){
-    alert('Nao consegui registrar o check-in agora.');
+    alert('Não consegui registrar o check-in agora.');
     if(btn){ btn.disabled=false; btn.textContent='CONFIRMAR CHECK-IN'; }
   }
 }
@@ -7189,7 +7285,18 @@ function renderClubMyProfile(c){
       ${p.igHandle?`<a href="https://instagram.com/${p.igHandle}" target="_blank" style="display:flex;align-items:center;gap:8px;text-decoration:none;margin-bottom:16px"><div style="width:28px;height:28px;border-radius:7px;background:linear-gradient(45deg,#f09433,#dc2743,#bc1888);display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.332.014 7.052.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.058-1.28.072-1.689.072-4.948 0-3.259-.014-3.667-.072-4.948-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg></div><span style="font-family:var(--font-body);font-size:13px;color:#E1306C">@${p.igHandle}</span></a>`:''}
 
       <button onclick="clubState.step='swipe';saveClubState();renderClub()" style="width:100%;padding:14px;background:var(--accent);color:#000;font-family:var(--font-ui);font-size:13px;font-weight:700;letter-spacing:2px;border:none;cursor:pointer;border-radius:6px">VOLTAR AOS CARDS</button>
+      <button onclick="leaveClubAzul()" style="width:100%;margin-top:12px;padding:14px;background:none;border:1px solid var(--border);color:var(--muted2);border-radius:6px;font-family:var(--font-ui);font-size:11px;letter-spacing:1.5px;cursor:pointer">SAIR DO CLUBE DA MEIA AZUL</button>
     </div>`;
+}
+// Sai do Clube da Meia Azul por completo: reseta perfil de matches, curtidas, passadas e a
+// aceitacao dos termos — a pessoa continua no MyTri normalmente, so nao participa mais desse
+// clube ate decidir entrar de novo (o que vai pedir os termos e o perfil de novo, do zero).
+function leaveClubAzul(){
+  if(!confirm('Sair do Clube da Meia Azul? Seu perfil, curtidas e matches desse clube serao apagados. Voce pode entrar de novo quando quiser, mas vai comecar do zero.'))return;
+  clubState={step:'onboard',myProfile:null,currentIdx:0,liked:[],passed:[],matches:[],matchedWith:null,dragStart:null};
+  saveClubState();
+  localStorage.removeItem('mytri_club_terms');
+  backToClubLanding();
 }
 
 function clubChangeCover(){
@@ -7254,7 +7361,7 @@ function renderClubOnboard(c){
       <div style="font-family:var(--font-display);font-size:32px;letter-spacing:1px;margin-bottom:4px">CLUBE DA <span style="color:#1a6cf0">MEIA</span> <span style="color:#1a6cf0">AZUL</span></div>
       <div style="font-family:var(--font-body);font-size:13px;color:var(--muted2);line-height:1.6;margin-bottom:28px">Triatletas que buscam mais do que uma prova para compartilhar.</div>
 
-      ${stravaPhoto?`<div style="display:flex;align-items:center;gap:14px;padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:4px;margin-bottom:16px"><img src="${stravaPhoto}" style="width:52px;height:52px;border-radius:50%;object-fit:cover"><div><div style="font-family:var(--font-ui);font-size:11px;color:var(--accent);letter-spacing:1px">PERFIL PREENCHIDO AUTOMATICAMENTE</div><div style="font-family:var(--font-body);font-size:12px;color:var(--muted2);margin-top:2px">Dados do seu perfil MyTri. Ajuste se necessario.</div></div></div>`:''}
+      ${stravaPhoto?`<div style="display:flex;align-items:center;gap:14px;padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:4px;margin-bottom:16px"><img src="${stravaPhoto}" style="width:52px;height:52px;border-radius:50%;object-fit:cover"><div><div style="font-family:var(--font-ui);font-size:11px;color:var(--accent);letter-spacing:1px">PERFIL PREENCHIDO AUTOMATICAMENTE</div><div style="font-family:var(--font-body);font-size:12px;color:var(--muted2);margin-top:2px">Dados do seu perfil MyTri. Ajuste se necessário.</div></div></div>`:''}
 
       <div style="display:flex;flex-direction:column;gap:14px">
         <div>
@@ -7360,7 +7467,7 @@ function renderClubOnboard(c){
         <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;margin-top:10px">
           <div>
             <div style="font-family:var(--font-ui);font-size:12px;color:var(--text);letter-spacing:.5px">Compartilhar Instagram</div>
-            <div style="font-family:var(--font-body);font-size:11px;color:var(--muted);margin-top:2px">@${localStorage.getItem('mytri_ig_handle')} sera visivel para matches</div>
+            <div style="font-family:var(--font-body);font-size:11px;color:var(--muted);margin-top:2px">@${localStorage.getItem('mytri_ig_handle')} será visivel para matches</div>
           </div>
           <div onclick="
           const inp=this.querySelector('input');
@@ -7378,8 +7485,8 @@ function renderClubOnboard(c){
         <button onclick="submitClubOnboard()" style="width:100%;margin-top:8px;padding:18px;background:var(--accent);color:#000;font-family:var(--font-ui);font-size:14px;font-weight:700;letter-spacing:2px;border:none;cursor:pointer;border-radius:4px">ENTRAR NA TURMA</button>
       </div>
     </div>`;
-  // Pre-seleciona o estado com o que ja temos salvo no perfil (GPS/CEP do onboarding/Perfil).
-  // Antes o select sempre abria vazio ("UF"), mesmo com o estado ja detectado em outro lugar do app.
+  // Pre-seleciona o estado com o que já temos salvo no perfil (GPS/CEP do onboarding/Perfil).
+  // Antes o select sempre abria vazio ("UF"), mesmo com o estado já detectado em outro lugar do app.
   if(prof.state){
     const estadoSel=document.getElementById('cl-estado');
     if(estadoSel)estadoSel.value=prof.state;
@@ -8260,7 +8367,7 @@ function resetOnboarding(){
   if(!confirm('Resetar onboarding? Isso apaga seu perfil, plano e prova selecionada pra comecar do zero.'))return;
   // Antes só limpava uma flag e o cache do resumo — o perfil (com a prova antiga, nome, Strava
   // conectado etc.) continuava intacto, entao depois de "resetar" a prova antiga ainda aparecia
-  // presa e o app se comportava como se voce ja tivesse uma prova em andamento.
+  // presa e o app se comportava como se você já tivesse uma prova em andamento.
   localStorage.clear();
   obStep=0;
   obData={};
@@ -8271,9 +8378,9 @@ function resetOnboarding(){
 // Regenera o plano do zero e LIMPA todo o estado de execução corrompido (overrides, extras,
 // checks, recalibração, ordem). Mantem o perfil - não precisa refazer onboarding. Resolve o
 // "problema circular": planos gerados por versoes antigas ficavam com dados impossiveis
-// (ex: 706km planejado) que batiam com o codigo novo e geravam comportamento estranho.
+// (ex: 706km planejado) que batiam com o código novo e geravam comportamento estranho.
 function regeneratePlanClean(){
-  if(!confirm('Isso vai gerar seu plano do zero e apagar o progresso/execuções atuais (treinos marcados, dados do Strava ja sincronizados). Seu perfil e dados pessoais permanecem. Continuar?'))return;
+  if(!confirm('Isso vai gerar seu plano do zero e apagar o progresso/execuções atuais (treinos marcados, dados do Strava já sincronizados). Seu perfil e dados pessoais permanecem. Continuar?'))return;
   try{
     ['nano_tri_v2','nano_extras_v1','nano_overrides_v1','nano_order_v1','nano_cal_cache','mytri_plan_cache','nano_coach_cache','nano_recal_v1','mytri_recal_popup_shown','strava_last_sync','mytri_session_analysis'].forEach(k=>localStorage.removeItem(k));
     // limpar também no supabase (não bloqueia se falhar)
@@ -8955,6 +9062,7 @@ function renderObProva(c){
         <div class="ob-field"><label>Nome da prova</label><input id="ob-prova-nome" value="${obData.raceName||''}" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:12px;border-radius:4px"></div>
         <div class="ob-field"><label>Data da prova</label><input id="ob-data" type="date" value="${obData.raceDate||''}" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:12px;border-radius:4px"></div>
         <div class="ob-field"><label>Cidade / Estado da prova</label><input id="ob-prova-local" value="${obData.raceLocal||''}" placeholder="ex: Guaruja, SP" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:12px;border-radius:4px"><div style="font-family:var(--font-body);font-size:11px;color:var(--muted2);margin-top:6px;line-height:1.4">Usado para prever o clima no dia da prova (calor, frio, chuva) e ajustar hidratação e estratégia.</div></div>
+        <div class="ob-field"><label>Link de inscrição (opcional)</label><input id="ob-prova-url" value="${obData.raceUrl||''}" placeholder="https://..." style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:12px;border-radius:4px"></div>
         <button class="ob-btn" onclick="obNext()" style="margin-top:12px">${t('btn_continuar')}</button>
       `:''}
     </div>
@@ -8973,7 +9081,7 @@ function friendlyRaceError(raw){
     return 'Muitas buscas em pouco tempo. Aguarde alguns segundos e tente de novo, ou cadastre manualmente abaixo.';
   // Chave invalida / auth
   if(e.includes('authentication')||e.includes('api key')||e.includes('401')||e.includes('invalid x-api-key'))
-    return 'Servico de busca temporariamente indisponivel. Cadastre sua prova manualmente abaixo.';
+    return 'Serviço de busca temporariamente indisponivel. Cadastre sua prova manualmente abaixo.';
   // Resposta cortada / parse
   if(e.includes('cortada')||e.includes('extrair')||e.includes('longa demais'))
     return 'A busca demorou demais desta vez. Tente de novo, ou cadastre sua prova manualmente abaixo.';
@@ -9236,11 +9344,15 @@ function obGoalFromTriLeg(el,leg,d){
   const runSec=leg==='TRI_RUN'?legSec:getSec('ob-tri-run',d.r,false);
   const totalSec=swimSec+bikeSec+runSec;
   if(totalSec<=0)return;
+  // Guarda o pace EXATO que a pessoa determinou pra perna de corrida (segundos por km) — sem
+  // isso, o relatorio final reestimava esse número por uma regra generica de "42% do tempo
+  // total", que quase nunca bate com o que a pessoa realmente digitou aqui.
+  if(d.r&&runSec>0) obData.goalRunPaceSec=runSec/d.r;
   const hr=Math.floor(totalSec/3600), min=Math.round((totalSec%3600)/60);
   obData.goalHr=hr; obData.goalMin=min;
   obData.goalTime=`${String(hr).padStart(2,'0')}:${String(min).padStart(2,'0')}`;
   obData.goalTimeExactSec=totalSec;
-  // Guarda o pace de corrida EXATO que ficou configurado (nao so o tempo total) — sem isso,
+  // Guarda o pace de corrida EXATO que ficou configurado (não só o tempo total) — sem isso,
   // o relatorio tinha que reestimar a perna de corrida como "42% do tempo total" de cabeca,
   // o que podia ficar bem diferente do que a pessoa realmente configurou nos 3 campos.
   if(d.r) obData.goalRunPaceSec=runSec/d.r;
@@ -9268,8 +9380,8 @@ function obGoalFromPace(el,distKm){
   const min=Math.round((totalSec%3600)/60);
   obData.goalHr=hr; obData.goalMin=min;
   obData.goalTime=`${String(hr).padStart(2,'0')}:${String(min).padStart(2,'0')}`;
-  // Guarda o tempo EXATO (com segundos) por baixo do arredondamento — o seletor visual so
-  // mostra HORAS:MINUTOS, mas sem isso o pace "necessario" calculado depois vinha sempre
+  // Guarda o tempo EXATO (com segundos) por baixo do arredondamento — o seletor visual só
+  // mostra HORAS:MINUTOS, mas sem isso o pace "necessário" calculado depois vinha sempre
   // arredondado pro minuto cheio (ex: digitou 5:35/km, virava 5:36/km no relatorio).
   obData.goalTimeExactSec=totalSec;
   const hrEl=document.getElementById('ob-goal-hr-display'); if(hrEl)hrEl.textContent=String(hr).padStart(2,'0');
@@ -9283,6 +9395,7 @@ function obAdjust(field,delta){
   // Ajuste manual pelas setas descarta a precisao de segundos guardada pelo pace —
   // a partir daqui o tempo-alvo passa a ser exatamente o que as setas mostram.
   obData.goalTimeExactSec=null;
+  obData.goalRunPaceSec=null;
   if(field==='hr'){
     hr=hr+delta;
   }else{
@@ -9307,7 +9420,7 @@ function renderObModalidades(c){
     {v:'intermediate',l:'Intermediario'},
     {v:'advanced',l:'Avancado'},
   ];
-  const swimLevels=[{v:'não-nado',l:'Nunca nadei'},...levels];
+  const swimLevels=[{v:'nao-nado',l:'Nunca nadei'},...levels];
 
   // Título e campos por modalidade
   const configs={
@@ -9318,7 +9431,7 @@ function renderObModalidades(c){
         {key:'swimLevel',label:'NATAÇÃO',color:'#1a6cf0',levels:swimLevels,
          extra:`<input id="ob-swim-pace" type="tel" inputmode="numeric" placeholder="ex: 1:45" value="${obData.swimPace||''}" oninput="obData.swimPace=obFormatPace(this)" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px"><div style="font-family:var(--font-body);font-size:10px;color:var(--muted);margin-top:5px;line-height:1.4">Ex: 1:45 = 1min45s por 100m de nado</div>`},
         {key:'bikeLevel',label:'BIKE',color:'#e05c2a',levels,
-         extra:`<input id="ob-ftp" placeholder="FTP em watts (ex: 200)" value="${obData.ftp||''}" type="number" oninput="obData.ftp=this.value" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px"><div style="font-family:var(--font-body);font-size:10px;color:var(--muted);margin-top:5px;line-height:1.4">FTP = potencia media que você sustenta por cerca de 1h no bike</div>`},
+         extra:`<input id="ob-ftp" placeholder="FTP em watts (ex: 200)" value="${obData.ftp||''}" type="number" oninput="obData.ftp=this.value" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px"><div style="font-family:var(--font-body);font-size:10px;color:var(--muted);margin-top:5px;line-height:1.4">FTP = potencia média que você sustenta por cerca de 1h no bike</div>`},
         {key:'runLevel',label:'CORRIDA',color:'#00e676',levels,
          extra:`<input id="ob-run-pace" type="tel" inputmode="numeric" placeholder="ex: 5:30" value="${obData.runPace||''}" oninput="obData.runPace=obFormatPace(this)" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px"><div style="font-family:var(--font-body);font-size:10px;color:var(--muted);margin-top:5px;line-height:1.4">Ex: 5:30 = 5min30s por km percorrido</div>`},
       ]
@@ -9488,7 +9601,7 @@ function obUseGPS(){
       const bairro=a.suburb||a.neighbourhood||a.quarter||a.residential||a.city_district||'';
       const label=[bairro,cidade,uf].filter(Boolean).join(', ');
       if(!cidade){ if(st){st.style.color='var(--danger,#e05c2a)';st.textContent='Não consegui identificar a cidade. Confira ou digite o CEP.';} return; }
-      // Preenche para o usuario CONFIRMAR/corrigir (não trava)
+      // Preenche para o usuário CONFIRMAR/corrigir (não trava)
       obData.cepCity=label; obData.cepBairro=bairro; obData.cepCidadeBase=cidade; obData.gpsLat=lat; obData.gpsLon=lon; obData.state=uf;
       try{ localStorage.setItem('mytri_gps_city',label); }catch(e){}
       if(st){ st.style.color='var(--accent)'; st.innerHTML='Detectado: <b>'+label+'</b><br><span style="color:var(--muted2)">Confira acima. Se estiver errado, digite o CEP para sobrescrever.</span>'; }
@@ -9544,7 +9657,7 @@ function renderObDias(c){
     {v:'qua',l:'Quarta'},
     {v:'qui',l:'Quinta'},
     {v:'sex',l:'Sexta'},
-    {v:'sab',l:'Sabado'},
+    {v:'sab',l:'Sábado'},
     {v:'dom',l:'Domingo'},
   ];
   if(!obData.diasDisponiveis) obData.diasDisponiveis=[];
@@ -9720,7 +9833,7 @@ function obSaveInstagram(){
     localStorage.setItem('mytri_ig_handle',handle);
     document.getElementById('ig-modal-overlay')?.remove();
     // Re-renderiza a tela certa: se estiver no onboarding, continua o fluxo; se estiver no
-    // Perfil normal (uso fora do onboarding), so atualiza o Perfil no lugar.
+    // Perfil normal (uso fora do onboarding), só atualiza o Perfil no lugar.
     const onboardActive=document.getElementById('view-onboard')?.classList.contains('active');
     if(onboardActive) renderOnboarding();
     else if(typeof openProfile==='function') openProfile();
@@ -9766,12 +9879,14 @@ function obNext(){
     const nome=document.getElementById('ob-prova-nome');
     const data=document.getElementById('ob-data');
     const local=document.getElementById('ob-prova-local');
+    const url=document.getElementById('ob-prova-url');
     if(nome)obData.raceName=nome.value;
     if(data)obData.raceDate=data.value;
     if(local)obData.raceLocal=local.value;
+    if(url)obData.raceUrl=url.value;
   }
   // Depois da tela de Intro (obStep 1 — explica o app), exige conta antes de seguir pras
-  // perguntas de personalizacao. So aqui, nao na entrada do app: a pessoa ja viu do que se
+  // perguntas de personalizacao. Só aqui, não na entrada do app: a pessoa já viu do que se
   // trata antes de precisar criar conta.
   if(obStep===1 && !isLoggedIn()){
     window._obResumeAfterAuth=true;
@@ -9813,6 +9928,7 @@ function obFinish(){
       return ''; })(),
     goalTime:obData.goalTime||'',
     goalTimeExactSec:obData.goalTimeExactSec||null,
+    goalRunPaceSec:obData.goalRunPaceSec||null,
     weeklyHours:obData.weeklyHours||'3-4',
     swimLevel:obData.swimLevel||'beginner',
     bikeLevel:obData.bikeLevel||'beginner',
@@ -9854,7 +9970,7 @@ function obFinish(){
   document.getElementById('view-onboard').classList.remove('active');
   document.body.classList.remove('onboarding-active');
   // FAB da consultoria fica escondido até o atleta realmente entrar no app (closePlanSummary) —
-  // antes aparecia ja na tela de resumo do plano, o que não faz sentido (ainda nem viu a semana).
+  // antes aparecia já na tela de resumo do plano, o que não faz sentido (ainda nem viu a semana).
   const _fabHide=document.getElementById('consult-fab'); if(_fabHide)_fabHide.style.display='none';
   showPlanSummary(finalProfile);
 }
@@ -9862,7 +9978,7 @@ function obFinish(){
 // Distancias em km/m por raceDist — usado pra calcular o pace/velocidade NECESSARIO pra bater
 // a meta ANTES de mandar pro coach de IA. Sem isso, o modelo tinha que calcular tempo-alvo /
 // distancia de cabeca e errava a conta (ex: dizia que precisava MELHORAR o pace quando o pace
-// atual do atleta ja era mais rápido que o necessario pra meta).
+// atual do atleta já era mais rápido que o necessário pra meta).
 const RACE_KM_META={
   'super-sprint':{s:0.4,b:10,r:2.5},'sprint':{s:0.75,b:20,r:5},'olimpico':{s:1.5,b:40,r:10},
   'half':{s:1.9,b:90,r:21.1},'full':{s:3.8,b:180,r:42.2},
@@ -9876,7 +9992,7 @@ function calcPaceNecessarioMeta(profile){
     if(!profile.goalTime||!profile.raceDist)return '';
     // Usa o tempo EXATO (com segundos) quando disponivel — o HH:MM sozinho arredonda pro
     // minuto cheio e distorcia o pace calculado de volta (ex: digitou 5:35/km, o relatorio
-    // mostrava 5:36/km porque só tinha o tempo ja arredondado pra trabalhar).
+    // mostrava 5:36/km porque só tinha o tempo já arredondado pra trabalhar).
     let totalSec=profile.goalTimeExactSec;
     if(!totalSec){
       const parts=String(profile.goalTime).split(':');
@@ -9889,14 +10005,19 @@ function calcPaceNecessarioMeta(profile){
     if(soCorrida){ const secKm=totalSec/d.r; const m=Math.floor(secKm/60),s=Math.round(secKm%60); return `${m}:${String(s).padStart(2,'0')}/km`; }
     if(soBike){ const kmh=d.b/(totalSec/3600); return `${kmh.toFixed(1)}km/h`; }
     if(soNado){ const per100=totalSec/(d.s*10); const m=Math.floor(per100/60),s=Math.round(per100%60); return `${m}:${String(s).padStart(2,'0')}/100m`; }
-    // Triathlon/duatlo: usa a divisao aproximada (8% nado, 50% bike, 42% corrida) só pra dar
-    // uma referência de pace de corrida no relatorio, que e o dado mais comparável ao nível atual.
+    // Triathlon/duatlo: se a pessoa determinou um pace exato pra perna de corrida (editando
+    // a meta por perna no onboarding), usa ESSE valor direto — é o que ela realmente definiu.
+    // Só cai pra estimativa de 42% quando esse dado exato não existe.
+    if(d.r&&profile.goalRunPaceSec){
+      const secKm=profile.goalRunPaceSec; const m=Math.floor(secKm/60),s=Math.round(secKm%60);
+      return `${m}:${String(s).padStart(2,'0')}/km na corrida`;
+    }
     if(d.r){ const secKm=(totalSec*0.42)/d.r; const m=Math.floor(secKm/60),s=Math.round(secKm%60); return `~${m}:${String(s).padStart(2,'0')}/km na corrida (estimativa dentro do tempo total)`; }
     return '';
   }catch(e){ return ''; }
 }
 // Distancias EXATAS da prova, formatadas por extenso — manda pronto pro relatorio de IA pra
-// impedir o modelo de inventar números (ja aconteceu: relatorio de um sprint triathlon, que e
+// impedir o modelo de inventar números (já aconteceu: relatorio de um sprint triathlon, que e
 // 750m/20km/5km, saiu dizendo "1h9 de natação e 90km de bike", números de outra prova inteira).
 function calcDistanciasProva(profile){
   try{
@@ -9908,20 +10029,20 @@ function calcDistanciasProva(profile){
     return parts.join(', ');
   }catch(e){ return ''; }
 }
-// Veredito PRONTO da comparação pace atual vs necessario — a IA repetidamente errava/invertia
-// essa comparação (dizia "precisa melhorar" quando o pace atual ja era mais rápido que o
-// necessario, ou vice versa, e o valor mudava de forma inconsistente entre execuções). Calculando
+// Veredito PRONTO da comparação pace atual vs necessário — a IA repetidamente errava/invertia
+// essa comparação (dizia "precisa melhorar" quando o pace atual já era mais rápido que o
+// necessário, ou vice versa, e o valor mudava de forma inconsistente entre execuções). Calculando
 // aqui e mandando o veredito pronto, a IA só precisa repetir a frase, não julgar os números.
 function calcComparacaoPace(profile, paceNecessario){
   try{
     if(!paceNecessario)return '';
     const toSec=(s)=>{ const p=String(s).replace(/[^0-9:]/g,'').split(':'); if(p.length!==2)return null; return (parseInt(p[0])||0)*60+(parseInt(p[1])||0); };
 
-    // CORRIDA: comparacao exata, pace atual vs pace necessario pra bater a meta.
+    // CORRIDA: comparacao exata, pace atual vs pace necessário pra bater a meta.
     if(profile.sport==='corrida'&&profile.pace){
       const atualSec=toSec(profile.pace), necSec=toSec(paceNecessario);
       if(atualSec==null||necSec==null)return '';
-      if(atualSec<=necSec) return `O pace ATUAL do atleta (${profile.pace}/km) ja e MAIS RÁPIDO (ou igual) que o pace NECESSARIO pra bater a meta (${paceNecessario}). Isso significa que o atleta JA TEM velocidade suficiente — o foco do plano deve ser resistencia especifica, consistencia e chegar saudavel na largada, NÃO ganho de velocidade.`;
+      if(atualSec<=necSec) return `O pace ATUAL do atleta (${profile.pace}/km) já e MAIS RÁPIDO (ou igual) que o pace NECESSARIO pra bater a meta (${paceNecessario}). Isso significa que o atleta JA TEM velocidade suficiente — o foco do plano deve ser resistencia específica, consistencia e chegar saudavel na largada, NÃO ganho de velocidade.`;
       return `O pace ATUAL do atleta (${profile.pace}/km) e MAIS LENTO que o pace NECESSARIO pra bater a meta (${paceNecessario}). O atleta precisa GANHAR velocidade — esse e um foco real do plano.`;
     }
 
@@ -9929,22 +10050,23 @@ function calcComparacaoPace(profile, paceNecessario){
     if(profile.sport==='natacao'&&profile.swim){
       const atualSec=toSec(profile.swim), necSec=toSec(paceNecessario);
       if(atualSec==null||necSec==null)return '';
-      if(atualSec<=necSec) return `O pace ATUAL de nado do atleta (${profile.swim}/100m) ja e MAIS RÁPIDO (ou igual) que o pace NECESSARIO pra bater a meta (${paceNecessario}). O atleta JA TEM velocidade suficiente — o foco deve ser resistencia e tecnica, NÃO ganho de velocidade.`;
+      if(atualSec<=necSec) return `O pace ATUAL de nado do atleta (${profile.swim}/100m) já e MAIS RÁPIDO (ou igual) que o pace NECESSARIO pra bater a meta (${paceNecessario}). O atleta JA TEM velocidade suficiente — o foco deve ser resistencia e tecnica, NÃO ganho de velocidade.`;
       return `O pace ATUAL de nado do atleta (${profile.swim}/100m) e MAIS LENTO que o pace NECESSARIO pra bater a meta (${paceNecessario}). O atleta precisa GANHAR velocidade de nado — esse e um foco real do plano.`;
     }
 
-    // TRIATHLON/DUATHLON: o "pace necessario" aqui e so uma ESTIMATIVA da perna de corrida
-    // (dividindo o tempo total pela regra aproximada de 42%), entao a comparacao tambem e
-    // aproximada — mas ainda assim precisa ser dita explicitamente, senao a IA monta a propria
-    // conta (e erra) do mesmo jeito que fazia antes so pra corrida.
+    // TRIATHLON/DUATHLON: se "pace necessário" veio do valor EXATO que a pessoa determinou pra
+    // perna de corrida, a comparacao e exata. Só vira estimativa quando esse dado não existe e
+    // caimos na regra generica de 42% do tempo total.
     if((profile.sport==='triathlon'||profile.sport==='duathlon')&&profile.pace){
       const necMatch=String(paceNecessario).match(/(\d+):(\d{2})/);
+      const isEstimate=String(paceNecessario).includes('estimativa');
       if(necMatch){
         const necSec=parseInt(necMatch[1])*60+parseInt(necMatch[2]);
         const atualSec=toSec(profile.pace);
         if(atualSec!=null){
           const cmp=atualSec<=necSec?'JA E MAIS RÁPIDO (ou igual) que':'e MAIS LENTO que';
-          return `ESTIMATIVA (a perna de corrida do triathlon representa aproximadamente 42% do tempo total — nao e uma conta exata): o pace ATUAL de corrida do atleta (${profile.pace}/km) ${cmp} a estimativa de pace necessario pra essa perna dentro da meta total (${paceNecessario}). Trate isso como uma referencia aproximada, nao um numero cravado — mas USE essa direcao (precisa melhorar ou ja tem capacidade) em vez de calcular voce mesmo.`;
+          if(isEstimate) return `ESTIMATIVA (a perna de corrida do triathlon representa aproximadamente 42% do tempo total — não e uma conta exata): o pace ATUAL de corrida do atleta (${profile.pace}/km) ${cmp} a estimativa de pace necessário pra essa perna dentro da meta total (${paceNecessario}). Trate isso como uma referencia aproximada, não um número cravado — mas USE essa direcao (precisa melhorar ou já tem capacidade) em vez de calcular você mesmo.`;
+          return `O pace ATUAL de corrida do atleta (${profile.pace}/km) ${cmp} o pace NECESSARIO que ele mesmo determinou pra essa perna dentro da meta (${paceNecessario}). Esse número e EXATO (foi definido pela pessoa, não estimado) — use-o direto, não trate como aproximacao.`;
         }
       }
     }
@@ -10059,6 +10181,7 @@ function renderPlanSummary(el,profile,text,debugMsg){
     <div style="padding:52px 20px 16px;border-bottom:1px solid var(--border);background:var(--surface)">
       <div style="font-family:var(--font-ui);font-size:10px;color:var(--accent);letter-spacing:2px;margin-bottom:8px">SEU PLANO MYTRI</div>
       <div style="font-family:var(--font-display);font-size:28px;letter-spacing:1px;line-height:1.1;margin-bottom:8px">${_hasRace?(profile.raceName||dist):'Treino Livre'}</div>
+      ${_hasRace&&profile.raceUrl?`<a href="${profile.raceUrl}" target="_blank" style="display:inline-flex;align-items:center;gap:5px;font-family:var(--font-ui);font-size:10px;color:var(--accent);letter-spacing:1px;text-decoration:none;margin-bottom:4px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg> VER PAGINA DE INSCRICAO</a>`:''}
       <div style="display:flex;gap:16px;margin-top:12px">
         ${_hasRace?`<div style="text-align:center">
           <div style="font-family:var(--font-display);font-size:32px;color:var(--accent)">${daysToRace}</div>
@@ -10109,8 +10232,8 @@ function renderPlanSummary(el,profile,text,debugMsg){
     `:fallbackText?`<div class="plan-section"><div class="plan-section-body">${fallbackText.split('\n').filter(l=>l.trim()).join('</div><div class="plan-section-body" style="margin-top:10px">')}</div></div>`
     :(!_hasRace?`<div class="plan-section">
       <div class="plan-section-title">MODO TREINO LIVRE</div>
-      <div class="plan-section-body">Você começou sem uma prova especifica, então montei um plano de BASE focado em consistencia e evolução geral nas suas modalidades.</div>
-      <div class="plan-section-body" style="margin-top:10px">Os treinos ja estão na Agenda, ajustados aos seus dias disponíveis, nível e lesoes. Quando quiser mirar uma prova, e só definir no Perfil que o plano se reorganiza em periodizacao (base, build, pico, taper) até a data.</div>
+      <div class="plan-section-body">Você começou sem uma prova específica, então montei um plano de BASE focado em consistencia e evolução geral nas suas modalidades.</div>
+      <div class="plan-section-body" style="margin-top:10px">Os treinos já estão na Agenda, ajustados aos seus dias disponíveis, nível e lesoes. Quando quiser mirar uma prova, e só definir no Perfil que o plano se reorganiza em periodizacao (base, build, pico, taper) até a data.</div>
     </div>
     <div class="plan-section" style="padding-bottom:16px">
       <div style="background:rgba(0,230,118,.08);border:1px solid rgba(0,230,118,.2);border-radius:6px;padding:16px;margin-top:8px">
@@ -10118,7 +10241,7 @@ function renderPlanSummary(el,profile,text,debugMsg){
         <div style="font-family:var(--font-body);font-size:14px;color:var(--text);line-height:1.7">Constancia vence intensidade. Sem a pressao de uma data, o foco e criar o hábito e ganhar base aerobica. Cada treino conta.</div>
       </div>
     </div>`
-    :`<div class="plan-section"><div class="plan-section-body">Não foi possível gerar o resumo detalhado do plano agora. Isso pode acontecer por instabilidade temporaria. Seu plano de treino ja está ativo na Agenda.${debugMsg?`<br><br><span style="color:#e05c2a;font-size:11px">[debug: ${String(debugMsg).slice(0,250).replace(/</g,'')}]</span>`:''}</div></div>`)}
+    :`<div class="plan-section"><div class="plan-section-body">Não foi possível gerar o resumo detalhado do plano agora. Isso pode acontecer por instabilidade temporaria. Seu plano de treino já está ativo na Agenda.${debugMsg?`<br><br><span style="color:#e05c2a;font-size:11px">[debug: ${String(debugMsg).slice(0,250).replace(/</g,'')}]</span>`:''}</div></div>`)}
 
     <div style="padding:20px 20px 40px">
       <button onclick="closePlanSummary()" style="width:100%;padding:18px;background:var(--accent);color:#000;font-family:var(--font-ui);font-size:14px;font-weight:700;letter-spacing:2px;border:none;border-radius:4px;cursor:pointer">ENTRAR NO MYTRI</button>
@@ -10130,7 +10253,7 @@ function closePlanSummary(){
   document.getElementById('view-onboard').classList.remove('active');
   switchTab('agenda');
   const _fab=document.getElementById('consult-fab'); if(_fab)_fab.style.display='flex';
-  // Sync automático do Strava logo após o onboarding, se conectado. Assim o atleta ja entra
+  // Sync automático do Strava logo após o onboarding, se conectado. Assim o atleta já entra
   // com as atividades reais importadas, sem precisar acionar o sync manualmente.
   try{
     const hasStrava=localStorage.getItem('strava_tokens')||localStorage.getItem('strava_athlete');
@@ -10178,9 +10301,9 @@ function applyNavLang(){
   Object.entries(map).forEach(([id,key])=>{ const el=document.getElementById('bnav-'+id); if(el)el.textContent=t(key); });
 }
 applyNavLang();
-// Auth gate: precisa de sessao valida antes de mostrar onboarding ou o app. Trata primeiro o
-// link de recuperacao de senha (se a pessoa clicou em "esqueci minha senha" no email), senao
-// verifica/renova a sessao salva, senao mostra a tela de login/cadastro.
+// Auth gate: precisa de sessão valida antes de mostrar onboarding ou o app. Trata primeiro o
+// link de recuperação de senha (se a pessoa clicou em "esqueci minha senha" no email), senao
+// verifica/renova a sessão salva, senao mostra a tela de login/cadastro.
 (async function initAuthGate(){
   if(checkRecoveryRedirect()){
     authMode='reset';
@@ -10192,8 +10315,8 @@ applyNavLang();
     enforceCacheOwnership(session);
     checkOnboarding();
   }else{
-    // Sem sessao: comeca pelo onboarding normal (Welcome + Intro, que explicam o app) — o
-    // login so e pedido DEPOIS disso, na transicao pra pergunta de esporte (ver obNext()).
+    // Sem sessão: comeca pelo onboarding normal (Welcome + Intro, que explicam o app) — o
+    // login só e pedido DEPOIS disso, na transicao pra pergunta de esporte (ver obNext()).
     // Antes o login aparecia seco, primeira tela, sem nenhum contexto do que e o app.
     showOnboarding();
   }
@@ -10215,7 +10338,7 @@ function saveAnalysisCache(cache){
 
 async function maybeShowSessionAnalysis(key, sess, w, d){
   // Sessão do plano: usa o override. Extra: monta um objeto equivalente a partir dos campos
-  // que o sync do Strava ja salvou na propria sessão (dist/note/cal), ja que extras não tem override.
+  // que o sync do Strava já salvou na própria sessão (dist/note/cal), já que extras não tem override.
   let ov;
   if(sess._origin==='plan'){
     ov = getOverride(w, d, sess._si);
@@ -10259,7 +10382,7 @@ async function maybeShowSessionAnalysis(key, sess, w, d){
   const stravaStr = [
     ov.stravaDist ? 'Distancia: ' + ov.stravaDist : '',
     ov.stravaTime ? 'Tempo: ' + ov.stravaTime : '',
-    ov.stravaHR   ? 'FC media: ' + ov.stravaHR + 'bpm' : '',
+    ov.stravaHR   ? 'FC média: ' + ov.stravaHR + 'bpm' : '',
     ov.stravaCal  ? 'Calorias: ' + ov.stravaCal + 'kcal' : '',
     ov.stravaZone ? 'Zona: ' + ov.stravaZone : '',
     ov.stravaData ? 'Dados extras: ' + ov.stravaData : ''
@@ -10273,7 +10396,7 @@ async function maybeShowSessionAnalysis(key, sess, w, d){
   const daysToRace = Math.max(0, Math.round((new Date(raceDate+'T12:00:00') - new Date()) / (1000*60*60*24)));
 
   // Distancia PLANEJADA original (antes do override real), para o report comparar planejado vs feito.
-  // sess.dist ja pode estar refletindo o real (item 5), então pegamos o planejado da fonte crua.
+  // sess.dist já pode estar refletindo o real (item 5), então pegamos o planejado da fonte crua.
   let plannedDist = '';
   try{
     const rawWeek = getWeek(w);
