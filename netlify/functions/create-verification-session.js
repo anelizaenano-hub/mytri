@@ -42,7 +42,7 @@ exports.handler = async (event) => {
       body: JSON.stringify({
         workflow_id: DIDIT_WORKFLOW_ID,
         vendor_data: user.id, // assim o webhook sabe pra qual usuario do MyTri o resultado pertence
-        callback: `${siteUrl}/.netlify/functions/didit-webhook`,
+        callback: `${siteUrl}/`, // pra onde o NAVEGADOR volta apos terminar — o webhook e separado, ja configurado no painel da Didit
       }),
     });
     const data = await r.json();
