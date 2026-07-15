@@ -7936,6 +7936,12 @@ function renderClubMatch(c){
 }
 
 function init(){
+  // CRITICO: esse init() do app principal roda logo na carga da pagina, ANTES do codigo mais
+  // abaixo (initAuthGate) decidir se deve mostrar o onboarding retomado. Sem essa guarda, ele
+  // sempre montava a Agenda por baixo — e como o Strava exige sair e voltar da pagina (perde
+  // tudo que estava em memoria), isso fazia a pessoa "cair direto na Agenda" com dado velho em
+  // vez de retomar o onboarding de onde parou.
+  if(localStorage.getItem('mytri_ob_tmp')){ return; }
   try{initPlan();}catch(e){console.error('initPlan',e);} // popula plan[] ANTES de qualquer render
   try{updateCycleBadge();}catch(e){console.error('badge',e);}
   try{updateCountdown();}catch(e){console.error('countdown',e);}
@@ -10390,8 +10396,9 @@ applyNavLang();
     showOnboarding();
   }
 })();
-// Inicializa aba AGENDA
-renderAgenda();
+// Inicializa aba AGENDA — mesma guarda do init(): nao roda se tiver onboarding interrompido
+// esperando retomar (senao monta conteudo por baixo antes da decisao de mostrar onboarding).
+if(!localStorage.getItem('mytri_ob_tmp')) renderAgenda();
 // Pop-up automático de recalibração no fechamento da semana (1x por semana)
 try{ checkRecalPopup(); }catch(e){}
 
