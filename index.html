@@ -2206,6 +2206,10 @@ function switchTab(tab){
     const el=document.getElementById(id);
     if(el) el.classList.remove('active');
   });
+  // CRITICO: os avisos de "orientativo, nao substitui profissional" (Bike Fit, Clube) ficam
+  // fixos por cima da tela inteira. Se a pessoa trocar de aba sem responder eles (aceitar ou
+  // voltar), ficavam presos ali pra sempre, travando o app inteiro em QUALQUER aba depois.
+  document.querySelectorAll('.disclaimer-overlay').forEach(el=>el.remove());
   // Tocar em qualquer aba (ex: Perfil) sai da Consultoria Live direto, sem precisar fechar
   // com o X antes — nav continua clicavel por cima do chat exatamente pra isso.
   closeConsult();
@@ -2234,9 +2238,12 @@ function switchTab(tab){
   else if(tab==='bikefit')renderBikeFit();
   else if(tab==='club')renderClub();
   // Chamar de novo DEPOIS do render — a chamada la em cima roda antes do conteudo da tela
-  // trocar, e no mobile isso as vezes não "gruda" direito. Com atraso curto garante que cola.
-  window.scrollTo(0,0);
-  setTimeout(()=>window.scrollTo(0,0),50);
+  // trocar, e no mobile isso as vezes não "gruda" direito. Reseta os 3 alvos possiveis
+  // (window + documentElement + body) com retentativas, ja que depende do navegador.
+  const _resetScroll=()=>{ window.scrollTo(0,0); document.documentElement.scrollTop=0; document.body.scrollTop=0; };
+  _resetScroll();
+  setTimeout(_resetScroll,50);
+  setTimeout(_resetScroll,200);
 }
 
 function switchTabHoje(){
@@ -8366,8 +8373,16 @@ function renderProfile(){
 function resetOnboarding(){
   if(!confirm('Resetar onboarding? Isso apaga seu perfil, plano e prova selecionada pra comecar do zero.'))return;
   // Antes só limpava uma flag e o cache do resumo — o perfil (com a prova antiga, nome, Strava
-  // conectado etc.) continuava intacto, entao depois de "resetar" a prova antiga ainda aparecia
+  // conectado etc.) continuava intacto, então depois de "resetar" a prova antiga ainda aparecia
   // presa e o app se comportava como se você já tivesse uma prova em andamento.
+  // CRITICO: tambem precisa limpar a copia NA NUVEM — senao, na proxima vez que o app abre,
+  // ele busca o perfil antigo de volta do Supabase antes mesmo do onboarding novo comecar
+  // (syncProfileFromSupabase preenche local vazio com o que estiver salvo remoto).
+  const _uid=currentUserId();
+  if(_uid){
+    sbSet('mytri_profile',{}).catch(()=>{});
+    sbSet('mytri_onboard_done',false).catch(()=>{});
+  }
   localStorage.clear();
   obStep=0;
   obData={};
@@ -9172,6 +9187,7 @@ function obSelectFreePlan(){
   obData.raceDate='';
   obData.raceLocal='';
   obData.raceUrl='';
+  obData.raceDist=''; // faltava limpar isso — sobrava a distancia de uma prova escolhida antes de trocar pra "sem prova"
   renderOnboarding();
 }
 
