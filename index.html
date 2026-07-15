@@ -2197,7 +2197,11 @@ const TAB_ORDER=['perfil','agenda','stats','conquistas','bikefit','club'];
 let agendaSubTab='hoje';
 
 function switchTab(tab){
-  window.scrollTo(0,0);
+  // Reseta os 3 alvos de scroll possiveis (window + documentElement + body) com
+  // retentativas — precisa ser chamado em TODO caminho, inclusive o de Perfil, que antes saia
+  // da funcao cedo demais e nunca recebia esse reset.
+  const _resetScroll=()=>{ window.scrollTo(0,0); document.documentElement.scrollTop=0; document.body.scrollTop=0; };
+  _resetScroll();
   document.querySelectorAll('.bnav-item').forEach(b=>b.classList.remove('active'));
   const idx=TAB_ORDER.indexOf(tab==='hoje'||tab==='semana'||tab==='calendario'?'agenda':tab);
   if(idx>=0)document.querySelectorAll('.bnav-item')[idx].classList.add('active');
@@ -2216,6 +2220,8 @@ function switchTab(tab){
   if(tab!=='club')clubTabView=null;
   if(tab==='perfil'){
     openProfile();
+    setTimeout(_resetScroll,50);
+    setTimeout(_resetScroll,200);
     return;
   }
   document.querySelectorAll('.view').forEach(v=>{
@@ -2238,9 +2244,7 @@ function switchTab(tab){
   else if(tab==='bikefit')renderBikeFit();
   else if(tab==='club')renderClub();
   // Chamar de novo DEPOIS do render — a chamada la em cima roda antes do conteudo da tela
-  // trocar, e no mobile isso as vezes não "gruda" direito. Reseta os 3 alvos possiveis
-  // (window + documentElement + body) com retentativas, ja que depende do navegador.
-  const _resetScroll=()=>{ window.scrollTo(0,0); document.documentElement.scrollTop=0; document.body.scrollTop=0; };
+  // trocar, e no mobile isso as vezes não "gruda" direito.
   _resetScroll();
   setTimeout(_resetScroll,50);
   setTimeout(_resetScroll,200);
@@ -9383,7 +9387,13 @@ function _obClearPaceBox(el){
   el.value='';
 }
 function _obRestorePaceBox(el){
-  if(!el.value && el.dataset.prev){ el.value=el.dataset.prev; }
+  if(!el.value && el.dataset.prev){ el.value=el.dataset.prev; return; }
+  // Completa entrada curta (só digitou "2", sem dois-pontos) assumindo o número inteiro —
+  // mesma correção aplicada nos outros campos de pace, pra não obrigar digitar zero à toa.
+  if(el.value && !el.value.includes(':')){
+    el.value=el.value+':00';
+    el.dispatchEvent(new Event('input'));
+  }
 }
 
 function obGoalFromPace(el,distKm){
@@ -9445,11 +9455,11 @@ function renderObModalidades(c){
       sub:'Nível atual em cada modalidade.',
       sections:[
         {key:'swimLevel',label:'NATAÇÃO',color:'#1a6cf0',levels:swimLevels,
-         extra:`<input id="ob-swim-pace" type="tel" inputmode="numeric" placeholder="ex: 1:45" value="${obData.swimPace||''}" oninput="obData.swimPace=obFormatPace(this)" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px"><div style="font-family:var(--font-body);font-size:10px;color:var(--muted);margin-top:5px;line-height:1.4">Ex: 1:45 = 1min45s por 100m de nado</div>`},
+         extra:`<input id="ob-swim-pace" type="tel" inputmode="numeric" placeholder="ex: 1:45" value="${obData.swimPace||''}" oninput="obData.swimPace=obFormatPace(this)" onblur="obData.swimPace=obFormatPaceBlur(this)" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px"><div style="font-family:var(--font-body);font-size:10px;color:var(--muted);margin-top:5px;line-height:1.4">Ex: 1:45 = 1min45s por 100m de nado</div>`},
         {key:'bikeLevel',label:'BIKE',color:'#e05c2a',levels,
          extra:`<input id="ob-ftp" placeholder="FTP em watts (ex: 200)" value="${obData.ftp||''}" type="number" oninput="obData.ftp=this.value" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px"><div style="font-family:var(--font-body);font-size:10px;color:var(--muted);margin-top:5px;line-height:1.4">FTP = potencia média que você sustenta por cerca de 1h no bike</div>`},
         {key:'runLevel',label:'CORRIDA',color:'#00e676',levels,
-         extra:`<input id="ob-run-pace" type="tel" inputmode="numeric" placeholder="ex: 5:30" value="${obData.runPace||''}" oninput="obData.runPace=obFormatPace(this)" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px"><div style="font-family:var(--font-body);font-size:10px;color:var(--muted);margin-top:5px;line-height:1.4">Ex: 5:30 = 5min30s por km percorrido</div>`},
+         extra:`<input id="ob-run-pace" type="tel" inputmode="numeric" placeholder="ex: 5:30" value="${obData.runPace||''}" oninput="obData.runPace=obFormatPace(this)" onblur="obData.runPace=obFormatPaceBlur(this)" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px"><div style="font-family:var(--font-body);font-size:10px;color:var(--muted);margin-top:5px;line-height:1.4">Ex: 5:30 = 5min30s por km percorrido</div>`},
       ]
     },
     corrida:{
@@ -9457,7 +9467,7 @@ function renderObModalidades(c){
       sub:'Onde você se encontra hoje.',
       sections:[
         {key:'runLevel',label:'CORRIDA',color:'#00e676',levels,
-         extra:`<input id="ob-run-pace" type="tel" inputmode="numeric" placeholder="ex: 5:30" oninput="obData.runPace=obFormatPace(this)" value="${obData.runPace||''}" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px"><div style="font-family:var(--font-body);font-size:10px;color:var(--muted);margin-top:5px;line-height:1.4">Ex: 5:30 = 5min30s por km percorrido</div>`},
+         extra:`<input id="ob-run-pace" type="tel" inputmode="numeric" placeholder="ex: 5:30" oninput="obData.runPace=obFormatPace(this)" onblur="obData.runPace=obFormatPaceBlur(this)" value="${obData.runPace||''}" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px"><div style="font-family:var(--font-body);font-size:10px;color:var(--muted);margin-top:5px;line-height:1.4">Ex: 5:30 = 5min30s por km percorrido</div>`},
       ]
     },
     ciclismo:{
@@ -9473,7 +9483,7 @@ function renderObModalidades(c){
       sub:'Onde você se encontra hoje.',
       sections:[
         {key:'swimLevel',label:'NATAÇÃO',color:'#00bcd4',levels:swimLevels,
-         extra:`<input id="ob-swim-pace" type="tel" inputmode="numeric" placeholder="ex: 1:45" value="${obData.swimPace||''}" oninput="obData.swimPace=obFormatPace(this)" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px"><div style="font-family:var(--font-body);font-size:10px;color:var(--muted);margin-top:5px;line-height:1.4">Ex: 1:45 = 1min45s por 100m de nado</div>`},
+         extra:`<input id="ob-swim-pace" type="tel" inputmode="numeric" placeholder="ex: 1:45" value="${obData.swimPace||''}" oninput="obData.swimPace=obFormatPace(this)" onblur="obData.swimPace=obFormatPaceBlur(this)" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px"><div style="font-family:var(--font-body);font-size:10px;color:var(--muted);margin-top:5px;line-height:1.4">Ex: 1:45 = 1min45s por 100m de nado</div>`},
       ]
     },
     duathlon:{
@@ -9481,7 +9491,7 @@ function renderObModalidades(c){
       sub:'Nível atual em cada modalidade.',
       sections:[
         {key:'runLevel',label:'CORRIDA',color:'#00e676',levels,
-         extra:`<input id="ob-run-pace" type="tel" inputmode="numeric" placeholder="ex: 5:30" value="${obData.runPace||''}" oninput="obData.runPace=obFormatPace(this)" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px"><div style="font-family:var(--font-body);font-size:10px;color:var(--muted);margin-top:5px;line-height:1.4">Ex: 5:30 = 5min30s por km percorrido</div>`},
+         extra:`<input id="ob-run-pace" type="tel" inputmode="numeric" placeholder="ex: 5:30" value="${obData.runPace||''}" oninput="obData.runPace=obFormatPace(this)" onblur="obData.runPace=obFormatPaceBlur(this)" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px"><div style="font-family:var(--font-body);font-size:10px;color:var(--muted);margin-top:5px;line-height:1.4">Ex: 5:30 = 5min30s por km percorrido</div>`},
         {key:'bikeLevel',label:'BIKE',color:'#e05c2a',levels,
          extra:`<input id="ob-ftp" placeholder="FTP em watts (ex: 200, opcional)" value="${obData.ftp||''}" type="number" oninput="obData.ftp=this.value" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px">`},
       ]
@@ -9512,6 +9522,19 @@ function obFormatPace(el){
   let v=el.value.replace(/[^0-9]/g,'');
   if(v.length>4) v=v.slice(0,4);
   if(v.length>=3) v=v.slice(0,v.length-2)+':'+v.slice(-2);
+  el.value=v;
+  return v;
+}
+// Ao sair do campo, completa entrada "curta" (só 1 ou 2 dígitos, sem dois-pontos) assumindo
+// que a pessoa quis dizer o número inteiro — ex: digitou só "2" -> vira "2:00". Antes era
+// obrigatorio digitar os zeros mesmo pra tempo redondo (teria que digitar "200").
+function obFormatPaceBlur(el){
+  let v=(el.value||'').trim();
+  if(v && !v.includes(':')){
+    v=v+':00';
+  }else if(v.endsWith(':')){
+    v=v+'00';
+  }
   el.value=v;
   return v;
 }
@@ -10329,6 +10352,30 @@ applyNavLang();
   const session=await ensureValidSession();
   if(session&&session.access_token){
     enforceCacheOwnership(session);
+    // CRITICO: conectar Strava no meio do onboarding exige sair da pagina (OAuth), o que
+    // apagava obData (só vivia na memória) — ao voltar, o app não sabia que o onboarding
+    // estava no meio e ou reiniciava do zero ou (pior) achava que já tinha terminado e pulava
+    // direto pra Agenda com dado velho. O progresso já era salvo em mytri_ob_tmp antes de sair,
+    // mas nunca era lido de volta — estava órfão. Agora retoma exatamente de onde parou.
+    const _obTmp=localStorage.getItem('mytri_ob_tmp');
+    if(_obTmp){
+      try{ obData=JSON.parse(_obTmp); }catch(e){ obData={}; }
+      obStep=parseInt(localStorage.getItem('mytri_ob_step')||'0',10)||0;
+      localStorage.removeItem('mytri_ob_tmp');
+      localStorage.removeItem('mytri_ob_step');
+      document.body.classList.add('onboarding-active');
+      const _fab=document.getElementById('consult-fab'); if(_fab)_fab.style.display='none';
+      const el=document.getElementById('view-onboard');
+      if(el)el.classList.add('active');
+      renderOnboarding();
+      // Processa a volta do Strava (troca o code por token) e atualiza a tela pra confirmar
+      // visualmente que conectou — antes disso acontecia em silêncio, sem feedback nenhum.
+      sbInit().then(async()=>{
+        await stravaHandleOAuthCallback();
+        renderOnboarding();
+      }).catch(()=>{});
+      return;
+    }
     checkOnboarding();
   }else{
     // Sem sessão: comeca pelo onboarding normal (Welcome + Intro, que explicam o app) — o
