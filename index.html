@@ -9881,7 +9881,11 @@ function obSaveInstagram(){
 
 function obConnectStrava(){
   localStorage.setItem('mytri_ob_tmp',JSON.stringify(obData));
-  localStorage.setItem('mytri_ob_step','7');
+  // CORRIGIDO: estava '7' (que e a tela de Dados Fisicos/Fitness), por isso voltava pro
+  // lugar errado depois do Strava. renderObStrava e o indice 11 no array "screens" de
+  // renderOnboarding (Welcome=0, Intro=1, Esporte=2, Distancia=3, Prova=4, Meta=5,
+  // Modalidades=6, Fitness=7, Horas=8, Dias=9, Lesoes=10, Strava=11, Fim=12).
+  localStorage.setItem('mytri_ob_step','11');
   // CRITICO: usa exatamente o mesmo redirect_uri (STRAVA_REDIRECT, so a origem, sem caminho)
   // que o resto do app usa. Antes esse aqui montava um valor DIFERENTE (origem+caminho), e o
   // Strava exige batida exata com o que esta cadastrado nas configuracoes dele — qualquer
