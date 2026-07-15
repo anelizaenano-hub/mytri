@@ -9882,9 +9882,11 @@ function obSaveInstagram(){
 function obConnectStrava(){
   localStorage.setItem('mytri_ob_tmp',JSON.stringify(obData));
   localStorage.setItem('mytri_ob_step','7');
-  const clientId='257886';
-  const redirect=encodeURIComponent(window.location.origin+window.location.pathname);
-  window.location.href=`https://www.strava.com/oauth/authorize?client_id=${clientId}&redirect_uri=${redirect}&response_type=code&scope=read,activity:read_all`;
+  // CRITICO: usa exatamente o mesmo redirect_uri (STRAVA_REDIRECT, so a origem, sem caminho)
+  // que o resto do app usa. Antes esse aqui montava um valor DIFERENTE (origem+caminho), e o
+  // Strava exige batida exata com o que esta cadastrado nas configuracoes dele — qualquer
+  // diferenca faz o retorno do login se comportar de forma imprevisivel.
+  window.location.href=`https://www.strava.com/oauth/authorize?client_id=${STRAVA_CLIENT_ID}&redirect_uri=${encodeURIComponent(STRAVA_REDIRECT)}&response_type=code&scope=read,activity:read_all&approval_prompt=force`;
 }
 
 function renderObFim(c){
