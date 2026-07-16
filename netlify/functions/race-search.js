@@ -66,7 +66,7 @@ async function verifyAuth(event) {
 async function fetchKnownRaces(state, sport) {
   try {
     const todayStr = new Date().toISOString().slice(0, 10);
-    let url = `${SUPABASE_URL}/rest/v1/mytri_known_races?select=*&race_date=gte.${todayStr}&order=race_date.asc&limit=30`;
+    let url = `${SUPABASE_URL}/rest/v1/mytri_known_races?select=*&race_date=gte.${todayStr}&order=verified.desc,race_date.asc&limit=30`;
     if (sport) url += `&sport=eq.${encodeURIComponent(sport)}`;
     if (state) url += `&state=ilike.*${encodeURIComponent(state)}*`;
     const r = await fetch(url, { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` } });
@@ -122,18 +122,18 @@ exports.handler = async (event) => {
 
   const prompt = `Busque na web provas REAIS e confirmadas de ${sportName}${distLabel ? ` na distância/categoria "${distLabel}"` : ''} que acontecerão a partir de hoje (${today}) nos próximos ${monthsAhead} meses.
 
-O atleta está atualmente perto de "${regionStr}", mas NÃO necessariamente mora lá. Traga um panorama COMPLETO em camadas, nesta ordem de prioridade:
-1. Provas REGIONAIS pequenas/médias, perto de "${regionStr}" — isso inclui provas organizadas por ASSESSORIAS ESPORTIVAS e CIRCUITOS locais com múltiplas etapas em cidades diferentes do mesmo estado ou região (ex: "Circuito X de Triathlon", "Etapa 2 — [assessoria] Triathlon", provas de prefeituras ou clubes locais). Essas provas raramente aparecem no calendário oficial da federação nacional, então busque especificamente por termos como "circuito triathlon [estado]", "assessoria triathlon [cidade/regiao] calendário 2026", "etapa triathlon [regiao]" — não só "calendário CBTri" ou "provas nacionais de triathlon".
-2. As principais provas NACIONAIS (Brasil inteiro) dessa modalidade e distância, incluindo o calendário oficial da federação (CBTri ou equivalente).
-3. As principais provas INTERNACIONAIS relevantes dessa modalidade e distância (majors, mundiais, etc).
+O atleta está atualmente perto de "${regionStr}", mas NÃO necessariamente mora lá. Traga um panorama COMPLETO em 3 camadas, com cobertura MÍNIMA garantida em cada uma (não deixe uma camada dominar as outras):
+1. REGIONAL — pelo menos 2 provas pequenas/médias perto de "${regionStr}", incluindo circuitos/assessorias esportivas com múltiplas etapas (ex: "Circuito X de Triathlon", "Etapa 2 — [assessoria]"). Raramente aparecem no calendário oficial da federação — busque termos como "circuito triathlon [estado]", "assessoria triathlon [cidade/regiao] calendário 2026".
+2. NACIONAL — pelo menos 2-3 das principais provas de abrangência Brasil inteiro, incluindo o calendário oficial da federação (CBTri ou equivalente).
+3. INTERNACIONAL — pelo menos 1-2 provas internacionais relevantes dessa modalidade/distância (majors, mundiais), SEMPRE que essa modalidade tiver provas internacionais conhecidas — não pule essa camada mesmo que as regionais pareçam suficientes.
 
-Não limite a busca só a provas grandes/famosas — provas pequenas de circuito/assessoria contam tanto quanto as grandes, e são frequentemente as mais relevantes pro atleta por serem mais perto. Não limite também só à cidade exata do atleta — cubra o estado inteiro e a região.
+CRÍTICO — onde provas pequenas/regionais realmente estão cadastradas: busque tambem nas plataformas brasileiras de inscrição: minhasinscricoes.com.br, ticketsports.com.br, sympla.com.br, corridaperfeita.com, ativo.com (ex: "site:minhasinscricoes.com.br triathlon [estado] 2026").
 
-CRÍTICO — onde provas pequenas/regionais realmente estão cadastradas: a maioria das provas de circuito/assessoria NÃO tem site próprio — elas são cadastradas em plataformas brasileiras de inscrição de corrida. Faça buscas especificas usando "site:" ou mencionando essas plataformas diretamente no termo de busca, por exemplo: "site:minhasinscricoes.com.br triathlon [estado/cidade] 2026", "site:ticketsports.com.br triathlon [estado] 2026", "triathlon sprint [cidade] inscrição minhas inscricoes", "circuito triathlon [regiao] ticket sports". As plataformas mais comuns no Brasil pra esse tipo de prova são: minhasinscricoes.com.br, ticketsports.com.br, sympla.com.br, corridaperfeita.com, ativo.com. Pelo menos 1 das suas buscas deve mirar direto numa dessas plataformas por nome.
+CRÍTICO — PRECISÃO DE DATA (a parte que mais importa): só inclua uma prova se você encontrou a data dela ESCRITA LITERALMENTE numa fonte pesquisada nesta busca. NUNCA estime, arredonde ou repita de memória a data de uma prova tradicional sem confirmar na busca atual — datas mudam de ano pra ano, e uma data "lembrada" de treinamento antigo é frequentemente ERRADA. Se encontrar a mesma prova em duas fontes com datas diferentes, faça mais uma busca pra desempatar antes de incluir. Se não conseguir confirmar a data exata de uma prova que você sabe que existe, é melhor OMITIR essa prova do resultado do que adivinhar.
 
-Para cada prova, encontre: nome oficial (incluindo o nome da etapa/circuito se aplicável), data (formato AAAA-MM-DD), cidade/país, e o link OFICIAL de inscrição — de preferência o link direto da pagina de inscricao na plataforma (minhasinscricoes.com.br/Evento/..., ticketsports.com.br/e/..., etc), nao so a home do site.
+Para cada prova, encontre: nome oficial (incluindo o nome da etapa/circuito se aplicável), data (formato AAAA-MM-DD, confirmada na fonte), cidade/país, e o link OFICIAL de inscrição — de preferência o link direto da pagina de inscricao na plataforma, nao so a home do site.
 
-IMPORTANTE: faça ATE 8 buscas web diferentes, variando os termos (não repita a mesma busca) — pelo menos 2 delas devem ser especificamente atrás de circuitos/assessorias regionais, e pelo menos 1 deve mirar direto numa plataforma de inscrição conhecida (minhasinscricoes.com.br, ticketsports.com.br, etc). Depois RESPONDA. Não continue buscando indefinidamente — é melhor responder com as provas que já encontrou do que estourar o tempo.
+IMPORTANTE: faça ATE 6 buscas web diferentes, variando os termos (não repita a mesma busca) — distribua entre as 3 camadas acima, garantindo os mínimos de cada uma. Depois RESPONDA. Não continue buscando indefinidamente — é melhor responder com menos provas mas com data confirmada do que muitas provas com data chutada.
 
 Sua ÚLTIMA mensagem deve conter APENAS um JSON válido (sem markdown, sem crases, sem texto antes ou depois) neste formato exato:
 {"races":[{"name":"...","date":"AAAA-MM-DD","local":"Cidade, UF/País","url":"https://...","scope":"nacional"}]}
@@ -150,7 +150,7 @@ Regras:
     model: 'claude-haiku-4-5',
     max_tokens: 8000,
     messages: [{ role: 'user', content: prompt }],
-    tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 8 }],
+    tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 6 }],
   });
 
   return new Promise((resolve) => {
