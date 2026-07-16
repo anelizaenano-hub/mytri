@@ -9814,6 +9814,11 @@ function renderObStrava(c){
               <div style="font-family:var(--font-body);font-size:15px;font-weight:600">${athlete.firstname||''} ${athlete.lastname||''}</div>
             </div>
           </div>
+        `:window._stravaConnecting?`
+          <div style="display:flex;align-items:center;justify-content:center;gap:10px;padding:16px;background:rgba(252,76,2,.08);border:1px dashed #FC4C02;border-radius:8px">
+            <div style="width:16px;height:16px;border:2px solid rgba(252,76,2,.3);border-top-color:#FC4C02;border-radius:50%;animation:spin .7s linear infinite"></div>
+            <span style="font-family:var(--font-ui);font-size:12px;color:#FC4C02;letter-spacing:1px">CONECTANDO COM O STRAVA...</span>
+          </div>
         `:`
           <button class="ob-strava-btn" onclick="obConnectStrava()">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg>
@@ -10303,6 +10308,11 @@ function closePlanSummary(){
   document.getElementById('view-plan-summary').classList.remove('active');
   document.getElementById('view-onboard').classList.remove('active');
   switchTab('agenda');
+  // CRITICO: updateCountdown() (nome da prova + contagem no cabeçalho) só rodava uma vez, na
+  // carga inicial da pagina — nunca de novo depois. Terminar um onboarding novo (com prova
+  // diferente) nao atualizava o cabeçalho, que ficava preso mostrando a prova antiga pra sempre
+  // ate a pagina ser recarregada. Agora atualiza assim que entra no app de verdade.
+  try{ updateCountdown(); }catch(e){}
   const _fab=document.getElementById('consult-fab'); if(_fab)_fab.style.display='flex';
   // Sync automático do Strava logo após o onboarding, se conectado. Assim o atleta já entra
   // com as atividades reais importadas, sem precisar acionar o sync manualmente.
@@ -10379,13 +10389,15 @@ applyNavLang();
       const _fab=document.getElementById('consult-fab'); if(_fab)_fab.style.display='none';
       const el=document.getElementById('view-onboard');
       if(el)el.classList.add('active');
+      // Mostra "conectando..." enquanto troca o code do Strava por token — antes ficava uns
+      // 5 segundos sem nenhum feedback visual, parecia que travou.
+      window._stravaConnecting=true;
       renderOnboarding();
-      // Processa a volta do Strava (troca o code por token) e atualiza a tela pra confirmar
-      // visualmente que conectou — antes disso acontecia em silêncio, sem feedback nenhum.
       sbInit().then(async()=>{
         await stravaHandleOAuthCallback();
+        window._stravaConnecting=false;
         renderOnboarding();
-      }).catch(()=>{});
+      }).catch(()=>{ window._stravaConnecting=false; renderOnboarding(); });
       return;
     }
     checkOnboarding();
