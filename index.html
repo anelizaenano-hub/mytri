@@ -6349,12 +6349,12 @@ function renderBikeFitReal(){
   const expMap={'beginner':'Iniciante (< 1 ano)','intermediate':'Intermediário (1-3 anos)','advanced':'Avançado (3+ anos)'};
 
   const fields=[
-    {id:'bf-altura',label:'Altura (cm)',placeholder:'175',type:'number',value:profBF.altura||''},
-    {id:'bf-peso',label:'Peso (kg)',placeholder:'72',type:'number',value:profBF.weight||''},
-    {id:'bf-femur',label:'Comprimento do fêmur (cm)',placeholder:'42',type:'number'},
-    {id:'bf-quadro',label:'Tamanho do quadro (cm)',placeholder:'54',type:'text'},
-    {id:'bf-selim-atual',label:'Altura atual do selim (cm)',placeholder:'68',type:'number'},
-    {id:'bf-guidao-atual',label:'Altura atual do guidão (cm)',placeholder:'65',type:'number'},
+    {id:'bf-altura',label:'Altura (cm)',placeholder:'ex: 175',type:'number',value:profBF.altura||''},
+    {id:'bf-peso',label:'Peso (kg)',placeholder:'ex: 72',type:'number',value:profBF.weight||''},
+    {id:'bf-femur',label:'Comprimento do fêmur (cm)',placeholder:'ex: 42',type:'number'},
+    {id:'bf-quadro',label:'Tamanho do quadro (cm)',placeholder:'ex: 54',type:'text'},
+    {id:'bf-selim-atual',label:'Altura atual do selim (cm)',placeholder:'ex: 68',type:'number'},
+    {id:'bf-guidao-atual',label:'Altura atual do guidão (cm)',placeholder:'ex: 65',type:'number'},
     {id:'bf-flex',label:'Flexibilidade',placeholder:'',type:'select',options:['Rígida — não toco os pés no chão','Moderada — toco com esforço','Boa — palmas no chão']},
     {id:'bf-dor',label:'Dores atuais',placeholder:'',type:'select',options:['Nenhuma','Joelho anterior','Joelho posterior','Lombar','Pescoço/ombro','Períneo'],value:(profBF.lesoes&&profBF.lesoes.includes('lombar'))?'Lombar':(profBF.lesoes&&profBF.lesoes.includes('joelho'))?'Joelho anterior':''},
     {id:'bf-exp',label:'Experiência no ciclismo',placeholder:'',type:'select',options:['Iniciante (< 1 ano)','Intermediário (1-3 anos)','Avançado (3+ anos)'],value:expMap[profBF.bikeLevel]||''},
@@ -7769,7 +7769,7 @@ function renderClubSwipe(c){
 
   // Card de swipe
   const deck=document.createElement('div');
-  deck.style.cssText='padding:12px 16px;position:relative';
+  deck.style.cssText='padding:12px 16px;position:relative;max-width:420px;margin:0 auto';
 
   const card=document.createElement('div');
   card.id='club-card';
@@ -7777,7 +7777,7 @@ function renderClubSwipe(c){
 
   card.innerHTML=`
     <div style="position:relative">
-      <img src="${p.photo}" style="width:100%;height:200px;object-fit:cover;object-position:top;display:block">
+      <img src="${p.photo}" style="width:100%;height:280px;object-fit:cover;object-position:top;display:block">
       <div style="position:absolute;inset:0;background:linear-gradient(to bottom,transparent 50%,rgba(0,0,0,0.85) 100%)"></div>
       <div style="position:absolute;bottom:0;left:0;right:0;padding:14px 16px">
         <div style="font-family:var(--font-display);font-size:22px;letter-spacing:.5px">${p.name}, ${p.age}</div>
@@ -8146,9 +8146,14 @@ function renderProfile(){
       <!-- Avatar sobreposto + dados ao lado (estilo LinkedIn compacto) -->
       <div style="padding:0 20px 16px;position:relative">
         <div style="display:flex;align-items:flex-end;gap:14px;margin-top:-40px">
-          <div onclick="changeProfilePhoto()" style="cursor:pointer;position:relative;flex-shrink:0;line-height:0">
-            ${photoEl}
-            <div style="position:absolute;bottom:2px;right:0;background:var(--accent);border:2px solid var(--bg);border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-size:14px;z-index:2">+</div>
+          <div style="position:relative;flex-shrink:0">
+            <div id="moments-ring" style="border-radius:50%;padding:3px;background:var(--bg)">
+              <div onclick="changeProfilePhoto()" style="cursor:pointer;border-radius:50%;line-height:0">${photoEl}</div>
+            </div>
+            <div onclick="changeProfilePhoto()" style="cursor:pointer;position:absolute;bottom:2px;right:0;background:var(--accent);border:2px solid var(--bg);border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-size:14px;z-index:2">+</div>
+            <div onclick="openAddMoment()" title="Adicionar Instant" style="cursor:pointer;position:absolute;top:0;left:-2px;background:linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888);border:2px solid var(--bg);border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;z-index:2">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            </div>
           </div>
           <div style="flex:1;padding-bottom:4px">
             <div class="profile-name" style="text-align:left;margin:0;line-height:1.05">${prof.name||'Sem nome'}</div>
@@ -8393,15 +8398,25 @@ function renderProfile(){
 // Meia Branca, num lugar so, no proprio perfil (estilo Instant: cru, sem edicao).
 async function loadProfileMomentos(){
   const box=document.getElementById('profile-momentos');
+  const ring=document.getElementById('moments-ring');
   if(!box)return;
   const uid=currentUserId();
-  if(!uid){ box.innerHTML='<div style="text-align:center;padding:20px 0;color:var(--muted)">Entre em um grupo do Clube da Meia Branca e faca check-ins com foto pra ver seus momentos aqui.</div>'; return; }
+  if(!uid){ box.innerHTML='<div style="text-align:center;padding:20px 0;color:var(--muted)">Toque no + colorido no seu avatar pra adicionar seu primeiro Instant.</div>'; return; }
   try{
-    const r=await fetch(`${SB_URL}/rest/v1/mytri_group_checkins?user_id=eq.${uid}&foto_url=not.is.null&select=foto_url,nota,created_at&order=created_at.desc&limit=12`,{headers:sbHeaders()});
-    const rows=r.ok?await r.json():[];
+    const [rCheckins,rMoments]=await Promise.all([
+      fetch(`${SB_URL}/rest/v1/mytri_group_checkins?user_id=eq.${uid}&foto_url=not.is.null&select=foto_url,nota,created_at&order=created_at.desc&limit=12`,{headers:sbHeaders()}),
+      fetch(`${SB_URL}/rest/v1/mytri_moments?user_id=eq.${uid}&select=foto_url,nota,created_at&order=created_at.desc&limit=12`,{headers:sbHeaders()}),
+    ]);
+    const checkins=rCheckins.ok?await rCheckins.json():[];
+    const moments=rMoments.ok?await rMoments.json():[];
+    const rows=[...moments,...checkins].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,12);
     if(!box)return; // pessoa pode ter saido do Perfil enquanto isso carregava
+    // Anel colorido tipo Instagram Stories no avatar so aparece se tiver Instant proprio
+    // (nao conta check-in de grupo pra isso — o anel e especificamente sobre os Instants
+    // pessoais adicionados pelo botao colorido).
+    if(ring)ring.style.background=moments.length?'linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)':'var(--bg)';
     if(!rows.length){
-      box.innerHTML='<div style="text-align:center;padding:20px 0;color:var(--muted)">Nenhum momento ainda. Faca um check-in com foto num grupo do Clube da Meia Branca.</div>';
+      box.innerHTML='<div style="text-align:center;padding:20px 0;color:var(--muted)">Nenhum momento ainda. Toque no + colorido no avatar, ou faca um check-in com foto num grupo do Clube da Meia Branca.</div>';
       return;
     }
     box.innerHTML=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding-top:6px">
@@ -8412,6 +8427,38 @@ async function loadProfileMomentos(){
   }catch(e){
     box.innerHTML='<div style="text-align:center;padding:20px 0;color:var(--muted)">Nao consegui carregar os momentos agora.</div>';
   }
+}
+// Adiciona um Instant pessoal: foto crua, sem edicao, direto no proprio perfil — o botao
+// colorido (gradiente Instagram) do canto superior esquerdo do avatar.
+function openAddMoment(){
+  const input=document.createElement('input');
+  input.type='file'; input.accept='image/*'; input.capture='environment';
+  input.onchange=async(e)=>{
+    const file=e.target.files[0];
+    if(!file)return;
+    const uid=currentUserId();
+    if(!uid)return;
+    try{
+      const s=getSession();
+      const token=(s&&s.access_token)||'';
+      const path=`${uid}/moment_${Date.now()}.jpg`;
+      const up=await fetch(`${SB_URL}/storage/v1/object/checkins/${path}`,{
+        method:'POST',
+        headers:{'apikey':SB_KEY,'Authorization':'Bearer '+token,'Content-Type':file.type||'image/jpeg'},
+        body:file
+      });
+      if(!up.ok)throw new Error('upload falhou');
+      const fotoUrl=`${SB_URL}/storage/v1/object/public/checkins/${path}`;
+      await fetch(`${SB_URL}/rest/v1/mytri_moments`,{
+        method:'POST', headers:sbHeaders(),
+        body:JSON.stringify({user_id:uid,foto_url:fotoUrl})
+      });
+      loadProfileMomentos();
+    }catch(err){
+      alert('Nao consegui adicionar o Instant agora. Tenta de novo.');
+    }
+  };
+  input.click();
 }
 
 function resetOnboarding(){
@@ -9593,9 +9640,9 @@ function renderObFitness(c){
 
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px">
         <div><div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;margin-bottom:6px">IDADE</div>
-          <input id="ob-idade" type="number" placeholder="41" value="${obData.age||''}" oninput="obData.age=this.value" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:12px;border-radius:4px"></div>
+          <input id="ob-idade" type="number" placeholder="ex: 41" value="${obData.age||''}" oninput="obData.age=this.value" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:12px;border-radius:4px"></div>
         <div><div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;margin-bottom:6px">PESO (kg)</div>
-          <input id="ob-peso" type="number" placeholder="70" value="${obData.weight||''}" oninput="obData.weight=this.value" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:12px;border-radius:4px"></div>
+          <input id="ob-peso" type="number" placeholder="ex: 70" value="${obData.weight||''}" oninput="obData.weight=this.value" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:12px;border-radius:4px"></div>
         <div><div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;margin-bottom:6px">ALTURA (cm)</div>
           <input id="ob-altura" type="number" placeholder="ex: 175" value="${obData.altura||''}" oninput="obData.altura=this.value" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:12px;border-radius:4px"></div>
       </div>
