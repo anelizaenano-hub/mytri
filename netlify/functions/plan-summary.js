@@ -104,7 +104,7 @@ MENSAGEM DO COACH
 
   const requestBody = JSON.stringify({
     model: 'claude-sonnet-4-5',
-    max_tokens: 800,
+    max_tokens: 1600,
     messages: [{ role: 'user', content: prompt }]
   });
 
