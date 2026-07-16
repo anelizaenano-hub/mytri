@@ -425,6 +425,7 @@ body.auth-active .bottom-nav,body.auth-active .app-header,body.auth-active #cons
 .plan-loading{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;gap:24px;padding:40px}
 .plan-loading-ring{width:64px;height:64px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
+@keyframes softpulse{0%,100%{opacity:0.7;transform:scale(1)}50%{opacity:1;transform:scale(1.06)}}
 .plan-section{padding:20px 20px 0}
 .plan-section-title{font-family:var(--font-ui);font-size:10px;color:var(--accent);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px}
 .plan-section-body{font-family:var(--font-body);font-size:14px;color:var(--muted2);line-height:1.7}
@@ -522,8 +523,8 @@ summary span:last-child{transition:transform .2s;display:inline-block}
 // de intro do onboarding (prova de conceito ponta a ponta). O resto do
 // app (milhares de strings) ainda está soo em portugues fixo — migrar
 // tela por tela e o próximo trabalho, usando exatamente este padrao.
-const SUPPORTED_LANGS=['pt','en','es','zh'];
-const LANG_LABELS={pt:'Português',en:'English',es:'Español',zh:'中文'};
+const SUPPORTED_LANGS=['pt','en','es','zh','ko'];
+const LANG_LABELS={pt:'Português',en:'English',es:'Español',zh:'中文',ko:'한국어'};
 const I18N={
   pt:{
     nav_perfil:'Perfil', nav_agenda:'Agenda', nav_stats:'Stats', nav_hist:'Hist', nav_fit:'Fit', nav_club:'Club',
@@ -533,16 +534,16 @@ const I18N={
     ob_feat1_desc:'Cada treino gerado pela sua prova, distancia, nível, lesoes e dias disponíveis. Nenhum plano igual ao outro.',
     ob_feat2_title:'CONECTA COM SEUS APPS DE TREINO',
     ob_feat2_desc:'Puxa seus treinos reais de outras plataformas e compara com o planejado. Um co-piloto, não um substituto.',
-    ob_feat3_title:'TUDO NUM LUGAR SÓ',
-    ob_feat3_desc:'Provas reais com link de inscricao, clima, estatísticas e recordes pessoais.',
+    ob_feat3_title:'PROVAS REAIS, COM LINK DE INSCRIÇÃO',
+    ob_feat3_desc:'Buscamos sua próxima prova com data, local e link direto de inscrição — regional, nacional ou internacional.',
     ob_feat4_title:'BIKE FIT POR IA',
     ob_feat4_desc:'Analise de posição na bike a partir de foto e medidas. Estimativa orientativa, não substitui avaliação presencial.',
-    ob_feat5_title:'CLUBE DA MEIA AZUL',
-    ob_feat5_desc:'Comunidade de triatletas pra treinar e trocar junto. Recurso social opcional, exclusivo pra maiores de 18 anos.',
+    ob_feat5_title:'CLUBES: MEIA AZUL E MEIA BRANCA',
+    ob_feat5_desc:'Meia Azul pra conectar com outros triatletas. Meia Branca pra treinar em grupo, com desafios e ranking real. Recursos sociais opcionais, exclusivos pra maiores de 18 anos.',
     ob_feat6_title:'COACH IA QUE CONHECE VOCÊ',
-    ob_feat6_desc:'Tira dúvida, analisa cada treino executado e ajusta o plano com base na sua evolução real — não um chatbot generico.',
-    ob_feat7_title:'EVOLUÇÃO REAL, NÃO CHUTE',
-    ob_feat7_desc:'Compara planejado vs executado, mostra recordes pessoais e recalibra o plano toda semana conforme o que você realmente fez.',
+    ob_feat6_desc:'Tira dúvida, analisa cada treino executado e te dá recomendações com base na sua evolução real — não um chatbot generico.',
+    ob_feat7_title:'RELATÓRIOS QUE MOSTRAM SUA EVOLUÇÃO DE VERDADE',
+    ob_feat7_desc:'Análise semanal, mensal e pós-prova de verdade, não só um número solto — o que funcionou, o que ajustar.',
     ob_intro_cta:'MONTAR MEU PLANO',
     lang_picker_title:'IDIOMA',
     btn_continuar:'CONTINUAR',
@@ -585,6 +586,27 @@ const I18N={
     countdown_livre:'LIVRE',
     countdown_treino_livre:'TREINO LIVRE \u00b7 SEM PROVA DEFINIDA',
     locale_code:'pt-BR',
+    pf_header_title:'MEU PERFIL', pf_save:'SALVAR', pf_no_name:'Sem nome',
+    pf_detecting_location:'Detectando localização...', pf_update_location:'ATUALIZAR LOCALIZAÇÃO',
+    pf_connect_ig:'CONECTAR IG', pf_edit_cover:'EDITAR CAPA', pf_add_cover:'+ FOTO DE CAPA',
+    pf_summary_title:'Resumo Atletico', pf_sessions_complete:'SESSÕES COMPLETAS', pf_achievements:'CONQUISTAS',
+    pf_running:'CORRIDA', pf_bike:'BIKE', pf_swimming:'NATAÇÃO', pf_view_achievements:'VER HALL DE CONQUISTAS COMPLETO',
+    pf_races_title:'Provas', pf_next_race_registered:'PRÓXIMA PROVA INSCRITA', pf_no_race_yet:'Nenhuma prova inscrita ainda.',
+    pf_personal_data:'Dados pessoais', pf_name:'Nome', pf_age:'Idade', pf_weight:'Peso (kg)', pf_height:'Altura (cm)',
+    pf_city:'Cidade', pf_gender:'Sexo', pf_gender_prefer_not:'Prefiro não dizer', pf_gender_male:'Masculino',
+    pf_gender_female:'Feminino', pf_gender_nb:'Não binario',
+    pf_sport_title:'Esporte', pf_main_sport:'Modalidade principal', pf_preferred_distance:'Distancia preferida',
+    pf_level_title:'Nível por modalidade', pf_swim_label:'Natação', pf_bike_label:'Bike', pf_run_label:'Corrida',
+    pf_level_beginner:'Iniciante', pf_level_intermediate:'Intermediario', pf_level_advanced:'Avancado',
+    pf_performance_title:'Performance', pf_pace_label:'Pace/km', pf_ftp_label:'FTP (w)', pf_swim100_label:'Nado/100m',
+    pf_fcmax_label:'FC Max (bpm)', pf_next_race_label:'Próxima prova',
+    pf_club_azul_title:'Clube da Meia Azul', pf_bio_label:'Bio', pf_bio_placeholder:'Conta um pouco sobre você...',
+    pf_interests_label:'Interesses fora do esporte', pf_interests_placeholder:'trilha, viagem, gastronomia, musica...',
+    pf_looking_for_label:'Procuro', pf_looking_women:'Mulheres', pf_looking_men:'Homens', pf_looking_all:'Todos',
+    pf_plan_title:'Plano', pf_view_plan_summary:'VER RESUMO DO PLANO',
+    pf_moments_title:'Momentos', pf_loading:'Carregando...',
+    pf_store_title:'Loja', pf_my_store:'MINHA LOJA', pf_store_desc:'Os equipamentos que eu uso, direto na Amazon.', pf_view_amazon:'VER NA AMAZON',
+    sport_triathlon:'Triathlon', sport_corrida:'Corrida', sport_ciclismo:'Ciclismo', sport_natacao:'Natação', sport_duathlon:'Duathlon',
   },
   en:{
     nav_perfil:'Profile', nav_agenda:'Schedule', nav_stats:'Stats', nav_hist:'History', nav_fit:'Fit', nav_club:'Club',
@@ -646,6 +668,27 @@ const I18N={
     countdown_livre:'FREE',
     countdown_treino_livre:'FREE TRAINING \u00b7 NO RACE SET',
     locale_code:'en-US',
+    pf_header_title:'MY PROFILE', pf_save:'SAVE', pf_no_name:'No name',
+    pf_detecting_location:'Detecting location...', pf_update_location:'UPDATE LOCATION',
+    pf_connect_ig:'CONNECT IG', pf_edit_cover:'EDIT COVER', pf_add_cover:'+ COVER PHOTO',
+    pf_summary_title:'Athletic Summary', pf_sessions_complete:'SESSIONS COMPLETED', pf_achievements:'ACHIEVEMENTS',
+    pf_running:'RUN', pf_bike:'BIKE', pf_swimming:'SWIM', pf_view_achievements:'VIEW FULL ACHIEVEMENT HALL',
+    pf_races_title:'Races', pf_next_race_registered:'NEXT REGISTERED RACE', pf_no_race_yet:'No race registered yet.',
+    pf_personal_data:'Personal data', pf_name:'Name', pf_age:'Age', pf_weight:'Weight (kg)', pf_height:'Height (cm)',
+    pf_city:'City', pf_gender:'Gender', pf_gender_prefer_not:'Prefer not to say', pf_gender_male:'Male',
+    pf_gender_female:'Female', pf_gender_nb:'Non-binary',
+    pf_sport_title:'Sport', pf_main_sport:'Main sport', pf_preferred_distance:'Preferred distance',
+    pf_level_title:'Level by discipline', pf_swim_label:'Swim', pf_bike_label:'Bike', pf_run_label:'Run',
+    pf_level_beginner:'Beginner', pf_level_intermediate:'Intermediate', pf_level_advanced:'Advanced',
+    pf_performance_title:'Performance', pf_pace_label:'Pace/km', pf_ftp_label:'FTP (w)', pf_swim100_label:'Swim/100m',
+    pf_fcmax_label:'Max HR (bpm)', pf_next_race_label:'Next race',
+    pf_club_azul_title:'Blue Sock Club', pf_bio_label:'Bio', pf_bio_placeholder:'Tell us a bit about yourself...',
+    pf_interests_label:'Interests outside sport', pf_interests_placeholder:'hiking, travel, food, music...',
+    pf_looking_for_label:'Looking for', pf_looking_women:'Women', pf_looking_men:'Men', pf_looking_all:'Everyone',
+    pf_plan_title:'Plan', pf_view_plan_summary:'VIEW PLAN SUMMARY',
+    pf_moments_title:'Moments', pf_loading:'Loading...',
+    pf_store_title:'Store', pf_my_store:'MY STORE', pf_store_desc:'The gear I use, straight from Amazon.', pf_view_amazon:'VIEW ON AMAZON',
+    sport_triathlon:'Triathlon', sport_corrida:'Running', sport_ciclismo:'Cycling', sport_natacao:'Swimming', sport_duathlon:'Duathlon',
   },
   es:{
     nav_perfil:'Perfil', nav_agenda:'Agenda', nav_stats:'Stats', nav_hist:'Historial', nav_fit:'Fit', nav_club:'Club',
@@ -707,6 +750,27 @@ const I18N={
     countdown_livre:'LIBRE',
     countdown_treino_livre:'ENTRENAMIENTO LIBRE \u00b7 SIN CARRERA DEFINIDA',
     locale_code:'es-ES',
+    pf_header_title:'MI PERFIL', pf_save:'GUARDAR', pf_no_name:'Sin nombre',
+    pf_detecting_location:'Detectando ubicación...', pf_update_location:'ACTUALIZAR UBICACIÓN',
+    pf_connect_ig:'CONECTAR IG', pf_edit_cover:'EDITAR PORTADA', pf_add_cover:'+ FOTO DE PORTADA',
+    pf_summary_title:'Resumen Atlético', pf_sessions_complete:'SESIONES COMPLETADAS', pf_achievements:'LOGROS',
+    pf_running:'CARRERA', pf_bike:'BICI', pf_swimming:'NATACIÓN', pf_view_achievements:'VER SALÓN DE LOGROS COMPLETO',
+    pf_races_title:'Carreras', pf_next_race_registered:'PRÓXIMA CARRERA INSCRITA', pf_no_race_yet:'Aún no hay carreras inscritas.',
+    pf_personal_data:'Datos personales', pf_name:'Nombre', pf_age:'Edad', pf_weight:'Peso (kg)', pf_height:'Altura (cm)',
+    pf_city:'Ciudad', pf_gender:'Sexo', pf_gender_prefer_not:'Prefiero no decir', pf_gender_male:'Masculino',
+    pf_gender_female:'Femenino', pf_gender_nb:'No binario',
+    pf_sport_title:'Deporte', pf_main_sport:'Deporte principal', pf_preferred_distance:'Distancia preferida',
+    pf_level_title:'Nivel por disciplina', pf_swim_label:'Natación', pf_bike_label:'Bici', pf_run_label:'Carrera',
+    pf_level_beginner:'Principiante', pf_level_intermediate:'Intermedio', pf_level_advanced:'Avanzado',
+    pf_performance_title:'Rendimiento', pf_pace_label:'Ritmo/km', pf_ftp_label:'FTP (w)', pf_swim100_label:'Nado/100m',
+    pf_fcmax_label:'FC Máx (ppm)', pf_next_race_label:'Próxima carrera',
+    pf_club_azul_title:'Club del Calcetín Azul', pf_bio_label:'Bio', pf_bio_placeholder:'Cuéntanos un poco sobre ti...',
+    pf_interests_label:'Intereses fuera del deporte', pf_interests_placeholder:'senderismo, viajes, gastronomía, música...',
+    pf_looking_for_label:'Busco', pf_looking_women:'Mujeres', pf_looking_men:'Hombres', pf_looking_all:'Todos',
+    pf_plan_title:'Plan', pf_view_plan_summary:'VER RESUMEN DEL PLAN',
+    pf_moments_title:'Momentos', pf_loading:'Cargando...',
+    pf_store_title:'Tienda', pf_my_store:'MI TIENDA', pf_store_desc:'El equipo que uso, directo de Amazon.', pf_view_amazon:'VER EN AMAZON',
+    sport_triathlon:'Triatlón', sport_corrida:'Carrera', sport_ciclismo:'Ciclismo', sport_natacao:'Natación', sport_duathlon:'Duatlón',
   },
   zh:{
     // Traducao preliminar (a revisar por falante nativo antes de lancar pra usuários reais) —
@@ -772,6 +836,109 @@ const I18N={
     countdown_livre:'自由训练',
     countdown_treino_livre:'自由训练 \u00b7 未设定比赛',
     locale_code:'zh-CN',
+    pf_header_title:'我的资料', pf_save:'保存', pf_no_name:'未命名',
+    pf_detecting_location:'正在检测位置...', pf_update_location:'更新位置',
+    pf_connect_ig:'连接 IG', pf_edit_cover:'编辑封面', pf_add_cover:'+ 封面照片',
+    pf_summary_title:'运动概览', pf_sessions_complete:'已完成训练', pf_achievements:'成就',
+    pf_running:'跑步', pf_bike:'骑行', pf_swimming:'游泳', pf_view_achievements:'查看全部成就',
+    pf_races_title:'比赛', pf_next_race_registered:'已报名的下一场比赛', pf_no_race_yet:'尚未报名任何比赛。',
+    pf_personal_data:'个人资料', pf_name:'姓名', pf_age:'年龄', pf_weight:'体重 (kg)', pf_height:'身高 (cm)',
+    pf_city:'城市', pf_gender:'性别', pf_gender_prefer_not:'不愿透露', pf_gender_male:'男',
+    pf_gender_female:'女', pf_gender_nb:'非二元性别',
+    pf_sport_title:'运动项目', pf_main_sport:'主要项目', pf_preferred_distance:'偏好距离',
+    pf_level_title:'各项目水平', pf_swim_label:'游泳', pf_bike_label:'骑行', pf_run_label:'跑步',
+    pf_level_beginner:'初级', pf_level_intermediate:'中级', pf_level_advanced:'高级',
+    pf_performance_title:'表现数据', pf_pace_label:'配速/km', pf_ftp_label:'FTP (瓦特)', pf_swim100_label:'游泳/100m',
+    pf_fcmax_label:'最大心率 (bpm)', pf_next_race_label:'下一场比赛',
+    pf_club_azul_title:'蓝袜俱乐部', pf_bio_label:'简介', pf_bio_placeholder:'介绍一下你自己...',
+    pf_interests_label:'运动以外的兴趣', pf_interests_placeholder:'徒步、旅行、美食、音乐...',
+    pf_looking_for_label:'寻找', pf_looking_women:'女性', pf_looking_men:'男性', pf_looking_all:'所有人',
+    pf_plan_title:'计划', pf_view_plan_summary:'查看计划摘要',
+    pf_moments_title:'瞬间', pf_loading:'加载中...',
+    pf_store_title:'商店', pf_my_store:'我的商店', pf_store_desc:'我使用的装备，直接来自亚马逊。', pf_view_amazon:'在亚马逊查看',
+    sport_triathlon:'铁人三项', sport_corrida:'跑步', sport_ciclismo:'自行车', sport_natacao:'游泳', sport_duathlon:'两项全能',
+  },
+  ko:{
+    nav_perfil:'프로필', nav_agenda:'일정', nav_stats:'통계', nav_hist:'기록', nav_fit:'핏', nav_club:'클럽',
+    ob_intro_title:'MyTri란\n무엇인가요?',
+    ob_intro_sub:'평범한 스프레드시트 앱이 아닙니다.',
+    ob_feat1_title:'100% 맞춤형 플랜',
+    ob_feat1_desc:'경기, 거리, 레벨, 부상, 가능한 요일에 따라 생성되는 훈련. 똑같은 플랜은 없습니다.',
+    ob_feat2_title:'운동 앱과 연동',
+    ob_feat2_desc:'다른 플랫폼의 실제 운동 기록을 가져와 계획과 비교합니다. 대체가 아닌 코파일럿입니다.',
+    ob_feat3_title:'실제 대회 정보와 등록 링크',
+    ob_feat3_desc:'지역, 전국, 국제 대회의 날짜, 장소, 등록 링크를 찾아드립니다.',
+    ob_feat4_title:'AI 바이크 핏',
+    ob_feat4_desc:'사진과 신체 치수를 기반으로 한 자전거 포지션 분석. 참고용 추정치이며 대면 평가를 대체하지 않습니다.',
+    ob_feat5_title:'클럽: 블루삭스 & 화이트삭스',
+    ob_feat5_desc:'블루삭스는 다른 트라이애슬론 선수들과 연결됩니다. 화이트삭스는 그룹 훈련, 도전과제, 실시간 랭킹을 제공합니다. 선택적 소셜 기능이며 18세 이상만 이용 가능합니다.',
+    ob_feat6_title:'당신을 아는 AI 코치',
+    ob_feat6_desc:'궁금증을 해결하고, 완료한 훈련을 분석하며, 실제 진행 상황에 기반한 추천을 제공합니다 — 일반적인 챗봇이 아닙니다.',
+    ob_feat7_title:'진짜 성장을 보여주는 리포트',
+    ob_feat7_desc:'주간, 월간, 대회 후 분석 — 단순한 숫자가 아니라 무엇이 효과적이었는지, 무엇을 조정해야 하는지 알려드립니다.',
+    ob_intro_cta:'내 플랜 만들기',
+    lang_picker_title:'언어',
+    btn_continuar:'계속',
+    welcome_sub:'결승선까지 완벽하게 준비된 나만의 맞춤 코파일럿',
+    welcome_cta:'시작하기',
+    ob_sport_title:'어떤 종목을\n하시나요?',
+    ob_sport_sub:'종목에 맞춰 모든 것을 맞춤화합니다.',
+    ob_dist_title:'대회 거리는\n얼마인가요?',
+    ob_dist_sub:'다음 대회 형식을 선택하세요.',
+    ob_race_title:'어떤 대회에\n참가하시나요?',
+    ob_race_sub:'실제 대회를 선택, 검색하거나 직접 등록하세요.',
+    ob_race_searching:'다음 대회 검색 중...',
+    ob_race_search_btn:'다음 대회 검색하기',
+    ob_race_view_reg:'등록 정보 보기',
+    ob_meta_title:'목표가\n무엇인가요?',
+    ob_meta_sub_prefix:'목표 시간:',
+    ob_hours_label:'시간',
+    ob_minutes_label:'분',
+    ob_fitness_title:'신체\n정보',
+    ob_fitness_sub:'훈련 구간 계산에 사용됩니다.',
+    ob_hours_title:'주당 몇 시간\n훈련하시나요?',
+    ob_hours_sub:'현재 훈련량을 기준으로 플랜이 구성됩니다.',
+    ob_days_title:'훈련 가능한\n요일은?',
+    ob_days_sub:'가능한 시간에 맞춰 플랜이 구성됩니다.',
+    ob_injuries_title:'부상이나\n제약이 있나요?',
+    ob_injuries_sub:'부상 악화를 방지하기 위해 플랜에 반영됩니다.',
+    ob_strava_title:'연동\n하기',
+    ob_strava_sub:'운동과 사진을 자동으로 가져옵니다.',
+    ob_fim_title:'모든 준비가\n끝났습니다,',
+    ob_fim_prova:'대회',
+    ob_fim_dist:'거리',
+    ob_fim_data:'날짜',
+    ob_fim_meta:'목표',
+    ob_fim_meta_default:'목표: 완주',
+    ob_fim_cta:'MyTri 시작하기',
+    tab_hoje:'오늘', tab_semana:'주간', tab_fases:'단계', tab_cal:'달력',
+    day0:'월', day1:'화', day2:'수', day3:'목', day4:'금', day5:'토', day6:'일',
+    week_label:'주',
+    countdown_prova_suffix:'일 남음',
+    countdown_livre:'자유',
+    countdown_treino_livre:'자유 훈련 \u00b7 대회 미정',
+    locale_code:'ko-KR',
+    pf_header_title:'내 프로필', pf_save:'저장', pf_no_name:'이름 없음',
+    pf_detecting_location:'위치 확인 중...', pf_update_location:'위치 업데이트',
+    pf_connect_ig:'인스타그램 연동', pf_edit_cover:'커버 편집', pf_add_cover:'+ 커버 사진',
+    pf_summary_title:'운동 요약', pf_sessions_complete:'완료한 세션', pf_achievements:'업적',
+    pf_running:'러닝', pf_bike:'자전거', pf_swimming:'수영', pf_view_achievements:'전체 업적 보기',
+    pf_races_title:'대회', pf_next_race_registered:'등록된 다음 대회', pf_no_race_yet:'아직 등록된 대회가 없습니다.',
+    pf_personal_data:'개인 정보', pf_name:'이름', pf_age:'나이', pf_weight:'체중 (kg)', pf_height:'신장 (cm)',
+    pf_city:'도시', pf_gender:'성별', pf_gender_prefer_not:'응답하지 않음', pf_gender_male:'남성',
+    pf_gender_female:'여성', pf_gender_nb:'논바이너리',
+    pf_sport_title:'종목', pf_main_sport:'주 종목', pf_preferred_distance:'선호 거리',
+    pf_level_title:'종목별 레벨', pf_swim_label:'수영', pf_bike_label:'자전거', pf_run_label:'러닝',
+    pf_level_beginner:'초급', pf_level_intermediate:'중급', pf_level_advanced:'고급',
+    pf_performance_title:'퍼포먼스', pf_pace_label:'페이스/km', pf_ftp_label:'FTP (W)', pf_swim100_label:'수영/100m',
+    pf_fcmax_label:'최대 심박수 (bpm)', pf_next_race_label:'다음 대회',
+    pf_club_azul_title:'블루삭스 클럽', pf_bio_label:'소개', pf_bio_placeholder:'자신에 대해 간단히 소개해주세요...',
+    pf_interests_label:'운동 외 관심사', pf_interests_placeholder:'등산, 여행, 음식, 음악...',
+    pf_looking_for_label:'찾는 상대', pf_looking_women:'여성', pf_looking_men:'남성', pf_looking_all:'모두',
+    pf_plan_title:'플랜', pf_view_plan_summary:'플랜 요약 보기',
+    pf_moments_title:'모먼트', pf_loading:'불러오는 중...',
+    pf_store_title:'스토어', pf_my_store:'내 스토어', pf_store_desc:'제가 사용하는 장비, 아마존에서 바로.', pf_view_amazon:'아마존에서 보기',
+    sport_triathlon:'트라이애슬론', sport_corrida:'러닝', sport_ciclismo:'사이클링', sport_natacao:'수영', sport_duathlon:'듀애슬론',
   },
 };
 function getLang(){ const l=localStorage.getItem('mytri_lang'); return SUPPORTED_LANGS.includes(l)?l:'pt'; }
@@ -786,7 +953,7 @@ function t(key){ const lang=getLang(); return (I18N[lang]&&I18N[lang][key])||I18
 
 // Card visual de idioma com bandeira + dropdown — substitui a fileira de botoes PT/EN/ES/ZH
 // (que parecia sub-aba) por algo mais claro de bater o olho e escolher.
-const LANG_FLAG={pt:'\u{1F1E7}\u{1F1F7}',en:'\u{1F1FA}\u{1F1F8}',es:'\u{1F1EA}\u{1F1F8}',zh:'\u{1F1E8}\u{1F1F3}'};
+const LANG_FLAG={pt:'\u{1F1E7}\u{1F1F7}',en:'\u{1F1FA}\u{1F1F8}',es:'\u{1F1EA}\u{1F1F8}',zh:'\u{1F1E8}\u{1F1F3}',ko:'\u{1F1F0}\u{1F1F7}'};
 function renderLangCard(cardId){
   const cur=getLang();
   return `<div style="position:relative" id="${cardId}">
@@ -2962,7 +3129,11 @@ function showAddModal(w,d,opts){
       if(opts._zone&&zones[opts._zone]){preNote=opts._zone;}
       else{const zMatch=preNote.match(/Z[1-4]/);preNote=zMatch?zMatch[0]:'';}
     }
-    const nums=(s.dist||'').match(/[\d.]+/g)||[];
+    // Nao preenche o campo com numeros vindos de um texto de TEMPO (ex "26min") — isso e
+    // usado como valor de exibicao quando o treino nao tem distancia real (rolo sem sensor,
+    // GPS perdido), e extrair digitos dali fazia "26min" virar "26km" sugerido no campo.
+    const distStr=s.dist||'';
+    const nums=/min/i.test(distStr) ? [] : (distStr.match(/[\d.]+/g)||[]);
     const flds=activityTypes[preIdx].fields;
     flds.forEach((f,i)=>{if(nums[i]!==undefined)preVals[f.key]=nums[i];});
   }
@@ -6599,7 +6770,8 @@ Depois dessa linha, escreva todo o texto explicativo normalmente.`;
     renderBikeFitText(document.getElementById('bf-result-text'),text);
   }catch(e){
     result.style.display='block';
-    result.innerHTML=`<div style="color:#e05c2a;font-family:var(--font-ui);font-size:12px">Erro na análise. Tente novamente.</div>`;
+    console.error('Erro no Bike Fit:',e);
+    result.innerHTML=`<div style="color:#e05c2a;font-family:var(--font-ui);font-size:12px">Erro na análise: ${(e.message||'desconhecido').replace(/</g,'&lt;')}. Tente novamente.</div>`;
   }
 
   btn.textContent='ANALISAR POSIÇÃO';
@@ -6746,24 +6918,26 @@ function renderClubLanding(c){
     <div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:2px;margin-bottom:4px">CLUBE MYTRI</div>
     <div style="font-family:var(--font-display);font-size:28px;letter-spacing:.5px;margin-bottom:20px">Escolha seu clube</div>
 
-    <div onclick="openMeiaBranca()" style="cursor:pointer;position:relative;border-radius:16px;overflow:hidden;margin-bottom:16px;background:${laneBg},linear-gradient(135deg,#f0f2f5,#c9ced6);padding:24px;min-height:160px;display:flex;flex-direction:column;justify-content:flex-end">
-      <svg width="140" height="140" viewBox="0 0 24 24" fill="none" stroke="#0a0a0a" stroke-width="0.8" style="position:absolute;top:-20px;right:-24px;opacity:0.1;transform:rotate(-8deg)"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-      <div style="position:absolute;top:18px;right:18px;width:44px;height:44px;border-radius:12px;background:rgba(0,0,0,0.08);display:flex;align-items:center;justify-content:center">
+    <div onclick="openMeiaBranca()" style="cursor:pointer;position:relative;border-radius:16px;overflow:hidden;margin-bottom:16px;background:${laneBg},linear-gradient(135deg,#f5f6f8,#c9ced6);padding:24px;min-height:180px;display:flex;flex-direction:column;justify-content:flex-end;box-shadow:0 8px 24px rgba(0,0,0,0.35)">
+      <svg width="160" height="160" viewBox="0 0 24 24" fill="none" stroke="#0a0a0a" stroke-width="0.7" style="position:absolute;top:-26px;right:-28px;opacity:0.09;transform:rotate(-8deg)"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      <div style="position:absolute;top:18px;right:18px;width:46px;height:46px;border-radius:13px;background:rgba(0,0,0,0.08);display:flex;align-items:center;justify-content:center;animation:softpulse 3s ease-in-out infinite">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/><path d="M12 11l1.5 1.5L16 10"/></svg>
       </div>
-      <div style="position:relative;font-family:var(--font-display);font-size:24px;color:#0a0a0a;letter-spacing:.5px;margin-bottom:4px">CLUBE DA MEIA BRANCA</div>
-      <div style="position:relative;font-family:var(--font-body);font-size:12px;color:#3a3f4a;line-height:1.4;max-width:80%">Grupos e desafios coletivos. Treine com sua equipe, registre check-ins e suba no ranking.</div>
-      <div style="position:relative;margin-top:10px;font-family:var(--font-ui);font-size:9px;color:#0a0a0a;letter-spacing:1.5px;display:flex;align-items:center;gap:4px">NOVO <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0a0a0a" stroke-width="3"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+      <div style="position:relative;width:32px;height:3px;background:#0a0a0a;border-radius:2px;margin-bottom:10px;opacity:.5"></div>
+      <div style="position:relative;font-family:var(--font-display);font-size:25px;color:#0a0a0a;letter-spacing:.5px;margin-bottom:5px">CLUBE DA MEIA BRANCA</div>
+      <div style="position:relative;font-family:var(--font-body);font-size:12px;color:#3a3f4a;line-height:1.45;max-width:78%">Grupos e desafios coletivos. Treine com sua equipe, registre check-ins e suba no ranking.</div>
+      <div style="position:relative;margin-top:12px;font-family:var(--font-ui);font-size:9px;color:#0a0a0a;letter-spacing:1.5px;display:flex;align-items:center;gap:4px;background:rgba(0,0,0,0.06);width:fit-content;padding:5px 10px;border-radius:20px">NOVO <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0a0a0a" stroke-width="3"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
     </div>
 
-    <div onclick="openMeiaAzul()" style="cursor:pointer;position:relative;border-radius:16px;overflow:hidden;background:${laneBgDark},linear-gradient(135deg,#1a6cf0,#0d3a8f);padding:24px;min-height:160px;display:flex;flex-direction:column;justify-content:flex-end">
-      <svg width="140" height="140" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="0.8" style="position:absolute;top:-20px;right:-24px;opacity:0.14;transform:rotate(8deg)"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
-      <div style="position:absolute;top:18px;right:18px;width:44px;height:44px;border-radius:12px;background:rgba(255,255,255,0.12);display:flex;align-items:center;justify-content:center">
+    <div onclick="openMeiaAzul()" style="cursor:pointer;position:relative;border-radius:16px;overflow:hidden;background:${laneBgDark},linear-gradient(135deg,#2478ff,#0a2f7a);padding:24px;min-height:180px;display:flex;flex-direction:column;justify-content:flex-end;box-shadow:0 8px 24px rgba(10,47,122,0.4)">
+      <svg width="160" height="160" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="0.7" style="position:absolute;top:-26px;right:-28px;opacity:0.13;transform:rotate(8deg)"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+      <div style="position:absolute;top:18px;right:18px;width:46px;height:46px;border-radius:13px;background:rgba(255,255,255,0.14);display:flex;align-items:center;justify-content:center;animation:softpulse 3s ease-in-out infinite .3s">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
       </div>
-      <div style="position:relative;font-family:var(--font-display);font-size:24px;color:#fff;letter-spacing:.5px;margin-bottom:4px">CLUBE DA MEIA AZUL</div>
-      <div style="position:relative;font-family:var(--font-body);font-size:12px;color:rgba(255,255,255,0.75);line-height:1.4;max-width:80%">Conecte com outros triatletas. Combine treinos, troque experiencias.</div>
-      ${_clubCount?`<div style="position:relative;margin-top:10px;font-family:var(--font-ui);font-size:9px;color:#fff;letter-spacing:1.5px">${_clubCount} CONEXA${_clubCount>1?'ES':'O'}</div>`:''}
+      <div style="position:relative;width:32px;height:3px;background:#fff;border-radius:2px;margin-bottom:10px;opacity:.5"></div>
+      <div style="position:relative;font-family:var(--font-display);font-size:25px;color:#fff;letter-spacing:.5px;margin-bottom:5px">CLUBE DA MEIA AZUL</div>
+      <div style="position:relative;font-family:var(--font-body);font-size:12px;color:rgba(255,255,255,0.8);line-height:1.45;max-width:78%">Conecte com outros triatletas. Combine treinos, troque experiencias.</div>
+      ${_clubCount?`<div style="position:relative;margin-top:12px;font-family:var(--font-ui);font-size:9px;color:#fff;letter-spacing:1.5px;background:rgba(255,255,255,0.14);width:fit-content;padding:5px 10px;border-radius:20px">${_clubCount} CONEXA${_clubCount>1?'ES':'O'}</div>`:''}
     </div>
 
     <div style="margin-top:20px;font-family:var(--font-body);font-size:11px;color:var(--muted);line-height:1.5;text-align:center">Recursos sociais opcionais, exclusivos pra maiores de 18 anos.</div>
@@ -7299,9 +7473,13 @@ function renderClubMyProfile(c){
       ${p.nextRace?`<div style="background:rgba(26,108,240,0.1);border:1px solid rgba(26,108,240,0.25);border-radius:8px;padding:10px 14px;margin-bottom:12px"><div style="font-family:var(--font-ui);font-size:8px;color:#1a6cf0;letter-spacing:1px">PRÓXIMA PROVA</div><div style="font-family:var(--font-body);font-size:13px;color:var(--text);margin-top:2px">${p.nextRace}</div></div>`:''}
       ${p.igHandle?`<a href="https://instagram.com/${p.igHandle}" target="_blank" style="display:flex;align-items:center;gap:8px;text-decoration:none;margin-bottom:16px"><div style="width:28px;height:28px;border-radius:7px;background:linear-gradient(45deg,#f09433,#dc2743,#bc1888);display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.332.014 7.052.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.058-1.28.072-1.689.072-4.948 0-3.259-.014-3.667-.072-4.948-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg></div><span style="font-family:var(--font-body);font-size:13px;color:#E1306C">@${p.igHandle}</span></a>`:''}
 
+      <div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;margin-bottom:10px">MOMENTOS</div>
+      <div id="profile-momentos" style="font-family:var(--font-body);font-size:12px;color:var(--muted);padding-bottom:16px">Carregando...</div>
+
       <button onclick="clubState.step='swipe';saveClubState();renderClub()" style="width:100%;padding:14px;background:var(--accent);color:#000;font-family:var(--font-ui);font-size:13px;font-weight:700;letter-spacing:2px;border:none;cursor:pointer;border-radius:6px">VOLTAR AOS CARDS</button>
       <button onclick="leaveClubAzul()" style="width:100%;margin-top:12px;padding:14px;background:none;border:1px solid var(--border);color:var(--muted2);border-radius:6px;font-family:var(--font-ui);font-size:11px;letter-spacing:1.5px;cursor:pointer">SAIR DO CLUBE DA MEIA AZUL</button>
     </div>`;
+  loadProfileMomentos();
 }
 // Sai do Clube da Meia Azul por completo: reseta perfil de matches, curtidas, passadas e a
 // aceitacao dos termos — a pessoa continua no MyTri normalmente, so nao participa mais desse
@@ -7674,6 +7852,7 @@ function showClubProfile(id){
   const modal=document.createElement('div');
   modal.style.cssText='position:fixed;inset:0;z-index:400;background:var(--bg);overflow-y:auto';
   modal.innerHTML=`
+    <div style="max-width:480px;margin:0 auto">
     <div style="position:relative">
       <img src="${p.photo}" style="width:100%;height:300px;object-fit:cover;object-position:top">
       <div style="position:absolute;inset:0;background:linear-gradient(to bottom,transparent 30%,var(--bg) 100%)"></div>
@@ -7731,6 +7910,7 @@ function showClubProfile(id){
       <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:28px">
         ${p.tags.map(t=>`<span style="background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:5px 12px;font-family:var(--font-ui);font-size:9px;color:var(--muted2);letter-spacing:.5px">${t}</span>`).join('')}
       </div>
+    </div>
     </div>`;
   document.body.appendChild(modal);
 }
@@ -8133,22 +8313,22 @@ function renderProfile(){
   vp.innerHTML=`
     <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border);background:var(--bg)">
       <button onclick="closeProfile()" style="background:none;border:none;color:var(--muted2);font-size:22px;cursor:pointer;padding:0">&#8592;</button>
-      <div style="font-family:var(--font-ui);font-size:12px;letter-spacing:2px;color:var(--text)">MEU PERFIL</div>
-      <button onclick="submitProfile()" style="background:var(--accent);border:none;color:#000;font-family:var(--font-ui);font-size:11px;font-weight:700;letter-spacing:1px;padding:8px 14px;border-radius:3px;cursor:pointer">SALVAR</button>
+      <div style="font-family:var(--font-ui);font-size:12px;letter-spacing:2px;color:var(--text)">${t('pf_header_title')}</div>
+      <button onclick="submitProfile()" style="background:var(--accent);border:none;color:#000;font-family:var(--font-ui);font-size:11px;font-weight:700;letter-spacing:1px;padding:8px 14px;border-radius:3px;cursor:pointer">${t('pf_save')}</button>
     </div>
     <input type="file" id="profile-cover-input" accept="image/*" style="display:none" onchange="handleCoverPhoto(event)">
 
     <div class="profile-hero" style="padding:0;text-align:left;border-bottom:1px solid var(--border)">
       <!-- Capa retangular (foto secundaria) -->
       <div onclick="changeCoverPhoto()" style="position:relative;height:112px;cursor:pointer;${secondary?`background:url('${secondary}') center/cover`:'background:linear-gradient(135deg,#12161c,#1a2530)'}">
-        ${secondary?`<div style="position:absolute;top:10px;right:12px;background:rgba(0,0,0,0.55);border-radius:4px;padding:5px 10px;font-family:var(--font-ui);font-size:9px;color:#fff;letter-spacing:.5px">EDITAR CAPA</div>`:`<div style="position:absolute;top:10px;right:12px;font-family:var(--font-ui);font-size:9px;color:rgba(255,255,255,0.6);letter-spacing:.5px">+ FOTO DE CAPA</div>`}
+        ${secondary?`<div style="position:absolute;top:10px;right:12px;background:rgba(0,0,0,0.55);border-radius:4px;padding:5px 10px;font-family:var(--font-ui);font-size:9px;color:#fff;letter-spacing:.5px">${t('pf_edit_cover')}</div>`:`<div style="position:absolute;top:10px;right:12px;font-family:var(--font-ui);font-size:9px;color:rgba(255,255,255,0.6);letter-spacing:.5px">${t('pf_add_cover')}</div>`}
       </div>
       <!-- Avatar sobreposto + dados ao lado (estilo LinkedIn compacto) -->
       <div style="padding:0 20px 16px;position:relative">
         <div style="display:flex;align-items:flex-end;gap:14px;margin-top:-40px">
           <div style="position:relative;flex-shrink:0">
-            <div id="moments-ring" style="border-radius:50%;padding:3px;background:var(--bg)">
-              <div onclick="changeProfilePhoto()" style="cursor:pointer;border-radius:50%;line-height:0">${photoEl}</div>
+            <div id="moments-ring" style="display:inline-block;border-radius:50%;padding:3px;background:var(--bg);line-height:0">
+              <div onclick="changeProfilePhoto()" style="cursor:pointer;border-radius:50%;line-height:0;display:inline-block">${photoEl}</div>
             </div>
             <div onclick="changeProfilePhoto()" style="cursor:pointer;position:absolute;bottom:2px;right:0;background:var(--accent);border:2px solid var(--bg);border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-size:14px;z-index:2">+</div>
             <div onclick="openAddMoment()" title="Adicionar Instant" style="cursor:pointer;position:absolute;top:0;left:-2px;background:linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888);border:2px solid var(--bg);border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;z-index:2">
@@ -8156,15 +8336,15 @@ function renderProfile(){
             </div>
           </div>
           <div style="flex:1;padding-bottom:4px">
-            <div class="profile-name" style="text-align:left;margin:0;line-height:1.05">${prof.name||'Sem nome'}</div>
+            <div class="profile-name" style="text-align:left;margin:0;line-height:1.05">${prof.name||t('pf_no_name')}</div>
           </div>
         </div>
         <input type="file" id="profile-photo-input" accept="image/*" style="display:none" onchange="handleProfilePhoto(event)">
         <input type="file" id="profile-extra-photo-input" accept="image/*" style="display:none" onchange="handleExtraPhoto(event)">
         <div style="margin-top:8px">
-          <div class="profile-city" id="profile-city-display" style="text-align:left">${prof.city||'Detectando localização...'}</div>
+          <div class="profile-city" id="profile-city-display" style="text-align:left">${prof.city||t('pf_detecting_location')}</div>
           <div style="display:flex;align-items:center;gap:14px;margin-top:4px;flex-wrap:wrap">
-            <div onclick="resetCity()" style="font-family:var(--font-ui);font-size:9px;color:var(--muted2);letter-spacing:1px;cursor:pointer;text-decoration:underline">ATUALIZAR LOCALIZAÇÃO</div>
+            <div onclick="resetCity()" style="font-family:var(--font-ui);font-size:9px;color:var(--muted2);letter-spacing:1px;cursor:pointer;text-decoration:underline">${t('pf_update_location')}</div>
             ${athlete.firstname?`<div style="font-family:var(--font-ui);font-size:9px;color:var(--muted2);letter-spacing:1px">STRAVA: ${athlete.firstname} ${athlete.lastname||''}</div>`:''}
           </div>
           <!-- Atalhos rapidos Strava / Instagram -->
@@ -8179,7 +8359,7 @@ function renderProfile(){
                 <span style="font-family:var(--font-ui);font-size:10px;font-weight:700;color:#E1306C;letter-spacing:.5px">@${igh}</span>
               </a>`:`<div onclick="obConnectInstagram()" style="display:flex;align-items:center;gap:7px;background:var(--surface);border:1px dashed var(--border);border-radius:8px;padding:8px 12px;cursor:pointer">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="var(--muted)"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.332.014 7.052.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.058-1.28.072-1.689.072-4.948 0-3.259-.014-3.667-.072-4.948-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
-                <span style="font-family:var(--font-ui);font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.5px">CONECTAR IG</span>
+                <span style="font-family:var(--font-ui);font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.5px">${t('pf_connect_ig')}</span>
               </div>`}
             `; })()}
           </div>
@@ -8204,83 +8384,83 @@ function renderProfile(){
       });
 
       return `<div class="profile-section">
-        <div class="profile-section-title">Resumo Atletico</div>
+        <div class="profile-section-title">${t('pf_summary_title')}</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
           <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center">
             <div style="font-family:var(--font-display);font-size:20px;color:var(--accent)">${prsData.totalSessions||0}</div>
-            <div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;margin-top:2px">SESSÕES COMPLETAS</div>
+            <div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;margin-top:2px">${t('pf_sessions_complete')}</div>
           </div>
           <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center">
             <div style="font-family:var(--font-display);font-size:20px;color:#f0a500">${unlockedBadges.length}/${BADGES.length}</div>
-            <div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;margin-top:2px">CONQUISTAS</div>
+            <div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;margin-top:2px">${t('pf_achievements')}</div>
           </div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
           <div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px;text-align:center">
             <div style="font-family:var(--font-display);font-size:14px;color:var(--run)">${totalRun.toFixed(0)}km</div>
-            <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:.5px">CORRIDA</div>
+            <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:.5px">${t('pf_running')}</div>
           </div>
           <div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px;text-align:center">
             <div style="font-family:var(--font-display);font-size:14px;color:var(--bike)">${totalBike.toFixed(0)}km</div>
-            <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:.5px">BIKE</div>
+            <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:.5px">${t('pf_bike')}</div>
           </div>
           <div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px;text-align:center">
             <div style="font-family:var(--font-display);font-size:14px;color:var(--swim)">${totalSwim.toFixed(1)}km</div>
-            <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:.5px">NATAÇÃO</div>
+            <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:.5px">${t('pf_swimming')}</div>
           </div>
         </div>
         ${unlockedBadges.length>0?`<div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:8px">
           ${unlockedBadges.map(b=>`<div style="flex-shrink:0;width:48px;height:48px;border-radius:50%;background:${b.color}22;border:1.5px solid ${b.color};display:flex;align-items:center;justify-content:center"><div style="width:22px;height:22px;color:${b.color}">${b.icon}</div></div>`).join('')}
         </div>`:''}
-        <div onclick="switchTab('conquistas')" style="text-align:center;font-family:var(--font-ui);font-size:10px;color:var(--accent);letter-spacing:1px;cursor:pointer;padding:6px">VER HALL DE CONQUISTAS COMPLETO</div>
+        <div onclick="switchTab('conquistas')" style="text-align:center;font-family:var(--font-ui);font-size:10px;color:var(--accent);letter-spacing:1px;cursor:pointer;padding:6px">${t('pf_view_achievements')}</div>
       </div>
 
       <div class="profile-section">
-        <div class="profile-section-title">Provas</div>
+        <div class="profile-section-title">${t('pf_races_title')}</div>
         ${prof.nextRace?`<div style="background:rgba(26,108,240,0.1);border:1px solid rgba(26,108,240,0.25);border-radius:8px;padding:12px 14px;display:flex;align-items:center;gap:10px">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1a6cf0" stroke-width="2"><path d="M4 4v16M4 8h12l-2-4M4 12h10l-2 4"/></svg>
           <div>
-            <div style="font-family:var(--font-ui);font-size:8px;color:#1a6cf0;letter-spacing:1px">PRÓXIMA PROVA INSCRITA</div>
+            <div style="font-family:var(--font-ui);font-size:8px;color:#1a6cf0;letter-spacing:1px">${t('pf_next_race_registered')}</div>
             <div style="font-family:var(--font-body);font-size:13px;color:var(--text);margin-top:2px">${prof.nextRace}</div>
           </div>
-        </div>`:`<div style="font-family:var(--font-body);font-size:12px;color:var(--muted);text-align:center;padding:12px">Nenhuma prova inscrita ainda.</div>`}
+        </div>`:`<div style="font-family:var(--font-body);font-size:12px;color:var(--muted);text-align:center;padding:12px">${t('pf_no_race_yet')}</div>`}
       </div>`;
     })()}
 
     <div class="profile-section">
-      <div class="profile-section-title">Dados pessoais</div>
-      <div class="profile-field"><label>Nome</label><input id="pf-nome" value="${prof.name||''}"></div>
+      <div class="profile-section-title">${t('pf_personal_data')}</div>
+      <div class="profile-field"><label>${t('pf_name')}</label><input id="pf-nome" value="${prof.name||''}"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
-        <div class="profile-field"><label>Idade</label><input id="pf-idade" type="number" placeholder="ex: 35" value="${prof.age||''}"></div>
-        <div class="profile-field"><label>Peso (kg)</label><input id="pf-peso" type="number" placeholder="ex: 78" value="${prof.weight||''}"></div>
-        <div class="profile-field"><label>Altura (cm)</label><input id="pf-altura" type="number" placeholder="ex: 175" value="${prof.altura||''}"></div>
+        <div class="profile-field"><label>${t('pf_age')}</label><input id="pf-idade" type="number" placeholder="ex: 35" value="${prof.age||''}"></div>
+        <div class="profile-field"><label>${t('pf_weight')}</label><input id="pf-peso" type="number" placeholder="ex: 78" value="${prof.weight||''}"></div>
+        <div class="profile-field"><label>${t('pf_height')}</label><input id="pf-altura" type="number" placeholder="ex: 175" value="${prof.altura||''}"></div>
       </div>
-      <div class="profile-field"><label>Cidade</label><input id="pf-cidade" value="${prof.city||''}"></div>
-      <div class="profile-field"><label>Sexo</label>
+      <div class="profile-field"><label>${t('pf_city')}</label><input id="pf-cidade" value="${prof.city||''}"></div>
+      <div class="profile-field"><label>${t('pf_gender')}</label>
         <select id="pf-sexo">
-          <option value="" ${!prof.sexo?'selected':''}>Prefiro não dizer</option>
-          <option value="M" ${prof.sexo==='M'?'selected':''}>Masculino</option>
-          <option value="F" ${prof.sexo==='F'?'selected':''}>Feminino</option>
-          <option value="NB" ${prof.sexo==='NB'?'selected':''}>Não binario</option>
+          <option value="" ${!prof.sexo?'selected':''}>${t('pf_gender_prefer_not')}</option>
+          <option value="M" ${prof.sexo==='M'?'selected':''}>${t('pf_gender_male')}</option>
+          <option value="F" ${prof.sexo==='F'?'selected':''}>${t('pf_gender_female')}</option>
+          <option value="NB" ${prof.sexo==='NB'?'selected':''}>${t('pf_gender_nb')}</option>
         </select>
       </div>
     </div>
 
     <div class="profile-section">
-      <div class="profile-section-title">Esporte</div>
-      <div class="profile-field"><label>Modalidade principal</label>
+      <div class="profile-section-title">${t('pf_sport_title')}</div>
+      <div class="profile-field"><label>${t('pf_main_sport')}</label>
         <select id="pf-modalidade" onchange="renderProfile()">
-          <option value="triathlon" ${prof.sport==='triathlon'?'selected':''}>Triathlon</option>
-          <option value="corrida" ${prof.sport==='corrida'?'selected':''}>Corrida</option>
-          <option value="ciclismo" ${prof.sport==='ciclismo'?'selected':''}>Ciclismo</option>
-          <option value="natacao" ${prof.sport==='natacao'?'selected':''}>Natação</option>
-          <option value="duathlon" ${prof.sport==='duathlon'?'selected':''}>Duathlon</option>
+          <option value="triathlon" ${prof.sport==='triathlon'?'selected':''}>${t('sport_triathlon')}</option>
+          <option value="corrida" ${prof.sport==='corrida'?'selected':''}>${t('sport_corrida')}</option>
+          <option value="ciclismo" ${prof.sport==='ciclismo'?'selected':''}>${t('sport_ciclismo')}</option>
+          <option value="natacao" ${prof.sport==='natacao'?'selected':''}>${t('sport_natacao')}</option>
+          <option value="duathlon" ${prof.sport==='duathlon'?'selected':''}>${t('sport_duathlon')}</option>
         </select>
       </div>
       ${(()=>{
         const sport=prof.sport||'triathlon';
         const dists=Object.keys(DIST_INFO).filter(k=>DIST_INFO[k].sport===sport);
-        return `<div class="profile-field"><label>Distancia preferida</label>
+        return `<div class="profile-field"><label>${t('pf_preferred_distance')}</label>
         <select id="pf-distancia">
           ${dists.map(d=>`<option value="${d}" ${prof.raceDist===d?'selected':''}>${DIST_INFO[d].label} (${DIST_INFO[d].sub})</option>`).join('')}
         </select>
@@ -8289,84 +8469,84 @@ function renderProfile(){
     </div>
 
     <div class="profile-section">
-      <div class="profile-section-title">Nível por modalidade</div>
+      <div class="profile-section-title">${t('pf_level_title')}</div>
       ${(()=>{
         const sport=prof.sport||'triathlon';
         const levelOpts=(val,id)=>`<select id="${id}">
-          <option value="beginner" ${val==='beginner'?'selected':''}>Iniciante</option>
-          <option value="intermediate" ${val==='intermediate'?'selected':''}>Intermediario</option>
-          <option value="advanced" ${val==='advanced'?'selected':''}>Avancado</option>
+          <option value="beginner" ${val==='beginner'?'selected':''}>${t('pf_level_beginner')}</option>
+          <option value="intermediate" ${val==='intermediate'?'selected':''}>${t('pf_level_intermediate')}</option>
+          <option value="advanced" ${val==='advanced'?'selected':''}>${t('pf_level_advanced')}</option>
         </select>`;
         let html='';
         if(sport==='triathlon'||sport==='duathlon'){
           if(sport==='triathlon'){
-            html+=`<div class="profile-field"><label>Natação</label>${levelOpts(prof.swimLevel,'pf-swimlevel')}</div>`;
+            html+=`<div class="profile-field"><label>${t('pf_swim_label')}</label>${levelOpts(prof.swimLevel,'pf-swimlevel')}</div>`;
           }
-          html+=`<div class="profile-field"><label>Bike</label>${levelOpts(prof.bikeLevel,'pf-bikelevel')}</div>`;
-          html+=`<div class="profile-field"><label>Corrida</label>${levelOpts(prof.runLevel,'pf-runlevel')}</div>`;
+          html+=`<div class="profile-field"><label>${t('pf_bike_label')}</label>${levelOpts(prof.bikeLevel,'pf-bikelevel')}</div>`;
+          html+=`<div class="profile-field"><label>${t('pf_run_label')}</label>${levelOpts(prof.runLevel,'pf-runlevel')}</div>`;
         } else if(sport==='corrida'){
-          html+=`<div class="profile-field"><label>Corrida</label>${levelOpts(prof.runLevel,'pf-runlevel')}</div>`;
+          html+=`<div class="profile-field"><label>${t('pf_run_label')}</label>${levelOpts(prof.runLevel,'pf-runlevel')}</div>`;
         } else if(sport==='ciclismo'){
-          html+=`<div class="profile-field"><label>Ciclismo</label>${levelOpts(prof.bikeLevel,'pf-bikelevel')}</div>`;
+          html+=`<div class="profile-field"><label>${t('pf_bike_label')}</label>${levelOpts(prof.bikeLevel,'pf-bikelevel')}</div>`;
         } else if(sport==='natacao'){
-          html+=`<div class="profile-field"><label>Natação</label>${levelOpts(prof.swimLevel,'pf-swimlevel')}</div>`;
+          html+=`<div class="profile-field"><label>${t('pf_swim_label')}</label>${levelOpts(prof.swimLevel,'pf-swimlevel')}</div>`;
         }
         return html;
       })()}
     </div>
 
     <div class="profile-section">
-      <div class="profile-section-title">Performance</div>
+      <div class="profile-section-title">${t('pf_performance_title')}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         ${(()=>{
           const sport=prof.sport||'triathlon';
           let fields='';
           if(sport==='triathlon'||sport==='corrida'||sport==='duathlon'){
-            fields+=`<div class="profile-field"><label>Pace/km</label><input id="pf-pace" placeholder="ex: 5:30" value="${prof.pace||''}"></div>`;
+            fields+=`<div class="profile-field"><label>${t('pf_pace_label')}</label><input id="pf-pace" placeholder="ex: 5:30" value="${prof.pace||''}"></div>`;
           }
           if(sport==='triathlon'||sport==='ciclismo'||sport==='duathlon'){
-            fields+=`<div class="profile-field"><label>FTP (w)</label><input id="pf-ftp" placeholder="ex: 220" value="${prof.ftp||''}"></div>`;
+            fields+=`<div class="profile-field"><label>${t('pf_ftp_label')}</label><input id="pf-ftp" placeholder="ex: 220" value="${prof.ftp||''}"></div>`;
           }
           if(sport==='triathlon'||sport==='natacao'){
-            fields+=`<div class="profile-field"><label>Nado/100m</label><input id="pf-swim" placeholder="ex: 1:45" value="${prof.swim||''}"></div>`;
+            fields+=`<div class="profile-field"><label>${t('pf_swim100_label')}</label><input id="pf-swim" placeholder="ex: 1:45" value="${prof.swim||''}"></div>`;
           }
-          fields+=`<div class="profile-field"><label>FC Max (bpm)</label><input id="pf-fcmax" type="number" placeholder="ex: 180" value="${prof.fcMax||''}"></div>`;
+          fields+=`<div class="profile-field"><label>${t('pf_fcmax_label')}</label><input id="pf-fcmax" type="number" placeholder="ex: 180" value="${prof.fcMax||''}"></div>`;
           return fields;
         })()}
       </div>
-      <div class="profile-field"><label>Próxima prova</label><input id="pf-race" placeholder="Sprint Guaruja, Set/26" value="${prof.nextRace||''}"></div>
+      <div class="profile-field"><label>${t('pf_next_race_label')}</label><input id="pf-race" placeholder="Sprint Guaruja, Set/26" value="${prof.nextRace||''}"></div>
     </div>
 
     <div class="profile-section">
-      <div class="profile-section-title">Clube da Meia Azul</div>
-      <div class="profile-field"><label>Bio</label><textarea id="pf-bio" placeholder="Conta um pouco sobre você...">${prof.bio||''}</textarea></div>
-      <div class="profile-field"><label>Interesses fora do esporte</label><input id="pf-interests" placeholder="trilha, viagem, gastronomia, musica..." value="${prof.interests||''}"></div>
-      <div class="profile-field"><label>Procuro</label>
+      <div class="profile-section-title">${t('pf_club_azul_title')}</div>
+      <div class="profile-field"><label>${t('pf_bio_label')}</label><textarea id="pf-bio" placeholder="${t('pf_bio_placeholder')}">${prof.bio||''}</textarea></div>
+      <div class="profile-field"><label>${t('pf_interests_label')}</label><input id="pf-interests" placeholder="${t('pf_interests_placeholder')}" value="${prof.interests||''}"></div>
+      <div class="profile-field"><label>${t('pf_looking_for_label')}</label>
         <select id="pf-busca">
-          <option value="F" ${prof.busca==='F'?'selected':''}>Mulheres</option>
-          <option value="M" ${prof.busca==='M'?'selected':''}>Homens</option>
-          <option value="A" ${prof.busca==='A'?'selected':''}>Todos</option>
+          <option value="F" ${prof.busca==='F'?'selected':''}>${t('pf_looking_women')}</option>
+          <option value="M" ${prof.busca==='M'?'selected':''}>${t('pf_looking_men')}</option>
+          <option value="A" ${prof.busca==='A'?'selected':''}>${t('pf_looking_all')}</option>
         </select>
       </div>
     </div>
     <div class="profile-section" style="margin-top:8px">
-      <div class="profile-section-title" style="color:var(--accent)">Plano</div>
-      <button onclick="closeProfile();showPlanSummary(getMytriProfile())" style="width:100%;padding:14px;background:rgba(0,230,118,.08);border:1px solid var(--accent);color:var(--accent);font-family:var(--font-ui);font-size:11px;letter-spacing:1.5px;border-radius:4px;cursor:pointer;margin-bottom:16px">VER RESUMO DO PLANO</button>
+      <div class="profile-section-title" style="color:var(--accent)">${t('pf_plan_title')}</div>
+      <button onclick="closeProfile();showPlanSummary(getMytriProfile())" style="width:100%;padding:14px;background:rgba(0,230,118,.08);border:1px solid var(--accent);color:var(--accent);font-family:var(--font-ui);font-size:11px;letter-spacing:1.5px;border-radius:4px;cursor:pointer;margin-bottom:16px">${t('pf_view_plan_summary')}</button>
     </div>
     <div class="profile-section" style="margin-top:8px">
-      <div class="profile-section-title" style="color:var(--muted)">Momentos</div>
-      <div id="profile-momentos" style="font-family:var(--font-body);font-size:12px;color:var(--muted);padding:12px 0">Carregando...</div>
+      <div class="profile-section-title" style="color:var(--muted)">${t('pf_moments_title')}</div>
+      <div id="profile-momentos" style="font-family:var(--font-body);font-size:12px;color:var(--muted);padding:12px 0">${t('pf_loading')}</div>
     </div>
     <div class="profile-section" style="margin-top:8px">
-      <div class="profile-section-title" style="color:var(--muted)">Loja</div>
+      <div class="profile-section-title" style="color:var(--muted)">${t('pf_store_title')}</div>
       <div style="margin-bottom:16px;padding:16px;background:var(--surface);border:1px solid var(--border);border-radius:10px;display:flex;align-items:center;gap:14px">
         <div style="width:44px;height:44px;border-radius:10px;background:rgba(255,153,0,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#ff9900"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2l1.5 4h9L18 2"/><path d="M3 6h18l-1.5 13a2 2 0 0 1-2 2H6.5a2 2 0 0 1-2-2L3 6z"/><path d="M9 10a3 3 0 0 0 6 0"/></svg></div>
         <div style="flex:1">
-          <div style="font-family:var(--font-ui);font-size:13px;font-weight:700;color:var(--text);letter-spacing:.3px;margin-bottom:2px">MINHA LOJA</div>
-          <div style="font-family:var(--font-body);font-size:12px;color:var(--muted2);line-height:1.4">Os equipamentos que eu uso, direto na Amazon.</div>
+          <div style="font-family:var(--font-ui);font-size:13px;font-weight:700;color:var(--text);letter-spacing:.3px;margin-bottom:2px">${t('pf_my_store')}</div>
+          <div style="font-family:var(--font-body);font-size:12px;color:var(--muted2);line-height:1.4">${t('pf_store_desc')}</div>
         </div>
       </div>
-      <button onclick="window.open('${MY_STORE_URL}','_blank')" ${MY_STORE_URL?'':'disabled'} style="width:100%;padding:14px;background:${MY_STORE_URL?'rgba(255,153,0,0.1)':'var(--surface)'};border:1px solid ${MY_STORE_URL?'rgba(255,153,0,0.4)':'var(--border)'};color:${MY_STORE_URL?'#ff9900':'var(--muted)'};font-family:var(--font-ui);font-size:11px;letter-spacing:1.5px;border-radius:4px;cursor:${MY_STORE_URL?'pointer':'not-allowed'};margin-bottom:12px">VER NA AMAZON</button>
+      <button onclick="window.open('${MY_STORE_URL}','_blank')" ${MY_STORE_URL?'':'disabled'} style="width:100%;padding:14px;background:${MY_STORE_URL?'rgba(255,153,0,0.1)':'var(--surface)'};border:1px solid ${MY_STORE_URL?'rgba(255,153,0,0.4)':'var(--border)'};color:${MY_STORE_URL?'#ff9900':'var(--muted)'};font-family:var(--font-ui);font-size:11px;letter-spacing:1.5px;border-radius:4px;cursor:${MY_STORE_URL?'pointer':'not-allowed'};margin-bottom:12px">${t('pf_view_amazon')}</button>
       ${MY_PRODUCTS.length?`<div style="border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:24px">
         ${MY_PRODUCTS.map((p,i)=>`<div onclick="window.open('${p.url}','_blank')" style="display:flex;align-items:center;justify-content:space-between;padding:13px 16px;cursor:pointer;${i<MY_PRODUCTS.length-1?'border-bottom:1px solid var(--border)':''}">
           <span style="font-family:var(--font-body);font-size:13px;color:var(--text)">${p.name}</span>
@@ -8414,19 +8594,44 @@ async function loadProfileMomentos(){
     // Anel colorido tipo Instagram Stories no avatar so aparece se tiver Instant proprio
     // (nao conta check-in de grupo pra isso — o anel e especificamente sobre os Instants
     // pessoais adicionados pelo botao colorido).
+    if(!rMoments.ok){ const errBody=await rMoments.text().catch(()=>''); console.error('mytri_moments fetch falhou:',rMoments.status,errBody); }
     if(ring)ring.style.background=moments.length?'linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)':'var(--bg)';
     if(!rows.length){
       box.innerHTML='<div style="text-align:center;padding:20px 0;color:var(--muted)">Nenhum momento ainda. Toque no + colorido no avatar, ou faca um check-in com foto num grupo do Clube da Meia Branca.</div>';
       return;
     }
+    window._momentosUrls=rows.map(r=>r.foto_url);
     box.innerHTML=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding-top:6px">
-      ${rows.map((ck,i)=>`<div style="aspect-ratio:1;border-radius:6px;overflow:hidden;border:3px solid #fff;box-shadow:0 3px 10px rgba(0,0,0,0.4);transform:rotate(${i%2===0?'-2deg':'2deg'})">
-        <img src="${ck.foto_url}" style="width:100%;height:100%;object-fit:cover" loading="lazy">
+      ${rows.map((ck,i)=>`<div onclick="viewMoment(${i})" style="cursor:pointer;aspect-ratio:1;border-radius:6px;overflow:hidden;border:3px solid #fff;box-shadow:0 3px 10px rgba(0,0,0,0.4);transform:rotate(${i%2===0?'-2deg':'2deg'})">
+        <img src="${ck.foto_url}" style="width:100%;height:100%;object-fit:cover;pointer-events:none" loading="lazy">
       </div>`).join('')}
     </div>`;
   }catch(e){
     box.innerHTML='<div style="text-align:center;padding:20px 0;color:var(--muted)">Nao consegui carregar os momentos agora.</div>';
   }
+}
+// Abre um Instant em tela cheia (estilo visualizador de Stories), com navegacao entre fotos.
+function viewMoment(idx){
+  const urls=window._momentosUrls||[];
+  if(!urls.length)return;
+  let i=Math.max(0,Math.min(idx,urls.length-1));
+  const overlay=document.createElement('div');
+  overlay.style.cssText='position:fixed;inset:0;z-index:900;background:rgba(0,0,0,0.95);display:flex;align-items:center;justify-content:center';
+  function render(){
+    overlay.innerHTML=`
+      <div onclick="event.stopPropagation()" style="position:relative;max-width:520px;width:100%;padding:0 16px">
+        <img src="${urls[i]}" style="width:100%;max-height:80vh;object-fit:contain;border-radius:8px">
+        ${urls.length>1?`<div style="display:flex;justify-content:center;gap:6px;margin-top:14px">${urls.map((_,j)=>`<div style="width:${j===i?'18px':'6px'};height:6px;border-radius:3px;background:${j===i?'var(--accent)':'rgba(255,255,255,0.3)'};transition:width .2s"></div>`).join('')}</div>`:''}
+      </div>
+      ${i>0?`<div onclick="event.stopPropagation();window._momentViewIdx=${i-1};document.getElementById('moment-viewer').remove();viewMoment(${i-1})" style="position:absolute;left:0;top:0;bottom:0;width:30%;cursor:pointer"></div>`:''}
+      ${i<urls.length-1?`<div onclick="event.stopPropagation();document.getElementById('moment-viewer').remove();viewMoment(${i+1})" style="position:absolute;right:0;top:0;bottom:0;width:30%;cursor:pointer"></div>`:''}
+      <button onclick="document.getElementById('moment-viewer').remove()" style="position:absolute;top:20px;right:20px;background:rgba(255,255,255,0.15);border:none;color:#fff;width:36px;height:36px;border-radius:50%;font-size:18px;cursor:pointer">&times;</button>
+    `;
+  }
+  overlay.id='moment-viewer';
+  overlay.onclick=()=>overlay.remove();
+  document.body.appendChild(overlay);
+  render();
 }
 // Adiciona um Instant pessoal: foto crua, sem edicao, direto no proprio perfil — o botao
 // colorido (gradiente Instagram) do canto superior esquerdo do avatar.
