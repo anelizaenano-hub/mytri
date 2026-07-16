@@ -59,6 +59,40 @@ async function verifyAuth(event) {
   } catch (e) { return null; }
 }
 
+// Memoria compartilhada de provas ja encontradas em buscas anteriores — torna a busca mais
+// consistente, ja que a busca ao vivo por IA nao e 100% deterministica (pode achar uma prova
+// numa tentativa e nao achar na proxima). Uma vez encontrada, a prova fica "grudada" pra
+// sempre nas buscas futuras daquela regiao/modalidade.
+async function fetchKnownRaces(state, sport) {
+  try {
+    const todayStr = new Date().toISOString().slice(0, 10);
+    let url = `${SUPABASE_URL}/rest/v1/mytri_known_races?select=*&race_date=gte.${todayStr}&order=race_date.asc&limit=30`;
+    if (sport) url += `&sport=eq.${encodeURIComponent(sport)}`;
+    if (state) url += `&state=ilike.*${encodeURIComponent(state)}*`;
+    const r = await fetch(url, { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` } });
+    if (!r.ok) return [];
+    return await r.json();
+  } catch (e) { return []; }
+}
+async function saveKnownRaces(races, sport, state) {
+  const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!SERVICE_KEY || !races.length) return;
+  try {
+    const rows = races.map(r => ({
+      name: r.name, race_date: r.date, city: r.local, state: state || null,
+      url: r.url || null, sport, distance: r.dist || null,
+    }));
+    await fetch(`${SUPABASE_URL}/rest/v1/mytri_known_races?on_conflict=name,race_date`, {
+      method: 'POST',
+      headers: {
+        apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`,
+        'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates',
+      },
+      body: JSON.stringify(rows),
+    });
+  } catch (e) { /* cache e um bonus, nao pode quebrar a busca principal se falhar */ }
+}
+
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Method Not Allowed' };
 
@@ -81,6 +115,10 @@ exports.handler = async (event) => {
   const monthsAhead = body.monthsAhead || 8;
   const today = new Date().toISOString().slice(0, 10);
   const regionStr = state ? `${location} (estado: ${state})` : location;
+
+  // Busca primeiro o que ja foi encontrado antes (memoria compartilhada) — isso roda em
+  // paralelo com a preparacao da busca ao vivo, sem atrasar a resposta.
+  const knownRacesPromise = fetchKnownRaces(state, sport);
 
   const prompt = `Busque na web provas REAIS e confirmadas de ${sportName}${distLabel ? ` na distância/categoria "${distLabel}"` : ''} que acontecerão a partir de hoje (${today}) nos próximos ${monthsAhead} meses.
 
@@ -179,8 +217,27 @@ Regras:
           else if (!obj) error = 'Nao consegui extrair a lista de provas da resposta. Tente buscar de novo.';
         }
 
-        resolve({ statusCode: 200, headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(error ? { races, error } : { races }) });
+        // Mescla com a memoria de provas ja encontradas antes (mesmo nome+data nao duplica),
+        // e salva as novas encontradas agora pra ficarem disponiveis nas proximas buscas —
+        // e isso que torna a busca consistente ao longo do tempo, nao so na hora.
+        knownRacesPromise.then(known => {
+          const seen = new Set(races.map(r => `${r.name}|${r.date}`));
+          const merged = [...races];
+          for (const k of known) {
+            const key = `${k.name}|${k.race_date}`;
+            if (!seen.has(key)) {
+              seen.add(key);
+              merged.push({ name: k.name, date: k.race_date, local: k.city || '', url: k.url || '', dist: k.distance || '', sport, scope: 'nacional' });
+            }
+          }
+          merged.sort((a, b) => a.date < b.date ? -1 : 1);
+          saveKnownRaces(races, sport, state).catch(() => {});
+          resolve({ statusCode: 200, headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(error ? { races: merged, error } : { races: merged }) });
+        }).catch(() => {
+          resolve({ statusCode: 200, headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(error ? { races, error } : { races }) });
+        });
       });
     });
     req.on('error', (e) => resolve({ statusCode: 200, headers: { 'Content-Type': 'application/json' },
