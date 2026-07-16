@@ -2220,8 +2220,10 @@ function switchTab(tab){
   if(tab!=='club')clubTabView=null;
   if(tab==='perfil'){
     openProfile();
-    setTimeout(_resetScroll,50);
-    setTimeout(_resetScroll,200);
+    const _resetProfileScroll=()=>{ const vp=document.getElementById('view-profile'); if(vp)vp.scrollTop=0; };
+    _resetProfileScroll();
+    setTimeout(_resetProfileScroll,50);
+    setTimeout(_resetProfileScroll,200);
     return;
   }
   document.querySelectorAll('.view').forEach(v=>{
@@ -6520,8 +6522,10 @@ Seja específico com medidas (cm) e explique o porquê de cada ajuste. Responda 
 
 IMPORTANTE: Responda em texto limpo, sem markdown, sem asteriscos, sem hashtags, sem emojis, sem tabelas. Use apenas texto simples. Para titulos use letras maiusculas seguidas de dois pontos. Exemplo: ALTURA DO SELIM:
 
-Depois de TODO o texto acima, na ÚLTIMA linha da resposta (sozinha, nada antes ou depois), inclua um resumo estruturado neste formato EXATO (números em cm, sem unidade, só o número; use "" se algum dado não se aplica):
-RESUMO_JSON:{"selim_atual":"${selim||''}","selim_ideal":"NUM","selim_recuo":"NUM","guidao_atual":"${guidao||''}","guidao_ideal":"NUM","alcance_guidao":"NUM"}`;
+CRITICO — ORDEM DA RESPOSTA: a PRIMEIRA linha da sua resposta (sozinha, antes de qualquer outro texto) deve ser o resumo estruturado abaixo, com os números que você calculou. Só DEPOIS disso escreva todo o texto explicativo. Isso é importante porque se a resposta for cortada por limite de tamanho, o resumo precisa ter sobrevivido — nunca deixe o resumo pro final:
+RESUMO_JSON:{"selim_atual":"${selim||''}","selim_ideal":"NUM","selim_recuo":"NUM","guidao_atual":"${guidao||''}","guidao_ideal":"NUM","alcance_guidao":"NUM"}
+
+Depois dessa linha, escreva todo o texto explicativo normalmente.`;
 
   try{
     const resp=await authedFetch('/.netlify/functions/bike-fit',{
@@ -7034,7 +7038,7 @@ function renderMeiaBrancaGroup(){
 
       ${checkins.length?`<div style="font-family:var(--font-ui);font-size:11px;color:var(--muted);letter-spacing:1.5px;margin:26px 0 10px">ATIVIDADE RECENTE</div>
       ${checkins.map((ck,i)=>`<div style="display:flex;gap:14px;padding:10px 4px;border-bottom:1px solid var(--border)">
-        ${ck.foto_url?`<img src="${ck.foto_url}" style="width:56px;height:56px;border-radius:4px;object-fit:cover;flex-shrink:0;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.35);transform:rotate(${i%2===0?'-3deg':'2deg'})">`:`<div style="width:52px;height:52px;border-radius:8px;background:var(--surface);border:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.8"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>`}
+        ${ck.foto_url?`<img src="${ck.foto_url}" style="width:64px;height:64px;border-radius:6px;object-fit:cover;flex-shrink:0;border:3px solid #fff;box-shadow:0 3px 10px rgba(0,0,0,0.4);transform:rotate(${i%2===0?'-3deg':'2deg'})">`:`<div style="width:64px;height:64px;border-radius:8px;background:var(--surface);border:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.8"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>`}
         <div style="flex:1;min-width:0">
           <div style="font-family:var(--font-ui);font-size:12px;color:var(--text);font-weight:700">${nomeById[ck.user_id]||'Atleta'} <span style="color:var(--accent);font-weight:400">+${ck.pontos}</span></div>
           <div style="font-family:var(--font-body);font-size:11px;color:var(--muted2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${ck.nota||''}</div>
@@ -8242,8 +8246,8 @@ function renderProfile(){
       <div class="profile-section-title">Dados pessoais</div>
       <div class="profile-field"><label>Nome</label><input id="pf-nome" value="${prof.name||''}"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
-        <div class="profile-field"><label>Idade</label><input id="pf-idade" type="number" value="${prof.age||''}"></div>
-        <div class="profile-field"><label>Peso (kg)</label><input id="pf-peso" type="number" value="${prof.weight||''}"></div>
+        <div class="profile-field"><label>Idade</label><input id="pf-idade" type="number" placeholder="ex: 35" value="${prof.age||''}"></div>
+        <div class="profile-field"><label>Peso (kg)</label><input id="pf-peso" type="number" placeholder="ex: 78" value="${prof.weight||''}"></div>
         <div class="profile-field"><label>Altura (cm)</label><input id="pf-altura" type="number" placeholder="ex: 175" value="${prof.altura||''}"></div>
       </div>
       <div class="profile-field"><label>Cidade</label><input id="pf-cidade" value="${prof.city||''}"></div>
@@ -8321,6 +8325,7 @@ function renderProfile(){
           if(sport==='triathlon'||sport==='natacao'){
             fields+=`<div class="profile-field"><label>Nado/100m</label><input id="pf-swim" placeholder="ex: 1:45" value="${prof.swim||''}"></div>`;
           }
+          fields+=`<div class="profile-field"><label>FC Max (bpm)</label><input id="pf-fcmax" type="number" placeholder="ex: 180" value="${prof.fcMax||''}"></div>`;
           return fields;
         })()}
       </div>
@@ -8342,6 +8347,10 @@ function renderProfile(){
     <div class="profile-section" style="margin-top:8px">
       <div class="profile-section-title" style="color:var(--accent)">Plano</div>
       <button onclick="closeProfile();showPlanSummary(getMytriProfile())" style="width:100%;padding:14px;background:rgba(0,230,118,.08);border:1px solid var(--accent);color:var(--accent);font-family:var(--font-ui);font-size:11px;letter-spacing:1.5px;border-radius:4px;cursor:pointer;margin-bottom:16px">VER RESUMO DO PLANO</button>
+    </div>
+    <div class="profile-section" style="margin-top:8px">
+      <div class="profile-section-title" style="color:var(--muted)">Momentos</div>
+      <div id="profile-momentos" style="font-family:var(--font-body);font-size:12px;color:var(--muted);padding:12px 0">Carregando...</div>
     </div>
     <div class="profile-section" style="margin-top:8px">
       <div class="profile-section-title" style="color:var(--muted)">Loja</div>
@@ -8378,6 +8387,31 @@ function renderProfile(){
       <button onclick="resetFitTerms()" style="width:100%;padding:14px;background:none;border:1px solid var(--border);color:var(--muted);font-family:var(--font-ui);font-size:11px;letter-spacing:1.5px;border-radius:4px;cursor:pointer">RESETAR BIKE FIT AVISO</button>
     </div>
     <div style="height:20px"></div>`;
+  loadProfileMomentos();
+}
+// Galeria "Momentos" no Perfil — reaproveita as fotos que a pessoa ja tirou nos check-ins do
+// Meia Branca, num lugar so, no proprio perfil (estilo Instant: cru, sem edicao).
+async function loadProfileMomentos(){
+  const box=document.getElementById('profile-momentos');
+  if(!box)return;
+  const uid=currentUserId();
+  if(!uid){ box.innerHTML='<div style="text-align:center;padding:20px 0;color:var(--muted)">Entre em um grupo do Clube da Meia Branca e faca check-ins com foto pra ver seus momentos aqui.</div>'; return; }
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/mytri_group_checkins?user_id=eq.${uid}&foto_url=not.is.null&select=foto_url,nota,created_at&order=created_at.desc&limit=12`,{headers:sbHeaders()});
+    const rows=r.ok?await r.json():[];
+    if(!box)return; // pessoa pode ter saido do Perfil enquanto isso carregava
+    if(!rows.length){
+      box.innerHTML='<div style="text-align:center;padding:20px 0;color:var(--muted)">Nenhum momento ainda. Faca um check-in com foto num grupo do Clube da Meia Branca.</div>';
+      return;
+    }
+    box.innerHTML=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding-top:6px">
+      ${rows.map((ck,i)=>`<div style="aspect-ratio:1;border-radius:6px;overflow:hidden;border:3px solid #fff;box-shadow:0 3px 10px rgba(0,0,0,0.4);transform:rotate(${i%2===0?'-2deg':'2deg'})">
+        <img src="${ck.foto_url}" style="width:100%;height:100%;object-fit:cover" loading="lazy">
+      </div>`).join('')}
+    </div>`;
+  }catch(e){
+    box.innerHTML='<div style="text-align:center;padding:20px 0;color:var(--muted)">Nao consegui carregar os momentos agora.</div>';
+  }
 }
 
 function resetOnboarding(){
@@ -8515,6 +8549,7 @@ function submitProfile(){
     pace:getVal('pf-pace').trim(),
     ftp:getVal('pf-ftp').trim(),
     swim:getVal('pf-swim').trim(),
+    fcMax:getVal('pf-fcmax').trim(),
     nextRace:getVal('pf-race').trim(),
     bio:getVal('pf-bio').trim(),
     interests:getVal('pf-interests').trim(),
@@ -9568,7 +9603,7 @@ function renderObFitness(c){
       <div style="margin-bottom:16px">
         <div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;margin-bottom:10px">FC MÁXIMA (bpm)</div>
         <div style="display:flex;align-items:center;gap:16px">
-          <input id="ob-fcmax" type="number" placeholder="180" value="${obData.fcMax||''}" oninput="obData.fcMax=this.value" style="flex:1;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-display);font-size:28px;padding:14px;border-radius:4px;text-align:center">
+          <input id="ob-fcmax" type="number" placeholder="ex: 180" value="${obData.fcMax||''}" oninput="obData.fcMax=this.value" style="flex:1;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-display);font-size:28px;padding:14px;border-radius:4px;text-align:center">
           <div style="font-family:var(--font-body);font-size:12px;color:var(--muted2);line-height:1.5">Não sabe?<br>Use 220<br>menos<br>sua idade</div>
         </div>
         <div style="font-family:var(--font-body);font-size:11px;color:var(--muted);margin-top:8px">
