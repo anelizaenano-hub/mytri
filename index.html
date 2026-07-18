@@ -593,7 +593,7 @@ const I18N={
     pf_running:'CORRIDA', pf_bike:'BIKE', pf_swimming:'NATAÇÃO', pf_view_achievements:'VER HALL DE CONQUISTAS COMPLETO',
     pf_races_title:'Provas', pf_next_race_registered:'PRÓXIMA PROVA INSCRITA', pf_no_race_yet:'Nenhuma prova inscrita ainda.',
     pf_personal_data:'Dados pessoais', pf_name:'Nome', pf_age:'Idade', pf_weight:'Peso (kg)', pf_height:'Altura (cm)',
-    pf_city:'Cidade', pf_gender:'Sexo', pf_gender_prefer_not:'Prefiro não dizer', pf_gender_male:'Masculino',
+    pf_neighborhood:'Bairro', pf_city:'Cidade', pf_gender:'Sexo', pf_gender_prefer_not:'Prefiro não dizer', pf_gender_male:'Masculino',
     pf_gender_female:'Feminino', pf_gender_nb:'Não binario',
     pf_sport_title:'Esporte', pf_main_sport:'Modalidade principal', pf_preferred_distance:'Distancia preferida',
     pf_level_title:'Nível por modalidade', pf_swim_label:'Natação', pf_bike_label:'Bike', pf_run_label:'Corrida',
@@ -675,7 +675,7 @@ const I18N={
     pf_running:'RUN', pf_bike:'BIKE', pf_swimming:'SWIM', pf_view_achievements:'VIEW FULL ACHIEVEMENT HALL',
     pf_races_title:'Races', pf_next_race_registered:'NEXT REGISTERED RACE', pf_no_race_yet:'No race registered yet.',
     pf_personal_data:'Personal data', pf_name:'Name', pf_age:'Age', pf_weight:'Weight (kg)', pf_height:'Height (cm)',
-    pf_city:'City', pf_gender:'Gender', pf_gender_prefer_not:'Prefer not to say', pf_gender_male:'Male',
+    pf_neighborhood:'Neighborhood', pf_city:'City', pf_gender:'Gender', pf_gender_prefer_not:'Prefer not to say', pf_gender_male:'Male',
     pf_gender_female:'Female', pf_gender_nb:'Non-binary',
     pf_sport_title:'Sport', pf_main_sport:'Main sport', pf_preferred_distance:'Preferred distance',
     pf_level_title:'Level by discipline', pf_swim_label:'Swim', pf_bike_label:'Bike', pf_run_label:'Run',
@@ -757,7 +757,7 @@ const I18N={
     pf_running:'CARRERA', pf_bike:'BICI', pf_swimming:'NATACIÓN', pf_view_achievements:'VER SALÓN DE LOGROS COMPLETO',
     pf_races_title:'Carreras', pf_next_race_registered:'PRÓXIMA CARRERA INSCRITA', pf_no_race_yet:'Aún no hay carreras inscritas.',
     pf_personal_data:'Datos personales', pf_name:'Nombre', pf_age:'Edad', pf_weight:'Peso (kg)', pf_height:'Altura (cm)',
-    pf_city:'Ciudad', pf_gender:'Sexo', pf_gender_prefer_not:'Prefiero no decir', pf_gender_male:'Masculino',
+    pf_neighborhood:'Barrio', pf_city:'Ciudad', pf_gender:'Sexo', pf_gender_prefer_not:'Prefiero no decir', pf_gender_male:'Masculino',
     pf_gender_female:'Femenino', pf_gender_nb:'No binario',
     pf_sport_title:'Deporte', pf_main_sport:'Deporte principal', pf_preferred_distance:'Distancia preferida',
     pf_level_title:'Nivel por disciplina', pf_swim_label:'Natación', pf_bike_label:'Bici', pf_run_label:'Carrera',
@@ -843,7 +843,7 @@ const I18N={
     pf_running:'跑步', pf_bike:'骑行', pf_swimming:'游泳', pf_view_achievements:'查看全部成就',
     pf_races_title:'比赛', pf_next_race_registered:'已报名的下一场比赛', pf_no_race_yet:'尚未报名任何比赛。',
     pf_personal_data:'个人资料', pf_name:'姓名', pf_age:'年龄', pf_weight:'体重 (kg)', pf_height:'身高 (cm)',
-    pf_city:'城市', pf_gender:'性别', pf_gender_prefer_not:'不愿透露', pf_gender_male:'男',
+    pf_neighborhood:'街区', pf_city:'城市', pf_gender:'性别', pf_gender_prefer_not:'不愿透露', pf_gender_male:'男',
     pf_gender_female:'女', pf_gender_nb:'非二元性别',
     pf_sport_title:'运动项目', pf_main_sport:'主要项目', pf_preferred_distance:'偏好距离',
     pf_level_title:'各项目水平', pf_swim_label:'游泳', pf_bike_label:'骑行', pf_run_label:'跑步',
@@ -925,7 +925,7 @@ const I18N={
     pf_running:'러닝', pf_bike:'자전거', pf_swimming:'수영', pf_view_achievements:'전체 업적 보기',
     pf_races_title:'대회', pf_next_race_registered:'등록된 다음 대회', pf_no_race_yet:'아직 등록된 대회가 없습니다.',
     pf_personal_data:'개인 정보', pf_name:'이름', pf_age:'나이', pf_weight:'체중 (kg)', pf_height:'신장 (cm)',
-    pf_city:'도시', pf_gender:'성별', pf_gender_prefer_not:'응답하지 않음', pf_gender_male:'남성',
+    pf_neighborhood:'동네', pf_city:'도시', pf_gender:'성별', pf_gender_prefer_not:'응답하지 않음', pf_gender_male:'남성',
     pf_gender_female:'여성', pf_gender_nb:'논바이너리',
     pf_sport_title:'종목', pf_main_sport:'주 종목', pf_preferred_distance:'선호 거리',
     pf_level_title:'종목별 레벨', pf_swim_label:'수영', pf_bike_label:'자전거', pf_run_label:'러닝',
@@ -2384,6 +2384,8 @@ function switchTab(tab){
   // Tocar em qualquer aba (ex: Perfil) sai da Consultoria Live direto, sem precisar fechar
   // com o X antes — nav continua clicavel por cima do chat exatamente pra isso.
   closeConsult();
+  if(typeof closeGroupChat==='function')closeGroupChat();
+  if(typeof closeMatchChat==='function')closeMatchChat();
   if(tab!=='club')clubTabView=null;
   if(tab==='perfil'){
     openProfile();
@@ -6906,10 +6908,29 @@ async function recheckVerification(){
 }
 function backToClubLanding(){ clubTabView=null; renderClub(); }
 
+// Busca a contagem real de matches em segundo plano (nao bloqueia o render do hub) e
+// atualiza o badge se ainda estiver na tela — evita ter que tornar renderClubLanding
+// inteiro assincrono so por causa desse numero.
+async function fetchClubMatchCount(){
+  const uid=currentUserId();
+  if(!uid)return;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/mytri_club_matches?or=(user_a.eq.${uid},user_b.eq.${uid})&select=id`,{headers:sbHeaders()});
+    const rows=r.ok?await r.json():[];
+    clubState._matchCount=rows.length;
+    const badge=document.getElementById('club-count-badge');
+    if(badge&&rows.length){
+      badge.style.cssText='position:relative;margin-top:12px;font-family:var(--font-ui);font-size:9px;color:#fff;letter-spacing:1.5px;background:rgba(255,255,255,0.14);width:fit-content;padding:5px 10px;border-radius:20px';
+      badge.textContent=`${rows.length} CONEXA${rows.length>1?'ES':'O'}`;
+    }
+  }catch(e){}
+}
+
 function renderClubLanding(c){
   c.innerHTML='';
   c.style.cssText='padding:20px 16px 100px;min-height:100vh;background:var(--bg)';
-  const _clubCount=(clubState.matches||[]).length;
+  const _clubCount=clubState._matchCount||0;
+  fetchClubMatchCount();
   // Padrao de "raia de pista" sutil ao fundo dos banners — arte propria em CSS, sem depender
   // de foto externa (evita link quebrado/licenciamento) mas ainda assim visualmente rico.
   const laneBg='repeating-linear-gradient(115deg, rgba(0,0,0,0.05) 0px, rgba(0,0,0,0.05) 2px, transparent 2px, transparent 26px)';
@@ -6937,7 +6958,7 @@ function renderClubLanding(c){
       <div style="position:relative;width:32px;height:3px;background:#fff;border-radius:2px;margin-bottom:10px;opacity:.5"></div>
       <div style="position:relative;font-family:var(--font-display);font-size:25px;color:#fff;letter-spacing:.5px;margin-bottom:5px">CLUBE DA MEIA AZUL</div>
       <div style="position:relative;font-family:var(--font-body);font-size:12px;color:rgba(255,255,255,0.8);line-height:1.45;max-width:78%">Conecte com outros triatletas. Combine treinos, troque experiencias.</div>
-      ${_clubCount?`<div style="position:relative;margin-top:12px;font-family:var(--font-ui);font-size:9px;color:#fff;letter-spacing:1.5px;background:rgba(255,255,255,0.14);width:fit-content;padding:5px 10px;border-radius:20px">${_clubCount} CONEXA${_clubCount>1?'ES':'O'}</div>`:''}
+      ${_clubCount?`<div id="club-count-badge" style="position:relative;margin-top:12px;font-family:var(--font-ui);font-size:9px;color:#fff;letter-spacing:1.5px;background:rgba(255,255,255,0.14);width:fit-content;padding:5px 10px;border-radius:20px">${_clubCount} CONEXA${_clubCount>1?'ES':'O'}</div>`:'<div id="club-count-badge"></div>'}
     </div>
 
     <div style="margin-top:20px;font-family:var(--font-body);font-size:11px;color:var(--muted);line-height:1.5;text-align:center">Recursos sociais opcionais, exclusivos pra maiores de 18 anos.</div>
@@ -7059,7 +7080,7 @@ function renderMeiaBranca(c){
           <div onclick='openGroupDetail(${JSON.stringify(g.id)})' style="cursor:pointer;padding:16px;background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between">
             <div>
               <div style="font-family:var(--font-ui);font-size:14px;font-weight:700;color:var(--text);margin-bottom:3px">${g.nome}</div>
-              <div style="font-family:var(--font-body);font-size:11px;color:var(--muted2)">${g.foco||'Todas as modalidades'} &middot; código ${g.código}</div>
+              <div style="font-family:var(--font-body);font-size:11px;color:var(--muted2)">${g.foco||'Todas as modalidades'} &middot; código ${g.codigo}</div>
             </div>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
           </div>`).join('')}
@@ -7194,9 +7215,9 @@ function renderMeiaBrancaGroup(){
       <div style="padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between">
         <div>
           <div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:2px">CODIGO DO GRUPO</div>
-          <div style="font-family:var(--font-display);font-size:18px;letter-spacing:2px">${g.código}</div>
+          <div style="font-family:var(--font-display);font-size:18px;letter-spacing:2px">${g.codigo}</div>
         </div>
-        <button onclick="navigator.clipboard&&navigator.clipboard.writeText('${g.código}');this.textContent='COPIADO'" style="background:none;border:1px solid var(--border);color:var(--text);font-family:var(--font-ui);font-size:10px;letter-spacing:1px;padding:8px 12px;border-radius:6px;cursor:pointer">COPIAR</button>
+        <button onclick="navigator.clipboard&&navigator.clipboard.writeText('${g.codigo}');this.textContent='COPIADO'" style="background:none;border:1px solid var(--border);color:var(--text);font-family:var(--font-ui);font-size:10px;letter-spacing:1px;padding:8px 12px;border-radius:6px;cursor:pointer">COPIAR</button>
       </div>
 
       <div style="font-family:var(--font-ui);font-size:11px;color:var(--muted);letter-spacing:1.5px;margin-bottom:10px">RANKING (${members.length} membro${members.length===1?'':'s'})</div>
@@ -7208,6 +7229,10 @@ function renderMeiaBrancaGroup(){
       </div>`).join('')}
 
       <button onclick="submitCheckin('${g.id}')" style="width:100%;margin-top:20px;padding:16px;background:var(--accent);color:#000;border:none;border-radius:8px;font-family:var(--font-ui);font-size:13px;font-weight:700;letter-spacing:1.5px;cursor:pointer">FAZER CHECK-IN</button>
+      <button onclick="openGroupChat('${g.id}')" style="width:100%;margin-top:10px;padding:16px;background:none;border:1px solid var(--border);color:var(--text);border-radius:8px;font-family:var(--font-ui);font-size:13px;font-weight:700;letter-spacing:1.5px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+        CHAT DO GRUPO
+      </button>
       <div style="font-family:var(--font-body);font-size:11px;color:var(--muted);text-align:center;margin-top:10px">Usa o treino real de hoje (concluido na Agenda) — pontua conforme o tipo do grupo: ${g.scoring.toLowerCase()}.</div>
 
       ${checkins.length?`<div style="font-family:var(--font-ui);font-size:11px;color:var(--muted);letter-spacing:1.5px;margin:26px 0 10px">ATIVIDADE RECENTE</div>
@@ -7225,6 +7250,85 @@ function renderMeiaBrancaGroup(){
     `;
   });
 }
+// ═══════════════ CHAT DO GRUPO (Meia Branca) ═══════════════
+let _groupChatPoll=null;
+function openGroupChat(groupId){
+  const g=meiaBrancaState._openGroup;
+  const overlay=document.createElement('div');
+  overlay.id='group-chat-overlay';
+  overlay.style.cssText='position:fixed;inset:0;z-index:850;background:var(--bg);display:flex;flex-direction:column';
+  overlay.innerHTML=`
+    <div style="display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid var(--border);flex-shrink:0">
+      <div onclick="closeGroupChat()" style="cursor:pointer;color:var(--muted2)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg></div>
+      <div>
+        <div style="font-family:var(--font-ui);font-size:13px;font-weight:700;color:var(--text)">${g.nome}</div>
+        <div style="font-family:var(--font-body);font-size:11px;color:var(--muted2)">Chat do grupo</div>
+      </div>
+    </div>
+    <div id="group-chat-messages" style="flex:1;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:10px">
+      <div style="text-align:center;font-family:var(--font-ui);font-size:11px;color:var(--muted);padding:40px 0">CARREGANDO...</div>
+    </div>
+    <div style="padding:12px 14px;border-top:1px solid var(--border);background:var(--surface);display:flex;gap:10px;align-items:flex-end;flex-shrink:0;padding-bottom:calc(16px + env(safe-area-inset-bottom))">
+      <textarea id="group-chat-input" rows="1" placeholder="Mensagem pro grupo..." style="flex:1;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:11px 14px;border-radius:20px;resize:none;max-height:100px;line-height:1.3"></textarea>
+      <button id="group-chat-send" onclick="sendGroupMessage('${groupId}')" style="background:var(--accent);border:none;color:#000;width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg></button>
+    </div>`;
+  document.body.appendChild(overlay);
+  loadGroupMessages(groupId,true);
+  _groupChatPoll=setInterval(()=>loadGroupMessages(groupId,false),4000);
+}
+function closeGroupChat(){
+  if(_groupChatPoll){ clearInterval(_groupChatPoll); _groupChatPoll=null; }
+  const overlay=document.getElementById('group-chat-overlay');
+  if(overlay)overlay.remove();
+}
+let _lastGroupMsgCount=0;
+async function loadGroupMessages(groupId,scrollToBottom){
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/mytri_group_messages?group_id=eq.${groupId}&select=*&order=created_at.asc&limit=200`,{headers:sbHeaders()});
+    if(!r.ok)return;
+    const rows=await r.json();
+    const box=document.getElementById('group-chat-messages');
+    if(!box)return; // fechou o chat enquanto carregava
+    // So re-renderiza se o numero de mensagens mudou, pra nao interromper a pessoa digitando
+    if(rows.length===_lastGroupMsgCount && !scrollToBottom)return;
+    _lastGroupMsgCount=rows.length;
+    const myUid=currentUserId();
+    if(!rows.length){
+      box.innerHTML='<div style="text-align:center;font-family:var(--font-body);font-size:12px;color:var(--muted);padding:40px 0">Nenhuma mensagem ainda. Comeca a conversa!</div>';
+      return;
+    }
+    box.innerHTML=rows.map(m=>{
+      const mine=m.user_id===myUid;
+      return `<div style="align-self:${mine?'flex-end':'flex-start'};max-width:78%">
+        ${!mine?`<div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);margin-bottom:2px;margin-left:12px">${(m.nome_exibicao||'Atleta').replace(/</g,'')}</div>`:''}
+        <div style="background:${mine?'var(--accent)':'var(--surface)'};color:${mine?'#000':'var(--text)'};padding:10px 14px;border-radius:16px;${mine?'border-bottom-right-radius:4px':'border-bottom-left-radius:4px'};font-family:var(--font-body);font-size:14px;line-height:1.4;border:${mine?'none':'1px solid var(--border)'};white-space:pre-wrap;word-break:break-word">${String(m.content||'').replace(/</g,'&lt;')}</div>
+      </div>`;
+    }).join('');
+    if(scrollToBottom)box.scrollTop=box.scrollHeight;
+  }catch(e){}
+}
+async function sendGroupMessage(groupId){
+  const input=document.getElementById('group-chat-input');
+  const content=(input.value||'').trim();
+  if(!content)return;
+  const uid=currentUserId();
+  if(!uid)return;
+  const prof=getMytriProfile();
+  input.value='';
+  const btn=document.getElementById('group-chat-send');
+  if(btn)btn.disabled=true;
+  try{
+    await fetch(`${SB_URL}/rest/v1/mytri_group_messages`,{
+      method:'POST', headers:sbHeaders(),
+      body:JSON.stringify({group_id:groupId,user_id:uid,nome_exibicao:prof.name||'Voce',content})
+    });
+    await loadGroupMessages(groupId,true);
+  }catch(e){
+    alert('Nao consegui enviar a mensagem agora.');
+  }
+  if(btn)btn.disabled=false;
+}
+
 function leaveGroup(groupId){
   if(!confirm('Sair desse grupo? Você perde seu ranking e precisa de um novo convite pra voltar.'))return;
   const uid=currentUserId();
@@ -7420,7 +7524,8 @@ function renderClubMyProfile(c){
     weight:_cs.weight||_prof.weight||'',
     altura:_cs.altura||_prof.altura||'',
     city:_cs.city||_prof.city||localStorage.getItem('mytri_gps_city')||'',
-    location:_cs.location||_prof.location||_cs.city||_prof.city||localStorage.getItem('mytri_gps_city')||'',
+    bairro:_cs.bairro||_prof.bairro||'',
+    location:_cs.location||(_prof.bairro?`${_prof.bairro}, `:'')+(_prof.city||localStorage.getItem('mytri_gps_city')||''),
     pace:_cs.pace||_prof.pace||'',
     ftp:_cs.ftp||_prof.ftp||'',
     swim:_cs.swim||_prof.swim||'',
@@ -7439,13 +7544,17 @@ function renderClubMyProfile(c){
       <button onclick="clubState.step='onboard';saveClubState();renderClub()" style="background:none;border:none;color:var(--accent);font-family:var(--font-ui);font-size:10px;letter-spacing:1px;cursor:pointer">EDITAR</button>
     </div>
 
-    <div style="position:relative;height:160px;background:${coverStyle};cursor:pointer" onclick="clubChangeCover()" id="club-cover-box">
+    <div style="position:relative;height:min(36vh,220px);min-height:170px;background:${coverStyle};cursor:pointer" onclick="clubChangeCover()" id="club-cover-box">
       <div style="position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,0.1),rgba(8,10,13,0.6))"></div>
       <div style="position:absolute;bottom:8px;right:12px;background:rgba(0,0,0,0.5);border-radius:4px;padding:5px 10px;font-family:var(--font-ui);font-size:9px;color:#fff;letter-spacing:.5px">EDITAR CAPA</div>
       <div style="position:absolute;bottom:-40px;left:20px">
         <div style="position:relative;width:80px;height:80px" onclick="event.stopPropagation()">
-          ${p.photo?`<img src="${p.photo}" id="club-avatar-img" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:3px solid var(--bg)">`:
-          `<div style="width:80px;height:80px;border-radius:50%;background:var(--surface);border:3px solid var(--bg);display:flex;align-items:center;justify-content:center"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></div>`}
+          <div id="moments-ring" style="display:inline-block;border-radius:50%;padding:3px;background:var(--bg);line-height:0">
+            <div onclick="(window._momentosUrls&&window._momentosUrls.length)?viewMoment(0):null" style="cursor:pointer;border-radius:50%;line-height:0;display:inline-block">
+              ${p.photo?`<img src="${p.photo}" id="club-avatar-img" style="width:74px;height:74px;border-radius:50%;object-fit:cover">`:
+              `<div style="width:74px;height:74px;border-radius:50%;background:var(--surface);display:flex;align-items:center;justify-content:center"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></div>`}
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -7804,120 +7913,124 @@ function submitClubOnboard(){
   };
   clubState.step='swipe';
   clubState.currentIdx=0;
+  clubState._candidates=null; // forca buscar candidatos de novo com o perfil atualizado
   saveClubState();
+  syncClubProfileToSupabase();
   renderClub();
 }
-
-function clubShareMetrics(){
-  if(!clubState.myProfile)clubState.myProfile={};
-  clubState.myProfile.shareMetrics=true;
-  saveClubState();
-  // Re-render do card atual para mostrar peso/altura
-  const available=CLUB_PROFILES.filter(p=>!clubState.liked.includes(p.id)&&!clubState.passed.includes(p.id));
-  const _busca=clubState.myProfile?.busca||getMytriProfile().busca||'A';
-  const filtrado=available.filter(p=>_busca==='A'||p.gender===_busca);
-  if(filtrado.length>0){
-    const p=filtrado[clubState.currentIdx%filtrado.length];
-    const card=document.getElementById('club-card');
-    if(card&&p){
-      // Apenas re-inserir o bloco de peso/altura
-      const blocoOld=card.querySelector('[data-share-block]');
-      if(blocoOld){
-        blocoOld.outerHTML=`<div data-share-block style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
-          <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center">
-            <div style="font-family:var(--font-display);font-size:15px;color:var(--text)">${p.weight}kg</div>
-            <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:2px">PESO</div>
-          </div>
-          <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center">
-            <div style="font-family:var(--font-display);font-size:15px;color:var(--text)">${p.height}cm</div>
-            <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:2px">ALTURA</div>
-          </div>
-        </div>`;
-      } else {
-        renderClub();
-      }
-    } else {
-      renderClub();
-    }
-  } else {
-    renderClub();
-  }
+// Grava o perfil do clube na tabela real (mytri_club_profiles) — e isso que torna a pessoa
+// visivel de verdade pros outros usuarios, ao contrario dos perfis fake de antes.
+async function syncClubProfileToSupabase(){
+  const uid=currentUserId();
+  if(!uid)return;
+  const p=clubState.myProfile||{};
+  try{
+    await fetch(`${SB_URL}/rest/v1/mytri_club_profiles`,{
+      method:'POST',
+      headers:{...sbHeaders(),Prefer:'resolution=merge-duplicates'},
+      body:JSON.stringify({
+        user_id:uid, name:p.name||'', age:parseInt(p.age)||null,
+        city:p.city||'', bairro:p.bairro||'', bio:p.bio||'', interests:p.interests||'',
+        busca:p.busca||'A', sexo:p.sexo||getMytriProfile().sexo||'',
+        photo:p.photo||'', cover_photo:p.coverPhoto||'',
+        ig_handle:p.igHandle||'', share_ig:!!p.shareIG,
+        pace:p.pace||'', ftp:p.ftp||'', swim:p.swim||'', next_race:p.nextRace||'',
+        active:true, updated_at:new Date().toISOString(),
+      })
+    });
+  }catch(e){}
 }
 
-function showClubProfile(id){
-  const p=CLUB_PROFILES.find(x=>x.id===id);
+async function showClubProfile(id){
+  // Tenta achar na fila ja carregada primeiro (evita fetch desnecessario), senao busca.
+  let p=(clubState._candidates||[]).find(x=>x.user_id===id);
+  if(!p){
+    try{
+      const r=await fetch(`${SB_URL}/rest/v1/mytri_club_profiles?user_id=eq.${id}&select=*`,{headers:sbHeaders()});
+      const rows=r.ok?await r.json():[];
+      p=rows[0];
+    }catch(e){}
+  }
   if(!p)return;
-  const myShare=clubState.myProfile?.shareMetrics;
   const myShareIG=clubState.myProfile?.shareIG;
   const modal=document.createElement('div');
   modal.style.cssText='position:fixed;inset:0;z-index:400;background:var(--bg);overflow-y:auto';
   modal.innerHTML=`
     <div style="max-width:480px;margin:0 auto">
     <div style="position:relative">
-      <img src="${p.photo}" style="width:100%;height:300px;object-fit:cover;object-position:top">
+      <img src="${p.photo||''}" style="width:100%;height:300px;object-fit:cover;object-position:top;background:var(--surface)">
       <div style="position:absolute;inset:0;background:linear-gradient(to bottom,transparent 30%,var(--bg) 100%)"></div>
       <button onclick="this.closest('[style*=fixed]').remove()" style="position:absolute;top:16px;left:16px;background:rgba(0,0,0,0.5);border:none;color:#fff;font-family:var(--font-ui);font-size:11px;letter-spacing:1px;padding:8px 14px;border-radius:4px;cursor:pointer">VOLTAR</button>
     </div>
     <div style="padding:0 20px 40px">
-      <div style="font-family:var(--font-display);font-size:32px;letter-spacing:.5px;margin-bottom:4px">${p.name}, ${p.age}</div>
-      <div style="font-family:var(--font-ui);font-size:11px;color:var(--muted);letter-spacing:1px;margin-bottom:20px">${p.city}</div>
+      <div style="font-family:var(--font-display);font-size:32px;letter-spacing:.5px;margin-bottom:4px">${p.name||'Atleta'}, ${p.age||''}</div>
+      <div style="font-family:var(--font-ui);font-size:11px;color:var(--muted);letter-spacing:1px;margin-bottom:20px">${p.bairro?p.bairro+', ':''}${p.city||''}</div>
 
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
         <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center">
-          <div style="font-family:var(--font-display);font-size:18px;color:#00e676">${p.pace}</div>
+          <div style="font-family:var(--font-display);font-size:18px;color:#00e676">${p.pace||'—'}</div>
           <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:2px">PACE</div>
         </div>
         <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center">
-          <div style="font-family:var(--font-display);font-size:18px;color:#e05c2a">${p.ftp}</div>
+          <div style="font-family:var(--font-display);font-size:18px;color:#e05c2a">${p.ftp||'—'}</div>
           <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:2px">FTP</div>
         </div>
         <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center">
-          <div style="font-family:var(--font-display);font-size:18px;color:#1a6cf0">${p.swim}</div>
+          <div style="font-family:var(--font-display);font-size:18px;color:#1a6cf0">${p.swim||'—'}</div>
           <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:2px">NADO</div>
         </div>
       </div>
 
-      ${myShare?`
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center">
-          <div style="font-family:var(--font-display);font-size:18px;color:var(--text)">${p.weight}kg</div>
-          <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:2px">PESO</div>
-        </div>
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center">
-          <div style="font-family:var(--font-display);font-size:18px;color:var(--text)">${p.height}cm</div>
-          <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:2px">ALTURA</div>
-        </div>
-      </div>`:''}
-
-      ${myShareIG&&p.igHandle?`
-      <a href="https://instagram.com/${p.igHandle}" target="_blank" style="display:flex;align-items:center;gap:10px;background:linear-gradient(45deg,rgba(240,148,51,0.1),rgba(188,24,136,0.1));border:1px solid rgba(225,48,108,0.3);border-radius:8px;padding:12px 16px;margin-bottom:12px;text-decoration:none">
+      ${myShareIG&&p.ig_handle?`
+      <a href="https://instagram.com/${p.ig_handle}" target="_blank" style="display:flex;align-items:center;gap:10px;background:linear-gradient(45deg,rgba(240,148,51,0.1),rgba(188,24,136,0.1));border:1px solid rgba(225,48,108,0.3);border-radius:8px;padding:12px 16px;margin-bottom:12px;text-decoration:none">
         <div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888);display:flex;align-items:center;justify-content:center;flex-shrink:0">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.332.014 7.052.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.058-1.28.072-1.689.072-4.948 0-3.259-.014-3.667-.072-4.948-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
         </div>
         <div>
           <div style="font-family:var(--font-ui);font-size:8px;color:#E1306C;letter-spacing:1px">INSTAGRAM</div>
-          <div style="font-family:var(--font-body);font-size:13px;color:var(--text)">@${p.igHandle}</div>
+          <div style="font-family:var(--font-body);font-size:13px;color:var(--text)">@${p.ig_handle}</div>
         </div>
       </a>`:''}
 
-      <div style="background:rgba(26,108,240,0.1);border:1px solid rgba(26,108,240,0.25);border-radius:8px;padding:12px 16px;margin-bottom:16px">
+      ${p.next_race?`<div style="background:rgba(26,108,240,0.1);border:1px solid rgba(26,108,240,0.25);border-radius:8px;padding:12px 16px;margin-bottom:16px">
         <div style="font-family:var(--font-ui);font-size:9px;color:#1a6cf0;letter-spacing:1.5px;margin-bottom:4px">PRÓXIMA PROVA</div>
-        <div style="font-family:var(--font-body);font-size:13px;color:var(--text)">${p.nextRace}</div>
-      </div>
+        <div style="font-family:var(--font-body);font-size:13px;color:var(--text)">${p.next_race}</div>
+      </div>`:''}
 
-      <div style="font-family:var(--font-body);font-size:14px;color:var(--muted2);line-height:1.7;margin-bottom:16px">${p.bio}</div>
+      <div style="font-family:var(--font-body);font-size:14px;color:var(--muted2);line-height:1.7;margin-bottom:16px">${p.bio||''}</div>
 
-      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:28px">
-        ${p.tags.map(t=>`<span style="background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:5px 12px;font-family:var(--font-ui);font-size:9px;color:var(--muted2);letter-spacing:.5px">${t}</span>`).join('')}
-      </div>
+      ${p.interests?`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:28px">
+        ${p.interests.split(',').map(t=>t.trim()).filter(Boolean).map(t=>`<span style="background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:5px 12px;font-family:var(--font-ui);font-size:9px;color:var(--muted2);letter-spacing:.5px">${t}</span>`).join('')}
+      </div>`:''}
     </div>
     </div>`;
   document.body.appendChild(modal);
 }
 
-function renderClubSwipe(c){
-  const _busca=clubState.myProfile?.busca||getMytriProfile().busca||'A';
-  const available=CLUB_PROFILES.filter(p=>!clubState.liked.includes(p.id)&&!clubState.passed.includes(p.id)&&(_busca==='A'||p.gender===_busca));
+// Busca candidatos REAIS pra aparecer no swipe: perfis ativos que a pessoa ainda nao curtiu
+// nem passou, excluindo ela mesma. Filtra pelo genero que a pessoa procura (busca).
+async function fetchClubCandidates(){
+  const uid=currentUserId();
+  if(!uid)return [];
+  try{
+    const rSwiped=await fetch(`${SB_URL}/rest/v1/mytri_club_likes?from_user_id=eq.${uid}&select=to_user_id`,{headers:sbHeaders()});
+    const swiped=rSwiped.ok?await rSwiped.json():[];
+    const excludeIds=new Set([uid,...swiped.map(s=>s.to_user_id)]);
+    const r=await fetch(`${SB_URL}/rest/v1/mytri_club_profiles?select=*&active=eq.true&limit=50`,{headers:sbHeaders()});
+    const all=r.ok?await r.json():[];
+    const myBusca=clubState.myProfile?.busca||getMytriProfile().busca||'A';
+    return all.filter(p=>!excludeIds.has(p.user_id)&&(myBusca==='A'||p.sexo===myBusca));
+  }catch(e){ return []; }
+}
+async function renderClubSwipe(c){
+  // Busca a fila de candidatos reais uma vez por sessao (fica em clubState._candidates
+  // enquanto a pessoa vai curtindo/passando, sem precisar buscar de novo a cada swipe).
+  if(!clubState._candidates){
+    c.innerHTML='<div style="padding:80px 20px;text-align:center;font-family:var(--font-ui);font-size:11px;color:var(--muted);letter-spacing:1px">CARREGANDO ATLETAS...</div>';
+    clubState._candidates=await fetchClubCandidates();
+  }
+  c.innerHTML='';
+  const available=clubState._candidates||[];
   const p=available[0];
 
   // Header
@@ -7961,7 +8074,7 @@ function renderClubSwipe(c){
       <div style="position:absolute;inset:0;background:linear-gradient(to bottom,transparent 50%,rgba(0,0,0,0.85) 100%)"></div>
       <div style="position:absolute;bottom:0;left:0;right:0;padding:14px 16px">
         <div style="font-family:var(--font-display);font-size:22px;letter-spacing:.5px">${p.name}, ${p.age}</div>
-        <div style="font-family:var(--font-ui);font-size:10px;color:rgba(255,255,255,0.7);letter-spacing:1px;margin-top:1px">${p.city}</div>
+        <div style="font-family:var(--font-ui);font-size:10px;color:rgba(255,255,255,0.7);letter-spacing:1px;margin-top:1px">${p.bairro?p.bairro+', ':''}${p.city||''}</div>
       </div>
     </div>
 
@@ -7983,32 +8096,12 @@ function renderClubSwipe(c){
 
       <div style="background:rgba(26,108,240,0.1);border:1px solid rgba(26,108,240,0.25);border-radius:6px;padding:7px 10px;margin-bottom:8px;display:flex;align-items:center;gap:6px">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#1a6cf0" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-        <span style="font-family:var(--font-ui);font-size:9px;color:#1a6cf0;letter-spacing:.3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.nextRace}</span>
+        <span style="font-family:var(--font-ui);font-size:9px;color:#1a6cf0;letter-spacing:.3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.next_race||''}</span>
       </div>
 
-      ${(()=>{
-        const myShare=clubState.myProfile?.shareMetrics;
-        if(myShare){
-          return `<div data-share-block style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
-            <div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:7px;text-align:center">
-              <div style="font-family:var(--font-display);font-size:13px;color:var(--text)">${p.weight}kg</div>
-              <div style="font-family:var(--font-ui);font-size:7px;color:var(--muted);letter-spacing:.5px">PESO</div>
-            </div>
-            <div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:7px;text-align:center">
-              <div style="font-family:var(--font-display);font-size:13px;color:var(--text)">${p.height}cm</div>
-              <div style="font-family:var(--font-ui);font-size:7px;color:var(--muted);letter-spacing:.5px">ALTURA</div>
-            </div>
-          </div>`;
-        }
-        return `<div data-share-block style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:7px 10px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between">
-          <span style="font-family:var(--font-body);font-size:10px;color:var(--muted)">Peso/altura ocultos</span>
-          <span onclick="event.stopPropagation();clubShareMetrics()" style="font-family:var(--font-ui);font-size:8px;color:var(--accent);letter-spacing:.5px;cursor:pointer">COMPARTILHAR</span>
-        </div>`;
-      })()}
+      <div style="font-family:var(--font-body);font-size:12px;color:var(--muted2);line-height:1.5;margin-bottom:8px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${p.bio||''}</div>
 
-      <div style="font-family:var(--font-body);font-size:12px;color:var(--muted2);line-height:1.5;margin-bottom:8px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${p.bio}</div>
-
-      <button onclick="showClubProfile(${p.id})" style="width:100%;padding:8px;background:transparent;border:1px solid var(--border);color:var(--muted);font-family:var(--font-ui);font-size:9px;letter-spacing:1px;border-radius:5px;cursor:pointer">VER PERFIL COMPLETO</button>
+      <button onclick="showClubProfile('${p.user_id}')" style="width:100%;padding:8px;background:transparent;border:1px solid var(--border);color:var(--muted);font-family:var(--font-ui);font-size:9px;letter-spacing:1px;border-radius:5px;cursor:pointer">VER PERFIL COMPLETO</button>
     </div>
 
     <!-- Like/Pass overlay -->
@@ -8057,11 +8150,12 @@ function renderClubSwipe(c){
   });
 }
 
-function clubAction(action){
-  const _busca=clubState.myProfile?.busca||getMytriProfile().busca||'A';
-  const available=CLUB_PROFILES.filter(p=>!clubState.liked.includes(p.id)&&!clubState.passed.includes(p.id)&&(_busca==='A'||p.gender===_busca));
+async function clubAction(action){
+  const available=clubState._candidates||[];
   const p=available[0];
   if(!p)return;
+  const uid=currentUserId();
+  if(!uid)return;
 
   const card=document.getElementById('club-card');
   if(card){
@@ -8070,18 +8164,29 @@ function clubAction(action){
     card.style.opacity='0';
   }
 
-  setTimeout(()=>{
-    if(action==='like'){
-      clubState.liked.push(p.id);
-      const isMatch=Math.random()<0.4;
-      if(isMatch){
-        clubState.matches.push(p.id);
-        clubState.matchedWith=p;
-        clubState.step='match';
+  setTimeout(async ()=>{
+    clubState._candidates.shift(); // tira do topo da fila local, independente do resultado
+    try{
+      await fetch(`${SB_URL}/rest/v1/mytri_club_likes`,{
+        method:'POST',
+        headers:{...sbHeaders(),Prefer:'resolution=merge-duplicates'},
+        body:JSON.stringify({from_user_id:uid,to_user_id:p.user_id,liked:action==='like'})
+      });
+      if(action==='like'){
+        // O gatilho no banco ja criou a linha de match se a curtida for mutua — so
+        // precisamos conferir se ela existe agora.
+        const ua=uid<p.user_id?uid:p.user_id, ub=uid<p.user_id?p.user_id:uid;
+        const rMatch=await fetch(`${SB_URL}/rest/v1/mytri_club_matches?user_a=eq.${ua}&user_b=eq.${ub}&select=id`,{headers:sbHeaders()});
+        const matches=rMatch.ok?await rMatch.json():[];
+        if(matches.length){
+          clubState.matchedWith=p;
+          clubState.step='match';
+          saveClubState();
+          if(currentTab==='club')renderClub();
+          return;
+        }
       }
-    }else{
-      clubState.passed.push(p.id);
-    }
+    }catch(e){}
     saveClubState();
     if(currentTab==='club')renderClub(); // só re-renderiza se ainda estiver na aba
   },350);
@@ -8090,11 +8195,140 @@ function clubAction(action){
 function _myRealRace(){
   try{ const prof=getMytriProfile(); return (prof && prof.raceName) ? prof.raceName : ''; }catch(e){ return ''; }
 }
+// ═══════════════ CHAT 1-A-1 (Meia Azul, com matches reais) ═══════════════
+let _matchChatPoll=null;
+async function openMatchChat(otherUserId){
+  const uid=currentUserId();
+  if(!uid)return;
+  const ua=uid<otherUserId?uid:otherUserId, ub=uid<otherUserId?otherUserId:uid;
+  let matchRow=null,otherProfile=null;
+  try{
+    const [rMatch,rProf]=await Promise.all([
+      fetch(`${SB_URL}/rest/v1/mytri_club_matches?user_a=eq.${ua}&user_b=eq.${ub}&select=*`,{headers:sbHeaders()}),
+      fetch(`${SB_URL}/rest/v1/mytri_club_profiles?user_id=eq.${otherUserId}&select=*`,{headers:sbHeaders()}),
+    ]);
+    const matches=rMatch.ok?await rMatch.json():[];
+    matchRow=matches[0];
+    const profs=rProf.ok?await rProf.json():[];
+    otherProfile=profs[0];
+  }catch(e){}
+  if(!matchRow){ alert('Nao encontrei esse match.'); return; }
+
+  const overlay=document.createElement('div');
+  overlay.id='match-chat-overlay';
+  overlay.style.cssText='position:fixed;inset:0;z-index:850;background:var(--bg);display:flex;flex-direction:column';
+  overlay.innerHTML=`
+    <div style="display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid var(--border);flex-shrink:0">
+      <div onclick="closeMatchChat()" style="cursor:pointer;color:var(--muted2)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg></div>
+      ${otherProfile?.photo?`<img src="${otherProfile.photo}" style="width:32px;height:32px;border-radius:50%;object-fit:cover">`:''}
+      <div>
+        <div style="font-family:var(--font-ui);font-size:13px;font-weight:700;color:var(--text)">${otherProfile?.name||'Atleta'}</div>
+        <div style="font-family:var(--font-body);font-size:11px;color:var(--muted2)">Meia Azul</div>
+      </div>
+    </div>
+    <div id="match-chat-messages" style="flex:1;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:10px">
+      <div style="text-align:center;font-family:var(--font-ui);font-size:11px;color:var(--muted);padding:40px 0">CARREGANDO...</div>
+    </div>
+    <div style="padding:12px 14px;border-top:1px solid var(--border);background:var(--surface);display:flex;gap:10px;align-items:flex-end;flex-shrink:0;padding-bottom:calc(16px + env(safe-area-inset-bottom))">
+      <textarea id="match-chat-input" rows="1" placeholder="Mensagem..." style="flex:1;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:11px 14px;border-radius:20px;resize:none;max-height:100px;line-height:1.3"></textarea>
+      <button id="match-chat-send" onclick="sendMatchMessage('${matchRow.id}')" style="background:#1a6cf0;border:none;color:#fff;width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg></button>
+    </div>`;
+  document.body.appendChild(overlay);
+  _lastMatchMsgCount=0;
+  loadMatchMessages(matchRow.id,true);
+  _matchChatPoll=setInterval(()=>loadMatchMessages(matchRow.id,false),4000);
+}
+function closeMatchChat(){
+  if(_matchChatPoll){ clearInterval(_matchChatPoll); _matchChatPoll=null; }
+  const overlay=document.getElementById('match-chat-overlay');
+  if(overlay)overlay.remove();
+}
+let _lastMatchMsgCount=0;
+async function loadMatchMessages(matchId,scrollToBottom){
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/mytri_match_messages?match_id=eq.${matchId}&select=*&order=created_at.asc&limit=200`,{headers:sbHeaders()});
+    if(!r.ok)return;
+    const rows=await r.json();
+    const box=document.getElementById('match-chat-messages');
+    if(!box)return;
+    if(rows.length===_lastMatchMsgCount && !scrollToBottom)return;
+    _lastMatchMsgCount=rows.length;
+    const myUid=currentUserId();
+    if(!rows.length){
+      box.innerHTML='<div style="text-align:center;font-family:var(--font-body);font-size:12px;color:var(--muted);padding:40px 0">Voces deram match! Manda a primeira mensagem.</div>';
+      return;
+    }
+    box.innerHTML=rows.map(m=>{
+      const mine=m.sender_id===myUid;
+      return `<div style="align-self:${mine?'flex-end':'flex-start'};max-width:78%">
+        <div style="background:${mine?'#1a6cf0':'var(--surface)'};color:${mine?'#fff':'var(--text)'};padding:10px 14px;border-radius:16px;${mine?'border-bottom-right-radius:4px':'border-bottom-left-radius:4px'};font-family:var(--font-body);font-size:14px;line-height:1.4;border:${mine?'none':'1px solid var(--border)'};white-space:pre-wrap;word-break:break-word">${String(m.content||'').replace(/</g,'&lt;')}</div>
+      </div>`;
+    }).join('');
+    if(scrollToBottom)box.scrollTop=box.scrollHeight;
+  }catch(e){}
+}
+async function sendMatchMessage(matchId){
+  const input=document.getElementById('match-chat-input');
+  const content=(input.value||'').trim();
+  if(!content)return;
+  const uid=currentUserId();
+  if(!uid)return;
+  input.value='';
+  const btn=document.getElementById('match-chat-send');
+  if(btn)btn.disabled=true;
+  try{
+    await fetch(`${SB_URL}/rest/v1/mytri_match_messages`,{
+      method:'POST', headers:sbHeaders(),
+      body:JSON.stringify({match_id:matchId,sender_id:uid,content})
+    });
+    await loadMatchMessages(matchId,true);
+  }catch(e){
+    alert('Nao consegui enviar a mensagem agora.');
+  }
+  if(btn)btn.disabled=false;
+}
+
+async function renderClubMatchesList(){
+  const c=document.getElementById('view-club');
+  if(!c)return;
+  c.innerHTML='<div style="padding:80px 20px;text-align:center;font-family:var(--font-ui);font-size:11px;color:var(--muted);letter-spacing:1px">CARREGANDO...</div>';
+  c.style.cssText='padding-bottom:80px;min-height:100vh;background:var(--bg)';
+  const uid=currentUserId();
+  let matches=[];
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/mytri_club_matches?or=(user_a.eq.${uid},user_b.eq.${uid})&select=*`,{headers:sbHeaders()});
+    const rows=r.ok?await r.json():[];
+    const otherIds=rows.map(m=>m.user_a===uid?m.user_b:m.user_a).filter(Boolean);
+    if(otherIds.length){
+      const inList=otherIds.map(id=>`"${id}"`).join(',');
+      const rP=await fetch(`${SB_URL}/rest/v1/mytri_club_profiles?user_id=in.(${inList})&select=*`,{headers:sbHeaders()});
+      matches=rP.ok?await rP.json():[];
+    }
+  }catch(e){}
+  c.innerHTML='';
+  const body=document.createElement('div');
+  body.style.cssText='padding:16px';
+  body.innerHTML=`
+    <div onclick="clubState.step='swipe';saveClubState();renderClub()" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-family:var(--font-ui);font-size:11px;color:var(--muted2);letter-spacing:1px;margin-bottom:16px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> VOLTAR</div>
+    <div style="font-family:var(--font-display);font-size:24px;margin-bottom:4px">Meus Matches</div>
+    <div style="font-family:var(--font-body);font-size:12px;color:var(--muted2);margin-bottom:20px">${matches.length} conexa${matches.length===1?'o':'oes'}</div>
+    ${matches.length?matches.map(p=>`<div onclick="openMatchChat('${p.user_id}')" style="cursor:pointer;display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:10px">
+      <img src="${p.photo||''}" style="width:52px;height:52px;border-radius:50%;object-fit:cover;flex-shrink:0;background:var(--bg)">
+      <div style="flex:1;min-width:0">
+        <div style="font-family:var(--font-ui);font-size:14px;font-weight:700;color:var(--text)">${p.name||'Atleta'}, ${p.age||''}</div>
+        <div style="font-family:var(--font-body);font-size:12px;color:var(--muted2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.bairro?p.bairro+', ':''}${p.city||''}</div>
+      </div>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" style="flex-shrink:0"><path d="M9 18l6-6-6-6"/></svg>
+    </div>`).join(''):`<div style="text-align:center;padding:40px 20px;color:var(--muted);font-family:var(--font-body);font-size:13px">Voce ainda nao tem matches. Continue explorando!</div>`}
+  `;
+  c.appendChild(body);
+}
 function renderClubMatch(c){
   const p=clubState.matchedWith;
   const myRace=_myRealRace();
   // Só é "prova em comum" se a prova do match bate com a sua prova real
-  const sameRace = myRace && p.nextRace && (p.nextRace.toLowerCase().includes(myRace.toLowerCase().split('—')[0].trim().split(' ').slice(0,2).join(' ')) || myRace.toLowerCase().includes((p.nextRace||'').toLowerCase().split('—')[0].trim().split(' ').slice(0,2).join(' ')));
+  const pRace=p.next_race||'';
+  const sameRace = myRace && pRace && (pRace.toLowerCase().includes(myRace.toLowerCase().split('—')[0].trim().split(' ').slice(0,2).join(' ')) || myRace.toLowerCase().includes(pRace.toLowerCase().split('—')[0].trim().split(' ').slice(0,2).join(' ')));
   c.style.cssText='padding-bottom:80px;min-height:100vh;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:32px 24px';
 
   c.innerHTML=`
@@ -8103,20 +8337,16 @@ function renderClubMatch(c){
     <div style="font-family:var(--font-body);font-size:15px;color:var(--muted2);line-height:1.6;margin-bottom:28px">Você e <strong style="color:var(--text)">${p.name}</strong> curtiram um ao outro.${sameRace?'<br>Vocês vão para a mesma prova!':'<br>Vocês têm muito em comum.'}</div>
 
     <div style="display:flex;gap:12px;margin-bottom:28px">
-      <img src="${p.photo}" style="width:100px;height:100px;border-radius:50%;object-fit:cover;border:3px solid var(--accent)">
+      <img src="${p.photo||''}" style="width:100px;height:100px;border-radius:50%;object-fit:cover;border:3px solid var(--accent);background:var(--surface)">
     </div>
 
-    ${p.nextRace?`<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;width:100%;margin-bottom:24px;text-align:left">
-      <div style="font-family:var(--font-ui);font-size:9px;color:${sameRace?'var(--accent)':'var(--muted)'};letter-spacing:1.5px;margin-bottom:8px">${sameRace?'PRÓXIMA PROVA EM COMUM':'PRÓXIMA PROVA DE '+p.name.split(' ')[0].toUpperCase()}</div>
-      <div style="font-family:var(--font-body);font-size:14px;color:var(--text)">${p.nextRace}</div>
+    ${pRace?`<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;width:100%;margin-bottom:24px;text-align:left">
+      <div style="font-family:var(--font-ui);font-size:9px;color:${sameRace?'var(--accent)':'var(--muted)'};letter-spacing:1.5px;margin-bottom:8px">${sameRace?'PRÓXIMA PROVA EM COMUM':'PRÓXIMA PROVA DE '+(p.name||'').split(' ')[0].toUpperCase()}</div>
+      <div style="font-family:var(--font-body);font-size:14px;color:var(--text)">${pRace}</div>
     </div>`:''}
 
-    <div style="font-family:var(--font-body);font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:24px;background:rgba(0,230,118,0.06);border:1px solid rgba(0,230,118,0.2);border-radius:8px;padding:14px">
-      Em breve você poderá enviar uma mensagem diretamente pelo app. Por enquanto, nos vemos na largada!
-    </div>
-
-    <button onclick="clubState.step='swipe';clubState.matchedWith=null;saveClubState();renderClub()" style="width:100%;padding:16px;background:var(--accent);color:#000;font-family:var(--font-ui);font-size:13px;font-weight:700;letter-spacing:2px;border:none;cursor:pointer;border-radius:4px;margin-bottom:12px">CONTINUAR EXPLORANDO</button>
-    <button onclick="clubState.step='profile';saveClubState();renderClub()" style="width:100%;padding:14px;background:transparent;color:var(--muted);font-family:var(--font-ui);font-size:12px;letter-spacing:1px;border:1px solid var(--border);cursor:pointer;border-radius:4px">VER MEUS MATCHES</button>`;
+    <button onclick="openMatchChat('${p.user_id}')" style="width:100%;padding:16px;background:var(--accent);color:#000;font-family:var(--font-ui);font-size:13px;font-weight:700;letter-spacing:2px;border:none;cursor:pointer;border-radius:4px;margin-bottom:12px">MANDAR MENSAGEM</button>
+    <button onclick="clubState.step='swipe';clubState.matchedWith=null;saveClubState();renderClub()" style="width:100%;padding:14px;background:transparent;color:var(--muted);font-family:var(--font-ui);font-size:12px;letter-spacing:1px;border:1px solid var(--border);cursor:pointer;border-radius:4px">CONTINUAR EXPLORANDO</button>`;
 }
 
 function init(){
@@ -8286,6 +8516,7 @@ function saveMytriProfile(data){
   if(clubState.myProfile){
     clubState.myProfile={...clubState.myProfile,...data};
     saveClubState();
+    syncClubProfileToSupabase();
   }
 }
 
@@ -8320,7 +8551,7 @@ function renderProfile(){
 
     <div class="profile-hero" style="padding:0;text-align:left;border-bottom:1px solid var(--border)">
       <!-- Capa retangular (foto secundaria) -->
-      <div onclick="changeCoverPhoto()" style="position:relative;height:112px;cursor:pointer;${secondary?`background:url('${secondary}') center/cover`:'background:linear-gradient(135deg,#12161c,#1a2530)'}">
+      <div onclick="changeCoverPhoto()" style="position:relative;height:min(38vh,240px);min-height:180px;cursor:pointer;${secondary?`background:url('${secondary}') center/cover`:'background:linear-gradient(135deg,#12161c,#1a2530)'}">
         ${secondary?`<div style="position:absolute;top:10px;right:12px;background:rgba(0,0,0,0.55);border-radius:4px;padding:5px 10px;font-family:var(--font-ui);font-size:9px;color:#fff;letter-spacing:.5px">${t('pf_edit_cover')}</div>`:`<div style="position:absolute;top:10px;right:12px;font-family:var(--font-ui);font-size:9px;color:rgba(255,255,255,0.6);letter-spacing:.5px">${t('pf_add_cover')}</div>`}
       </div>
       <!-- Avatar sobreposto + dados ao lado (estilo LinkedIn compacto) -->
@@ -8328,7 +8559,7 @@ function renderProfile(){
         <div style="display:flex;align-items:flex-end;gap:14px;margin-top:-40px">
           <div style="position:relative;flex-shrink:0">
             <div id="moments-ring" style="display:inline-block;border-radius:50%;padding:3px;background:var(--bg);line-height:0">
-              <div onclick="changeProfilePhoto()" style="cursor:pointer;border-radius:50%;line-height:0;display:inline-block">${photoEl}</div>
+              <div onclick="(window._momentosUrls&&window._momentosUrls.length)?viewMoment(0):changeProfilePhoto()" style="cursor:pointer;border-radius:50%;line-height:0;display:inline-block">${photoEl}</div>
             </div>
             <div onclick="changeProfilePhoto()" style="cursor:pointer;position:absolute;bottom:2px;right:0;background:var(--accent);border:2px solid var(--bg);border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-size:14px;z-index:2">+</div>
             <div onclick="openAddMoment()" title="Adicionar Instant" style="cursor:pointer;position:absolute;top:0;left:-2px;background:linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888);border:2px solid var(--bg);border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;z-index:2">
@@ -8435,7 +8666,10 @@ function renderProfile(){
         <div class="profile-field"><label>${t('pf_weight')}</label><input id="pf-peso" type="number" placeholder="ex: 78" value="${prof.weight||''}"></div>
         <div class="profile-field"><label>${t('pf_height')}</label><input id="pf-altura" type="number" placeholder="ex: 175" value="${prof.altura||''}"></div>
       </div>
-      <div class="profile-field"><label>${t('pf_city')}</label><input id="pf-cidade" value="${prof.city||''}"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="profile-field"><label>${t('pf_city')}</label><input id="pf-cidade" value="${prof.city||''}"></div>
+        <div class="profile-field"><label>${t('pf_neighborhood')}</label><input id="pf-bairro" placeholder="ex: Moema" value="${prof.bairro||''}"></div>
+      </div>
       <div class="profile-field"><label>${t('pf_gender')}</label>
         <select id="pf-sexo">
           <option value="" ${!prof.sexo?'selected':''}>${t('pf_gender_prefer_not')}</option>
@@ -8585,10 +8819,10 @@ async function loadProfileMomentos(){
   try{
     const [rCheckins,rMoments]=await Promise.all([
       fetch(`${SB_URL}/rest/v1/mytri_group_checkins?user_id=eq.${uid}&foto_url=not.is.null&select=foto_url,nota,created_at&order=created_at.desc&limit=12`,{headers:sbHeaders()}),
-      fetch(`${SB_URL}/rest/v1/mytri_moments?user_id=eq.${uid}&select=foto_url,nota,created_at&order=created_at.desc&limit=12`,{headers:sbHeaders()}),
+      fetch(`${SB_URL}/rest/v1/mytri_moments?user_id=eq.${uid}&select=id,foto_url,nota,created_at&order=created_at.desc&limit=12`,{headers:sbHeaders()}),
     ]);
-    const checkins=rCheckins.ok?await rCheckins.json():[];
-    const moments=rMoments.ok?await rMoments.json():[];
+    const checkins=(rCheckins.ok?await rCheckins.json():[]).map(r=>({...r,_source:'checkin'}));
+    const moments=(rMoments.ok?await rMoments.json():[]).map(r=>({...r,_source:'moment'}));
     const rows=[...moments,...checkins].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,12);
     if(!box)return; // pessoa pode ter saido do Perfil enquanto isso carregava
     // Anel colorido tipo Instagram Stories no avatar so aparece se tiver Instant proprio
@@ -8600,6 +8834,7 @@ async function loadProfileMomentos(){
       box.innerHTML='<div style="text-align:center;padding:20px 0;color:var(--muted)">Nenhum momento ainda. Toque no + colorido no avatar, ou faca um check-in com foto num grupo do Clube da Meia Branca.</div>';
       return;
     }
+    window._momentosData=rows;
     window._momentosUrls=rows.map(r=>r.foto_url);
     box.innerHTML=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding-top:6px">
       ${rows.map((ck,i)=>`<div onclick="viewMoment(${i})" style="cursor:pointer;aspect-ratio:1;border-radius:6px;overflow:hidden;border:3px solid #fff;box-shadow:0 3px 10px rgba(0,0,0,0.4);transform:rotate(${i%2===0?'-2deg':'2deg'})">
@@ -8613,17 +8848,21 @@ async function loadProfileMomentos(){
 // Abre um Instant em tela cheia (estilo visualizador de Stories), com navegacao entre fotos.
 function viewMoment(idx){
   const urls=window._momentosUrls||[];
+  const data=window._momentosData||[];
   if(!urls.length)return;
   let i=Math.max(0,Math.min(idx,urls.length-1));
   const overlay=document.createElement('div');
   overlay.style.cssText='position:fixed;inset:0;z-index:900;background:rgba(0,0,0,0.95);display:flex;align-items:center;justify-content:center';
   function render(){
+    const item=data[i]||{};
+    const canDelete=item._source==='moment'&&item.id;
     overlay.innerHTML=`
       <div onclick="event.stopPropagation()" style="position:relative;max-width:520px;width:100%;padding:0 16px">
         <img src="${urls[i]}" style="width:100%;max-height:80vh;object-fit:contain;border-radius:8px">
         ${urls.length>1?`<div style="display:flex;justify-content:center;gap:6px;margin-top:14px">${urls.map((_,j)=>`<div style="width:${j===i?'18px':'6px'};height:6px;border-radius:3px;background:${j===i?'var(--accent)':'rgba(255,255,255,0.3)'};transition:width .2s"></div>`).join('')}</div>`:''}
+        ${canDelete?`<button onclick="event.stopPropagation();deleteMoment('${item.id}')" style="width:100%;margin-top:16px;padding:12px;background:none;border:1px solid rgba(224,92,42,0.5);color:#e05c2a;border-radius:8px;font-family:var(--font-ui);font-size:11px;letter-spacing:1.5px;cursor:pointer">APAGAR ESSE INSTANT</button>`:''}
       </div>
-      ${i>0?`<div onclick="event.stopPropagation();window._momentViewIdx=${i-1};document.getElementById('moment-viewer').remove();viewMoment(${i-1})" style="position:absolute;left:0;top:0;bottom:0;width:30%;cursor:pointer"></div>`:''}
+      ${i>0?`<div onclick="event.stopPropagation();document.getElementById('moment-viewer').remove();viewMoment(${i-1})" style="position:absolute;left:0;top:0;bottom:0;width:30%;cursor:pointer"></div>`:''}
       ${i<urls.length-1?`<div onclick="event.stopPropagation();document.getElementById('moment-viewer').remove();viewMoment(${i+1})" style="position:absolute;right:0;top:0;bottom:0;width:30%;cursor:pointer"></div>`:''}
       <button onclick="document.getElementById('moment-viewer').remove()" style="position:absolute;top:20px;right:20px;background:rgba(255,255,255,0.15);border:none;color:#fff;width:36px;height:36px;border-radius:50%;font-size:18px;cursor:pointer">&times;</button>
     `;
@@ -8632,6 +8871,17 @@ function viewMoment(idx){
   overlay.onclick=()=>overlay.remove();
   document.body.appendChild(overlay);
   render();
+}
+async function deleteMoment(momentId){
+  if(!confirm('Apagar esse Instant? Nao pode ser desfeito.'))return;
+  try{
+    await fetch(`${SB_URL}/rest/v1/mytri_moments?id=eq.${momentId}`,{method:'DELETE',headers:sbHeaders()});
+    const overlay=document.getElementById('moment-viewer');
+    if(overlay)overlay.remove();
+    loadProfileMomentos();
+  }catch(e){
+    alert('Nao consegui apagar agora. Tenta de novo.');
+  }
 }
 // Adiciona um Instant pessoal: foto crua, sem edicao, direto no proprio perfil — o botao
 // colorido (gradiente Instagram) do canto superior esquerdo do avatar.
@@ -8792,6 +9042,7 @@ function submitProfile(){
     weight:getVal('pf-peso').trim(),
     altura:getVal('pf-altura').trim(),
     city:getVal('pf-cidade').trim(),
+    bairro:getVal('pf-bairro').trim(),
     sexo:getVal('pf-sexo'),
     sport:getVal('pf-modalidade'),
     raceDist:getVal('pf-distancia')||prof.raceDist,
@@ -10584,7 +10835,7 @@ function renderPlanSummary(el,profile,text,debugMsg){
         <div style="font-family:var(--font-body);font-size:14px;color:var(--text);line-height:1.7">Constancia vence intensidade. Sem a pressao de uma data, o foco e criar o hábito e ganhar base aerobica. Cada treino conta.</div>
       </div>
     </div>`
-    :`<div class="plan-section"><div class="plan-section-body">Não foi possível gerar o resumo detalhado do plano agora. Isso pode acontecer por instabilidade temporaria. Seu plano de treino já está ativo na Agenda.${debugMsg?`<br><br><span style="color:#e05c2a;font-size:11px">[debug: ${String(debugMsg).slice(0,250).replace(/</g,'')}]</span>`:''}</div></div>`)}
+    :`<div class="plan-section"><div class="plan-section-body">Não foi possível gerar o resumo detalhado do plano agora. Isso pode acontecer por instabilidade temporaria. Seu plano de treino já está ativo na Agenda.${debugMsg?`<br><br><span style="color:#e05c2a;font-size:11px">[debug: ${String(debugMsg).slice(0,250).replace(/</g,'')}]</span>`:''}<br><br><button onclick="showPlanSummary(getMytriProfile())" style="padding:12px 20px;background:var(--accent);color:#000;border:none;border-radius:4px;font-family:var(--font-ui);font-size:11px;letter-spacing:1.5px;cursor:pointer">TENTAR NOVAMENTE</button></div></div>`)}
 
     <div style="padding:20px 20px 40px">
       <button onclick="closePlanSummary()" style="width:100%;padding:18px;background:var(--accent);color:#000;font-family:var(--font-ui);font-size:14px;font-weight:700;letter-spacing:2px;border:none;border-radius:4px;cursor:pointer">ENTRAR NO MYTRI</button>
