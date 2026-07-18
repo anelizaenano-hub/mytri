@@ -1,11 +1,31 @@
 [build]
   functions = "netlify/functions"
 
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+
+# CRITICO: sem isso, toda function usa o padrao da Netlify (10 segundos) — pouco pra gerar um
+# relatorio de IA mais longo. Isso estava faltando de verdade no arquivo (so tinha ficado
+# registrado como intencao numa nota antiga, nunca foi escrito aqui). E a causa raiz do erro
+# 504 consistente no resumo do plano depois que o relatorio ficou mais completo (mais texto =
+# mais tempo pra gerar = passa dos 10s padrao).
+#
+# Configurado tanto global quanto por function especifica (mais confiavel, segundo relatos de
+# outros usuarios da Netlify) pras que fazem chamada de IA mais longa.
 [functions]
-  node_bundler = "esbuild"
+  timeout = 26
+
+[functions."plan-summary"]
+  timeout = 26
 
 [functions."bike-fit"]
   timeout = 26
 
-[functions."plan-summary"]
+[functions."session-analysis"]
+  timeout = 26
+
+[functions."reports"]
   timeout = 26
