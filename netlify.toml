@@ -7,7 +7,5 @@
     X-Frame-Options = "DENY"
     X-Content-Type-Options = "nosniff"
 
-# Aumenta o tempo limite das functions de 10s (padrao) pra 26s — necessario pros relatorios
-# de IA mais longos (resumo do plano, bike fit) nao estourarem o tempo.
 [functions]
   timeout = 26
