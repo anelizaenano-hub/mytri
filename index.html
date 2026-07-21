@@ -12,6 +12,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@400;600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 
 <style>
 :root {
@@ -429,9 +431,6 @@ body.auth-active .bottom-nav,body.auth-active .app-header,body.auth-active #cons
 .plan-section{padding:20px 20px 0}
 .plan-section-title{font-family:var(--font-ui);font-size:10px;color:var(--accent);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px}
 .plan-section-body{font-family:var(--font-body);font-size:14px;color:var(--muted2);line-height:1.7}
-.plan-phase{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)}
-.plan-phase:last-child{border-bottom:none}
-.plan-phase-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);margin-top:6px;flex-shrink:0}
 
 summary::-webkit-details-marker{display:none}
 summary{list-style:none}
@@ -524,6 +523,21 @@ summary span:last-child{transition:transform .2s;display:inline-block}
 // app (milhares de strings) ainda está soo em portugues fixo — migrar
 // tela por tela e o próximo trabalho, usando exatamente este padrao.
 const SUPPORTED_LANGS=['pt','en','es','zh','ko'];
+// Lista de paises pro onboarding — cobre o mercado principal (Brasil) mais os paises que fazem
+// sentido dado os idiomas suportados do app (EN/ES/ZH/KO), com um fallback generico pro resto.
+const COUNTRY_LIST=[
+  {code:'BR',flag:'\u{1F1E7}\u{1F1F7}',name:'Brasil'},
+  {code:'PT',flag:'\u{1F1F5}\u{1F1F9}',name:'Portugal'},
+  {code:'US',flag:'\u{1F1FA}\u{1F1F8}',name:'Estados Unidos'},
+  {code:'MX',flag:'\u{1F1F2}\u{1F1FD}',name:'M\u00e9xico'},
+  {code:'ES',flag:'\u{1F1EA}\u{1F1F8}',name:'Espanha'},
+  {code:'AR',flag:'\u{1F1E6}\u{1F1F7}',name:'Argentina'},
+  {code:'CL',flag:'\u{1F1E8}\u{1F1F1}',name:'Chile'},
+  {code:'CO',flag:'\u{1F1E8}\u{1F1F4}',name:'Col\u00f4mbia'},
+  {code:'CN',flag:'\u{1F1E8}\u{1F1F3}',name:'China'},
+  {code:'KR',flag:'\u{1F1F0}\u{1F1F7}',name:'Coreia do Sul'},
+  {code:'OTHER',flag:'\u{1F30D}',name:'Outro pa\u00eds'}
+];
 const LANG_LABELS={pt:'Português',en:'English',es:'Español',zh:'中文',ko:'한국어'};
 const I18N={
   pt:{
@@ -2356,6 +2370,150 @@ function getStatsPeriods(){
   const moPrevIni=new Date(now.getFullYear(),now.getMonth()-1,1,0,0,0,0);
   const moPrevFim=new Date(now.getFullYear(),now.getMonth(),0,23,59,59,999);
   return {wkIni,wkFim,wkPrevIni,wkPrevFim,moIni,moFim,moPrevIni,moPrevFim};
+}
+
+// Aderencia da SEMANA ATUAL (seg-dom): quantas sessoes planejadas pra essa semana especifica
+// ja foram feitas. Diferente de getVolume(), que soma o plano INTEIRO do inicio ao fim.
+// Decodifica o polyline codificado que o Strava manda (algoritmo padrao Google Maps) em uma
+// lista de pontos [lat,lng]. Sem isso o tracado da rota e so uma string ilegivel.
+function decodePolyline(str){
+  let index=0,lat=0,lng=0;const coords=[];
+  while(index<str.length){
+    let b,shift=0,result=0;
+    do{ b=str.charCodeAt(index++)-63; result|=(b&0x1f)<<shift; shift+=5; }while(b>=0x20);
+    const dlat=(result&1)?~(result>>1):(result>>1); lat+=dlat;
+    shift=0;result=0;
+    do{ b=str.charCodeAt(index++)-63; result|=(b&0x1f)<<shift; shift+=5; }while(b>=0x20);
+    const dlng=(result&1)?~(result>>1):(result>>1); lng+=dlng;
+    coords.push([lat/1e5,lng/1e5]);
+  }
+  return coords;
+}
+
+// Mapa de atividades ao ar livre (Bloco 4, item 9) — abre em tela cheia com Leaflet + OpenStreetMap,
+// plotando as rotas cacheadas do Strava (mytri_routes_cache, gravado em stravaSyncActivities).
+function openActivityMap(){
+  let routes=[];
+  try{ routes=JSON.parse(localStorage.getItem('mytri_routes_cache')||'[]'); }catch(e){}
+  const overlay=document.createElement('div');
+  overlay.id='activity-map-overlay';
+  overlay.style.cssText='position:fixed;inset:0;z-index:600;background:var(--bg);display:flex;flex-direction:column';
+  const sportColor={corrida:'#00e676',ciclismo:'#e05c2a',natacao:'#1a6cf0',outro:'#c8cad0'};
+  overlay.innerHTML=`
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border);background:var(--bg);z-index:2">
+      <button onclick="closeActivityMap()" style="background:none;border:none;color:var(--muted2);font-size:22px;cursor:pointer">&#8592;</button>
+      <div style="font-family:var(--font-ui);font-size:12px;letter-spacing:2px">MAPA DE ATIVIDADES</div>
+      <div style="width:22px"></div>
+    </div>
+    ${routes.length?`<div id="activity-map-canvas" style="flex:1;min-height:0"></div>
+    <div style="display:flex;gap:14px;justify-content:center;padding:12px;border-top:1px solid var(--border);background:var(--bg)">
+      ${Object.entries(sportColor).filter(([k])=>routes.some(r=>r.sport===k)).map(([k,c])=>`<div style="display:flex;align-items:center;gap:5px"><div style="width:10px;height:10px;border-radius:50%;background:${c}"></div><span style="font-family:var(--font-ui);font-size:9px;color:var(--muted2);letter-spacing:1px;text-transform:uppercase">${k}</span></div>`).join('')}
+    </div>`:`<div style="flex:1;display:flex;align-items:center;justify-content:center;padding:40px;text-align:center">
+      <div style="font-family:var(--font-body);font-size:13px;color:var(--muted2);line-height:1.6">Nenhuma rota GPS encontrada ainda.<br>Sincronize o Strava depois de um treino ao ar livre pra ver o mapa aqui.</div>
+    </div>`}`;
+  document.body.appendChild(overlay);
+  if(!routes.length)return;
+
+  setTimeout(()=>{
+    const map=L.map('activity-map-canvas',{zoomControl:true});
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+      maxZoom:19,attribution:'&copy; OpenStreetMap'
+    }).addTo(map);
+    const allBounds=[];
+    routes.forEach(r=>{
+      const color=sportColor[r.sport]||sportColor.outro;
+      const line=L.polyline(r.points,{color,weight:3,opacity:0.85}).addTo(map);
+      line.bindPopup(`<b>${r.name||r.sport}</b><br>${r.distKm}km &middot; ${r.date}`);
+      allBounds.push(...r.points);
+    });
+    if(allBounds.length)map.fitBounds(allBounds,{padding:[24,24]});
+    overlay._leafletMap=map;
+  },50);
+}
+function closeActivityMap(){
+  const overlay=document.getElementById('activity-map-overlay');
+  if(overlay){ if(overlay._leafletMap)overlay._leafletMap.remove(); overlay.remove(); }
+}
+
+function getWeekAdherence(){
+  try{
+    const P=getStatsPeriods();
+    const PS=getPlanStart();
+    const checks=loadChecks();
+    const _tw=planWeekCount();
+    let done=0,total=0;
+    for(let w=1;w<=_tw;w++){
+      for(let d=0;d<7;d++){
+        const cell=new Date(PS); cell.setDate(PS.getDate()+(w-1)*7+d); cell.setHours(12,0,0,0);
+        if(cell<P.wkIni||cell>P.wkFim)continue;
+        getEffectiveSessions(w,d).forEach(sess=>{
+          if(sess.type===REST)return;
+          total++;
+          const key=sess._origin==='plan'?ck(w,d,sess._si):`ex_w${w}_d${d}_i${sess._idx}`;
+          if(checks[key])done++;
+        });
+      }
+    }
+    return{done,total};
+  }catch(e){ return{done:0,total:0}; }
+}
+
+// Anel de progresso circular (estilo Apple Watch). frac de 0 a 1.
+function svgRing(frac,color,size,stroke){
+  size=size||64;stroke=stroke||7;
+  const r=(size-stroke)/2,c=2*Math.PI*r;
+  const off=c*(1-Math.max(0,Math.min(1,frac)));
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="transform:rotate(-90deg);display:block">
+    <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="var(--border)" stroke-width="${stroke}"/>
+    <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${color}" stroke-width="${stroke}" stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}" stroke-linecap="round"/>
+  </svg>`;
+}
+
+// Grafico de evolucao de pace/velocidade por modalidade, a partir do historico de atividades
+// do Strava (mytri_pace_history, gravado em stravaSyncActivities). Eixo Y sempre normalizado
+// pra "pra cima = mais rapido", mesmo pace (menor=melhor) e velocidade (maior=melhor) juntos.
+function renderPaceEvolutionChart(){
+  let hist=[];
+  try{ hist=JSON.parse(localStorage.getItem('mytri_pace_history')||'[]'); }catch(e){ return ''; }
+  if(!hist.length)return '';
+  const prof=(getMytriProfile&&getMytriProfile())||{};
+  const sportsToShow=(prof.sport==='triathlon'||prof.sport==='duathlon')?['corrida','ciclismo','natacao']
+    :prof.sport==='corrida'?['corrida']:prof.sport==='ciclismo'?['ciclismo']:prof.sport==='natacao'?['natacao']
+    :['corrida','ciclismo','natacao'];
+  const sportMeta={corrida:{color:'#00e676'},ciclismo:{color:'#e05c2a'},natacao:{color:'#1a6cf0'}};
+  let blocks='';
+  sportsToShow.forEach(sp=>{
+    const pts=hist.filter(h=>h.sport===sp).slice(-15);
+    if(pts.length<2)return;
+    const meta=sportMeta[sp];
+    const yVals=pts.map(p=>sp==='ciclismo'?p.kmh:(1000/p.secPerUnit));
+    const minY=Math.min(...yVals),maxY=Math.max(...yVals);
+    const rangeY=(maxY-minY)||1;
+    const W=300,H=70,PAD=8;
+    const stepX=pts.length>1?(W-PAD*2)/(pts.length-1):0;
+    const coords=yVals.map((y,i)=>[PAD+i*stepX,H-PAD-((y-minY)/rangeY)*(H-PAD*2)]);
+    const pathD=coords.map(([x,y],i)=>(i===0?'M':'L')+x.toFixed(1)+','+y.toFixed(1)).join(' ');
+    const first=pts[0],last=pts[pts.length-1];
+    const improved=sp==='ciclismo'?last.kmh>=first.kmh:last.secPerUnit<=first.secPerUnit;
+    blocks+=`
+      <div style="margin-bottom:18px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
+          <span style="font-family:var(--font-ui);font-size:10px;font-weight:700;color:${meta.color};letter-spacing:1px;text-transform:uppercase">${sp}</span>
+          <span style="font-family:var(--font-ui);font-size:9px;color:${improved?'#00e676':'var(--muted)'}">${first.label} &rarr; ${last.label}${improved?' &#9650;':''}</span>
+        </div>
+        <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:${H}px;display:block">
+          <path d="${pathD}" fill="none" stroke="${meta.color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+          ${coords.map(([x,y])=>`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="2.5" fill="${meta.color}"/>`).join('')}
+        </svg>
+        <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);margin-top:2px">Ultimas ${pts.length} atividades de ${sp} sincronizadas do Strava</div>
+      </div>`;
+  });
+  if(!blocks)return '';
+  return `<div class="stats-section" style="background:var(--surface);border:1px solid var(--border);border-top:2px solid var(--accent);padding:16px;margin-bottom:8px">
+    <div style="font-family:var(--font-ui);font-size:9px;font-weight:700;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:4px">EVOLUCAO DE RITMO</div>
+    <div style="font-family:var(--font-body);font-size:10px;color:var(--muted2);margin-bottom:14px">Baseado nas atividades sincronizadas do Strava. Linha subindo = ficando mais rapido.</div>
+    ${blocks}
+  </div>`;
 }
 
 // ── TAB SWITCHING ──
@@ -4876,6 +5034,22 @@ function renderStats(){
         <div class="stat-countdown-date">Plano de base. Defina uma prova no perfil para ativar a contagem e a periodizacao.</div>
       </div>`;
     })()}
+    ${(()=>{
+      const adh=getWeekAdherence();
+      if(adh.total===0)return '';
+      const frac=adh.done/adh.total;
+      const color=frac>=1?'#00e676':frac>=0.5?'#f0a500':'#e05c2a';
+      return `<div style="display:flex;align-items:center;gap:16px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin:12px 0">
+        <div style="position:relative;width:56px;height:56px;flex-shrink:0">
+          ${svgRing(frac,color,56,6)}
+          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:14px;color:${color}">${adh.done}/${adh.total}</div>
+        </div>
+        <div>
+          <div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1.5px">ADERENCIA DESSA SEMANA</div>
+          <div style="font-family:var(--font-body);font-size:12px;color:var(--muted2);margin-top:2px">${adh.done} de ${adh.total} treinos planejados feitos ate agora (seg-dom)</div>
+        </div>
+      </div>`;
+    })()}
     <div class="stats-grid">
       <div class="stat-card" style="border-top-color:var(--accent)">
         <div class="stat-card-label">TREINOS FEITOS</div>
@@ -5021,7 +5195,11 @@ function renderStats(){
     </div>
     <div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:.5px">
       ${totalKm.toFixed(1)}km percorridos &middot; ${globoPct}% da circunferencia da Terra
-    </div>`;
+    </div>
+    <button onclick="openActivityMap()" style="width:100%;margin-top:14px;padding:12px;background:rgba(0,230,118,0.08);border:1px solid rgba(0,230,118,0.3);color:var(--accent);font-family:var(--font-ui);font-size:11px;font-weight:700;letter-spacing:1.5px;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 6v16l7-4 8 4 7-4V2l-7 4-8-4-7 4z"/><path d="M8 2v16M16 6v16"/></svg>
+      VER MAPA DAS MINHAS ROTAS
+    </button>`;
 
   // ── TEMPO POR ZONA ──
   const zoneMinutes={Z1:0,Z2:0,Z3:0,Z4:0};
@@ -5183,7 +5361,9 @@ function renderStats(){
     <div style="font-family:var(--font-body);font-size:10px;color:var(--muted2);text-align:center;margin-top:14px;line-height:1.5">Outros atletas são ilustrativos nesta versao. Com a comunidade ativa, o ranking será real e ao vivo.</div>
   `;
 
-  container.appendChild(cd);container.appendChild(periodDiv);container.appendChild(rankCard);container.appendChild(distCard);container.appendChild(progressDiv);container.appendChild(volDiv);container.appendChild(zoneDiv);container.appendChild(muscDiv);
+  const paceEvoDiv=document.createElement('div');
+  paceEvoDiv.innerHTML=renderPaceEvolutionChart();
+  container.appendChild(cd);container.appendChild(periodDiv);container.appendChild(paceEvoDiv);container.appendChild(rankCard);container.appendChild(distCard);container.appendChild(progressDiv);container.appendChild(volDiv);container.appendChild(zoneDiv);container.appendChild(muscDiv);
 
   // ── REPORTS VIA IA ──
   const repDiv=document.createElement('div');
@@ -6227,6 +6407,55 @@ async function stravaSyncActivities(){
       return;
     }
     console.log('Strava activities:', activities.length, activities.map(a=>({date:a.start_date_local,type:a.sport_type||a.type,dist:a.distance})));
+
+    // Historico de pace/velocidade pra grafico de evolucao nos Stats. So guarda o essencial
+    // (data, tipo, valor numerico comparavel) — nao precisa rebuscar do Strava pra plotar depois.
+    try{
+      const paceHistory=[];
+      activities.forEach(act=>{
+        const actType=(act.sport_type||act.type||'').toLowerCase();
+        const distKm=(act.distance||0)/1000;
+        const dateStr=(act.start_date_local||'').slice(0,10);
+        if(!dateStr||!act.moving_time||act.moving_time<=0)return;
+        if(actType.includes('run')&&distKm>0.5){
+          const secPerKm=act.moving_time/distKm;
+          paceHistory.push({date:dateStr,sport:'corrida',secPerUnit:secPerKm,label:`${Math.floor(secPerKm/60)}:${String(Math.round(secPerKm%60)).padStart(2,'0')}/km`});
+        }else if((actType.includes('ride')||actType.includes('virtual'))&&distKm>1){
+          const kmh=distKm/(act.moving_time/3600);
+          paceHistory.push({date:dateStr,sport:'ciclismo',kmh,label:`${kmh.toFixed(1)}km/h`});
+        }else if(actType.includes('swim')&&distKm>0.05){
+          const secPer100=act.moving_time/(distKm*10);
+          paceHistory.push({date:dateStr,sport:'natacao',secPerUnit:secPer100,label:`${Math.floor(secPer100/60)}:${String(Math.round(secPer100%60)).padStart(2,'0')}/100m`});
+        }
+      });
+      paceHistory.sort((a,b)=>a.date.localeCompare(b.date));
+      localStorage.setItem('mytri_pace_history',JSON.stringify(paceHistory));
+    }catch(e){}
+
+    // Cache de rotas GPS pro mapa de atividades. O Strava ja manda o tracado (summary_polyline)
+    // na propria listagem de atividades — sem precisar de chamada extra por atividade. So guarda
+    // atividades com rota real (indoor/rolo sem GPS nao tem polyline) e ja decodifica os pontos,
+    // pra nao precisar redecodificar toda vez que o mapa abrir.
+    try{
+      const routes=activities
+        .filter(a=>a.map&&a.map.summary_polyline)
+        .slice(0,20)
+        .map(a=>{
+          const actType=(a.sport_type||a.type||'').toLowerCase();
+          let sport='outro';
+          if(actType.includes('run')||actType.includes('walk')||actType.includes('hike'))sport='corrida';
+          else if(actType.includes('ride'))sport='ciclismo';
+          else if(actType.includes('swim'))sport='natacao';
+          return{
+            id:a.id,date:(a.start_date_local||'').slice(0,10),sport,
+            distKm:Math.round((a.distance||0)/100)/10,
+            name:a.name||'',
+            points:decodePolyline(a.map.summary_polyline)
+          };
+        })
+        .filter(r=>r.points.length>1);
+      localStorage.setItem('mytri_routes_cache',JSON.stringify(routes));
+    }catch(e){}
 
     let matched=0;
     const checks=loadChecks();
@@ -7536,7 +7765,6 @@ function renderClubMyProfile(c){
     coverBg:_cs.coverBg,coverPhoto:_cs.coverPhoto
   };
   const coverBg=p.coverBg||'linear-gradient(135deg,#1a3a6f,#0d1f40)';
-  const coverStyle=p.coverPhoto?`url('${p.coverPhoto}') center/cover`:coverBg;
   c.innerHTML=`
     <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border)">
       <button onclick="clubState.step='swipe';saveClubState();renderClub()" style="background:none;border:none;color:var(--muted2);font-size:22px;cursor:pointer">&#8592;</button>
@@ -7544,7 +7772,9 @@ function renderClubMyProfile(c){
       <button onclick="clubState.step='onboard';saveClubState();renderClub()" style="background:none;border:none;color:var(--accent);font-family:var(--font-ui);font-size:10px;letter-spacing:1px;cursor:pointer">EDITAR</button>
     </div>
 
-    <div style="position:relative;height:min(36vh,220px);min-height:170px;background:${coverStyle};cursor:pointer" onclick="clubChangeCover()" id="club-cover-box">
+    <div style="position:relative;height:min(36vh,220px);min-height:170px;overflow:hidden;cursor:pointer;${p.coverPhoto?'':`background:${coverBg}`}" onclick="clubChangeCover()" id="club-cover-box">
+      ${p.coverPhoto?`<div style="position:absolute;inset:0;background:url('${p.coverPhoto}') center/cover;filter:blur(24px) brightness(0.55);transform:scale(1.15)"></div>
+      <div style="position:absolute;inset:0;background:url('${p.coverPhoto}') center/contain no-repeat"></div>`:''}
       <div style="position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,0.1),rgba(8,10,13,0.6))"></div>
       <div style="position:absolute;bottom:8px;right:12px;background:rgba(0,0,0,0.5);border-radius:4px;padding:5px 10px;font-family:var(--font-ui);font-size:9px;color:#fff;letter-spacing:.5px">EDITAR CAPA</div>
       <div style="position:absolute;bottom:-40px;left:20px">
@@ -8568,8 +8798,10 @@ function renderProfile(){
     <input type="file" id="profile-cover-input" accept="image/*" style="display:none" onchange="handleCoverPhoto(event)">
 
     <div class="profile-hero" style="padding:0;text-align:left;border-bottom:1px solid var(--border)">
-      <!-- Capa retangular (foto secundaria) -->
-      <div onclick="changeCoverPhoto()" style="position:relative;height:min(38vh,240px);min-height:180px;cursor:pointer;${secondary?`background:url('${secondary}') center/cover`:'background:linear-gradient(135deg,#12161c,#1a2530)'}">
+      <!-- Capa: fundo borrado preenche a caixa toda, foto real fica inteira (sem cortar) por cima -->
+      <div onclick="changeCoverPhoto()" style="position:relative;height:min(38vh,240px);min-height:180px;cursor:pointer;overflow:hidden;${secondary?'':'background:linear-gradient(135deg,#12161c,#1a2530)'}">
+        ${secondary?`<div style="position:absolute;inset:0;background:url('${secondary}') center/cover;filter:blur(24px) brightness(0.55);transform:scale(1.15)"></div>
+        <div style="position:absolute;inset:0;background:url('${secondary}') center/contain no-repeat"></div>`:''}
         ${secondary?`<div style="position:absolute;top:10px;right:12px;background:rgba(0,0,0,0.55);border-radius:4px;padding:5px 10px;font-family:var(--font-ui);font-size:9px;color:#fff;letter-spacing:.5px">${t('pf_edit_cover')}</div>`:`<div style="position:absolute;top:10px;right:12px;font-family:var(--font-ui);font-size:9px;color:rgba(255,255,255,0.6);letter-spacing:.5px">${t('pf_add_cover')}</div>`}
       </div>
       <!-- Avatar sobreposto + dados ao lado (estilo LinkedIn compacto) -->
@@ -8591,7 +8823,7 @@ function renderProfile(){
         <input type="file" id="profile-photo-input" accept="image/*" style="display:none" onchange="handleProfilePhoto(event)">
         <input type="file" id="profile-extra-photo-input" accept="image/*" style="display:none" onchange="handleExtraPhoto(event)">
         <div style="margin-top:8px">
-          <div class="profile-city" id="profile-city-display" style="text-align:left">${prof.city||t('pf_detecting_location')}</div>
+          <div class="profile-city" id="profile-city-display" style="text-align:left">${prof.country&&prof.country!=='BR'?((COUNTRY_LIST.find(c=>c.code===prof.country)||{}).flag||'')+' ':''}${prof.city||t('pf_detecting_location')}</div>
           <div style="display:flex;align-items:center;gap:14px;margin-top:4px;flex-wrap:wrap">
             <div onclick="resetCity()" style="font-family:var(--font-ui);font-size:9px;color:var(--muted2);letter-spacing:1px;cursor:pointer;text-decoration:underline">${t('pf_update_location')}</div>
             ${athlete.firstname?`<div style="font-family:var(--font-ui);font-size:9px;color:var(--muted2);letter-spacing:1px">STRAVA: ${athlete.firstname} ${athlete.lastname||''}</div>`:''}
@@ -8687,6 +8919,11 @@ function renderProfile(){
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div class="profile-field"><label>${t('pf_city')}</label><input id="pf-cidade" value="${prof.city||''}"></div>
         <div class="profile-field"><label>${t('pf_neighborhood')}</label><input id="pf-bairro" placeholder="ex: Moema" value="${prof.bairro||''}"></div>
+      </div>
+      <div class="profile-field"><label>PAIS</label>
+        <select id="pf-country">
+          ${COUNTRY_LIST.map(c=>`<option value="${c.code}" ${((prof.country||'BR')===c.code)?'selected':''}>${c.flag} ${c.name}</option>`).join('')}
+        </select>
       </div>
       <div class="profile-field"><label>${t('pf_gender')}</label>
         <select id="pf-sexo">
@@ -9103,6 +9340,7 @@ function submitProfile(){
     altura:getVal('pf-altura').trim(),
     city:getVal('pf-cidade').trim(),
     bairro:getVal('pf-bairro').trim(),
+    country:getVal('pf-country')||prof.country||'BR',
     sexo:getVal('pf-sexo'),
     sport:getVal('pf-modalidade'),
     raceDist:getVal('pf-distancia')||prof.raceDist,
@@ -10182,13 +10420,26 @@ function renderObFitness(c){
       </div>
 
       <div style="margin-top:16px">
+        <div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;margin-bottom:6px">PAIS</div>
+        <select id="ob-country" onchange="obData.country=this.value;renderOnboarding()" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:12px;border-radius:4px">
+          ${COUNTRY_LIST.map(c=>`<option value="${c.code}" ${((obData.country||'BR')===c.code)?'selected':''}>${c.flag} ${c.name}</option>`).join('')}
+        </select>
+      </div>
+
+      ${(obData.country||'BR')==='BR'?`
+      <div style="margin-top:16px">
         <div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;margin-bottom:6px">CEP (define sua cidade no perfil e no clube)</div>
         <input id="ob-cep" type="text" inputmode="numeric" maxlength="9" placeholder="00000-000" value="${obData.cep||''}" oninput="obFormatCep(this)" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:12px;border-radius:4px">
         <div id="ob-cep-status" style="font-family:var(--font-body);font-size:11px;color:var(--muted);margin-top:6px">${obData.cepCity?('Cidade: '+obData.cepCity):'Digite seu CEP ou use sua localização atual'}</div>
         <div style="display:flex;align-items:center;gap:10px;margin:12px 0 4px"><div style="flex:1;height:1px;background:var(--border)"></div><div style="font-family:var(--font-ui);font-size:9px;color:var(--muted2);letter-spacing:1px">OU</div><div style="flex:1;height:1px;background:var(--border)"></div></div>
         <button type="button" onclick="obUseGPS()" style="width:100%;background:var(--surface);border:1.5px solid var(--border);color:var(--text);font-family:var(--font-ui);font-size:11px;letter-spacing:1px;padding:12px;border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">USAR MINHA LOCALIZAÇÃO ATUAL</button>
         <div id="ob-gps-status" style="font-family:var(--font-body);font-size:11px;color:var(--muted);margin-top:6px;min-height:14px"></div>
-      </div>
+      </div>`:`
+      <div style="margin-top:16px">
+        <div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;margin-bottom:6px">CIDADE (define sua cidade no perfil e no clube)</div>
+        <input id="ob-city-manual" type="text" placeholder="ex: Lisboa" value="${obData.cepCidadeBase||''}" oninput="obData.cepCidadeBase=this.value;obData.cepCity=this.value;obData.cepBairro='';obData.state=''" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:12px;border-radius:4px">
+        <div style="font-family:var(--font-body);font-size:11px;color:var(--muted);margin-top:6px">Endereco fora do Brasil ainda nao tem busca automatica por CEP — digite sua cidade direto.</div>
+      </div>`}
     </div>
     <div style="padding:16px 24px 24px">
       <button class="ob-btn" onclick="obSaveFitness();obNext()">${t('btn_continuar')}</button>
@@ -10566,6 +10817,7 @@ function obFinish(){
     city:obData.cepCidadeBase||prof.city||localStorage.getItem('mytri_gps_city')||'',
     bairro:obData.cepBairro||prof.bairro||'',
     state:obData.state||prof.state||'',
+    country:obData.country||prof.country||'BR',
     cep:obData.cep||prof.cep||'',
     cityLocked:!!obData.cepCity,
     photo:prof.photo||athlete.profile||athlete.profile_medium||'',
@@ -10730,6 +10982,62 @@ function calcComparacaoPace(profile, paceNecessario){
   }catch(e){ return ''; }
 }
 
+// Versao VISUAL (gauge de barras) da mesma comparacao que calcComparacaoPace faz em texto —
+// pra reduzir a leitura no relatorio. Duas barras numa escala comum "maior=melhor" (pace
+// vira velocidade invertida, bike ja e velocidade direta), com veredito curto embaixo.
+function renderPaceGaugeHTML(profile){
+  try{
+    const paceNecessario=calcPaceNecessarioMeta(profile);
+    if(!paceNecessario)return '';
+    const toSec=(s)=>{ const m=String(s).match(/(\d+):(\d{2})/); return m?parseInt(m[1])*60+parseInt(m[2]):null; };
+    let atualLabel='',necLabel='',atualVal=null,necVal=null,tituloLabel='';
+
+    if(profile.sport==='corrida'&&profile.pace){
+      const necSec=toSec(paceNecessario),atualSec=toSec(profile.pace);
+      if(necSec==null||atualSec==null)return '';
+      atualVal=1000/atualSec;necVal=1000/necSec;
+      atualLabel=profile.pace+'/km';necLabel=paceNecessario;
+      tituloLabel='PACE DE CORRIDA';
+    }else if(profile.sport==='natacao'&&profile.swim){
+      const necSec=toSec(paceNecessario),atualSec=toSec(profile.swim);
+      if(necSec==null||atualSec==null)return '';
+      atualVal=1000/atualSec;necVal=1000/necSec;
+      atualLabel=profile.swim+'/100m';necLabel=paceNecessario;
+      tituloLabel='PACE DE NATACAO';
+    }else if((profile.sport==='triathlon'||profile.sport==='duathlon')&&profile.pace){
+      const necMatch=String(paceNecessario).match(/(\d+):(\d{2})/);
+      if(!necMatch)return '';
+      const necSec=parseInt(necMatch[1])*60+parseInt(necMatch[2]);
+      const atualSec=toSec(profile.pace);
+      if(atualSec==null)return '';
+      atualVal=1000/atualSec;necVal=1000/necSec;
+      atualLabel=profile.pace+'/km';necLabel=necMatch[0]+'/km';
+      tituloLabel='PACE DE CORRIDA (perna do triathlon)';
+    }else{
+      return '';
+    }
+
+    const maxV=Math.max(atualVal,necVal);
+    const atualPct=Math.max(8,Math.round((atualVal/maxV)*100));
+    const necPct=Math.max(8,Math.round((necVal/maxV)*100));
+    const isReady=atualVal>=necVal;
+    const barColor=isReady?'#00e676':'#f0a500';
+
+    return `<div class="plan-section">
+      <div class="plan-section-title">${tituloLabel}: ATUAL VS NECESSARIO</div>
+      <div style="margin-top:10px">
+        <div style="display:flex;justify-content:space-between;font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:4px"><span>SEU RITMO ATUAL</span><span style="color:${barColor}">${atualLabel}</span></div>
+        <div style="height:10px;border-radius:5px;background:rgba(255,255,255,.06);overflow:hidden;margin-bottom:14px"><div style="height:100%;width:${atualPct}%;background:${barColor};border-radius:5px"></div></div>
+        <div style="display:flex;justify-content:space-between;font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:4px"><span>NECESSARIO PRA META</span><span>${necLabel}</span></div>
+        <div style="height:10px;border-radius:5px;background:rgba(255,255,255,.06);overflow:hidden"><div style="height:100%;width:${necPct}%;background:rgba(255,255,255,0.3);border-radius:5px"></div></div>
+      </div>
+      <div style="margin-top:12px;padding:10px 12px;border-radius:6px;background:${isReady?'rgba(0,230,118,.08)':'rgba(240,165,0,.1)'};border:1px solid ${isReady?'rgba(0,230,118,.25)':'rgba(240,165,0,.3)'}">
+        <div style="font-family:var(--font-body);font-size:12px;color:${barColor}">${isReady?'Voce ja tem o ritmo necessario pra bater a meta. Foco: resistencia e consistencia.':'Voce precisa ganhar ritmo pra bater a meta. Foco: velocidade especifica.'}</div>
+      </div>
+    </div>`;
+  }catch(e){ return ''; }
+}
+
 async function showPlanSummary(profile){
   const el=document.getElementById('view-plan-summary');
   el.classList.add('active');
@@ -10776,6 +11084,33 @@ async function showPlanSummary(profile){
   }catch(e){
     renderPlanSummary(el,profile,'',`Erro de rede/fetch: ${e.message}`);
   }
+}
+
+// Transforma o texto de "FASES DO PLANO" (uma fase por linha, formato livre da IA) em cards
+// de timeline horizontal: numero, nome da fase, periodo (se veio entre parenteses) e objetivo.
+// Reduz 4 linhas de texto corrido a algo escaneavel em 2 segundos.
+function renderFasesTimeline(fasesText){
+  const linhas=fasesText.split('\n').map(l=>l.trim()).filter(l=>l.length>2);
+  if(!linhas.length)return '';
+  const fases=linhas.map(l=>{
+    let linha=l.replace(/^\d+[\).\s-]+/,'').trim();
+    let periodo='';
+    const parenMatch=linha.match(/\(([^)]+)\)/);
+    if(parenMatch){ periodo=parenMatch[1]; linha=linha.replace(parenMatch[0],'').trim(); }
+    let titulo=linha,objetivo='';
+    const sep=linha.match(/^([^:—–-]+)[:—–-]\s*(.+)$/);
+    if(sep){ titulo=sep[1].trim(); objetivo=sep[2].trim(); }
+    return{titulo,periodo,objetivo};
+  });
+  return `<div style="display:flex;gap:10px;overflow-x:auto;padding:12px 2px 6px;margin-top:4px">
+    ${fases.map((f,i)=>`
+      <div style="flex:0 0 190px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px">
+        <div style="width:24px;height:24px;border-radius:50%;background:var(--accent);color:#000;display:flex;align-items:center;justify-content:center;font-family:var(--font-ui);font-size:11px;font-weight:700;margin-bottom:10px">${i+1}</div>
+        <div style="font-family:var(--font-display);font-size:15px;color:var(--text);line-height:1.2;margin-bottom:4px">${f.titulo}</div>
+        ${f.periodo?`<div style="font-family:var(--font-ui);font-size:9px;color:var(--accent);letter-spacing:.5px;margin-bottom:8px">${f.periodo}</div>`:''}
+        <div style="font-family:var(--font-body);font-size:11px;color:var(--muted2);line-height:1.5">${f.objetivo}</div>
+      </div>${i<fases.length-1?`<div style="flex:0 0 14px;display:flex;align-items:center;justify-content:center;color:var(--border);font-size:16px">&rsaquo;</div>`:''}`).join('')}
+  </div>`;
 }
 
 function renderPlanSummary(el,profile,text,debugMsg){
@@ -10855,6 +11190,8 @@ function renderPlanSummary(el,profile,text,debugMsg){
       </div>
     </div>
 
+    ${_hasRace?renderPaceGaugeHTML(profile):''}
+
     ${anySection?`
     ${visao?`<div class="plan-section">
       <div class="plan-section-title">VISAO GERAL</div>
@@ -10866,13 +11203,7 @@ function renderPlanSummary(el,profile,text,debugMsg){
     </div>`:''}
     ${fases?`<div class="plan-section">
       <div class="plan-section-title">FASES DO PLANO</div>
-      <div style="margin-top:4px">
-        ${fases.split('\n').filter(l=>l.trim().length>2).map(l=>`
-          <div class="plan-phase">
-            <div class="plan-phase-dot"></div>
-            <div class="plan-section-body" style="margin:0">${l.trim()}</div>
-          </div>`).join('')}
-      </div>
+      ${renderFasesTimeline(fases)}
     </div>`:''}
     ${estratégia?`<div class="plan-section">
       <div class="plan-section-title">ESTRATÉGIA DE PROVA</div>
@@ -11042,10 +11373,19 @@ async function maybeShowSessionAnalysis(key, sess, w, d){
   const typeName = typeNames2[sess.type] || sess.type || 'Treino';
   const pillText = (sess.text || typeName) + (sess.dist ? ' ' + sess.dist : '');
 
+  // Distancia PLANEJADA original (antes do override real) — pro strip numerico e o report
+  // compararem planejado vs feito. Movido pra ANTES do check de cache, pra aparecer nos dois casos.
+  let plannedDist = '';
+  try{
+    const rawWeek = getWeek(w);
+    const rawDay = rawWeek && rawWeek.days ? rawWeek.days[d] : null;
+    if(rawDay && rawDay[sess._si]) plannedDist = rawDay[sess._si].dist || '';
+  }catch(e){}
+
   // Check cache
   const cache = loadAnalysisCache();
   if(cache[key]){
-    renderSessionAnalysis(modal, dotColor, pillText, cache[key]);
+    renderSessionAnalysis(modal, dotColor, pillText, cache[key], ov, plannedDist);
     return;
   }
 
@@ -11082,14 +11422,7 @@ async function maybeShowSessionAnalysis(key, sess, w, d){
   const raceDate = profile.raceDate || '2026-09-13';
   const daysToRace = Math.max(0, Math.round((new Date(raceDate+'T12:00:00') - new Date()) / (1000*60*60*24)));
 
-  // Distancia PLANEJADA original (antes do override real), para o report comparar planejado vs feito.
-  // sess.dist já pode estar refletindo o real (item 5), então pegamos o planejado da fonte crua.
-  let plannedDist = '';
-  try{
-    const rawWeek = getWeek(w);
-    const rawDay = rawWeek && rawWeek.days ? rawWeek.days[d] : null;
-    if(rawDay && rawDay[sess._si]) plannedDist = rawDay[sess._si].dist || '';
-  }catch(e){}
+  // Distancia PLANEJADA já foi calculada acima (antes do check de cache).
   // Sinaliza se o real ficou acima/abaixo do planejado (para o coach comentar coerentemente)
   let volComparison = '';
   try{
@@ -11122,7 +11455,7 @@ async function maybeShowSessionAnalysis(key, sess, w, d){
       const c2 = loadAnalysisCache();
       c2[key] = text;
       saveAnalysisCache(c2);
-      renderSessionAnalysis(modal, dotColor, pillText, text);
+      renderSessionAnalysis(modal, dotColor, pillText, text, ov, plannedDist);
     } else {
       modal.classList.remove('active');
     }
@@ -11131,7 +11464,37 @@ async function maybeShowSessionAnalysis(key, sess, w, d){
   }
 }
 
-function renderSessionAnalysis(modal, dotColor, pillText, text){
+// Strip de numeros grandes (distancia, tempo, FC, calorias, zona) + barra planejado vs feito.
+// Fica ACIMA do texto da IA no relatorio pos-treino: os dados exatos primeiro, o texto como
+// contexto/interpretacao depois — antes só existia o texto narrando esses mesmos numeros.
+function renderSessionStatStrip(ov, plannedDist){
+  if(!ov)return '';
+  const stats=[];
+  if(ov.stravaDist)stats.push({label:'DISTANCIA',val:ov.stravaDist,color:'var(--accent)'});
+  if(ov.stravaTime)stats.push({label:'TEMPO',val:ov.stravaTime,color:'var(--text)'});
+  if(ov.stravaHR)stats.push({label:'FC MEDIA',val:ov.stravaHR+'bpm',color:'#e05c2a'});
+  if(ov.stravaCal)stats.push({label:'CALORIAS',val:ov.stravaCal+'kcal',color:'#f0a500'});
+  if(ov.stravaZone)stats.push({label:'ZONA',val:ov.stravaZone,color:'#9b6af0'});
+  if(!stats.length)return '';
+  let barHtml='';
+  const pKm=parseFloat(plannedDist)||0,rKm=parseFloat(ov.stravaDist||'')||0;
+  if(pKm>0&&rKm>0){
+    const pct=Math.round((rKm/pKm)*100);
+    const barColor=(pct>=90&&pct<=130)?'#00e676':(pct>130?'#f0a500':'#e05c2a');
+    barHtml=`<div style="margin-top:10px">
+      <div style="display:flex;justify-content:space-between;font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:1px;margin-bottom:3px"><span>PLANEJADO ${plannedDist}</span><span style="color:${barColor}">FEITO ${ov.stravaDist} (${pct}%)</span></div>
+      <div style="height:6px;border-radius:3px;background:rgba(255,255,255,.08);overflow:hidden"><div style="height:100%;width:${Math.min(100,pct)}%;background:${barColor}"></div></div>
+    </div>`;
+  }
+  return `<div style="display:grid;grid-template-columns:repeat(${Math.min(stats.length,3)},1fr);gap:8px;margin:14px 0">
+    ${stats.map(s=>`<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 6px;text-align:center">
+      <div style="font-family:var(--font-display);font-size:16px;color:${s.color}">${s.val}</div>
+      <div style="font-family:var(--font-ui);font-size:7px;color:var(--muted);letter-spacing:1px;margin-top:2px">${s.label}</div>
+    </div>`).join('')}
+  </div>${barHtml}`;
+}
+
+function renderSessionAnalysis(modal, dotColor, pillText, text, ov, plannedDist){
   modal.innerHTML = `
     <div class="sa-header">
       <span class="sa-label">Analise do Treino</span>
@@ -11141,6 +11504,7 @@ function renderSessionAnalysis(modal, dotColor, pillText, text){
       <div class="sa-session-pill-dot" style="background:${dotColor}"></div>
       <span class="sa-session-pill-text">${pillText}</span>
     </div>
+    ${renderSessionStatStrip(ov,plannedDist)}
     <div class="sa-text">${text.replace(/\n\n/g,'</p><p style="margin-top:12px">').replace(/\n/g,' ')}</div>`;
   modal.classList.add('active');
 }
