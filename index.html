@@ -621,6 +621,38 @@ const I18N={
     pf_moments_title:'Momentos', pf_loading:'Carregando...',
     pf_store_title:'Loja', pf_my_store:'MINHA LOJA', pf_store_desc:'Os equipamentos que eu uso, direto na Amazon.', pf_view_amazon:'VER NA AMAZON',
     sport_triathlon:'Triathlon', sport_corrida:'Corrida', sport_ciclismo:'Ciclismo', sport_natacao:'Natação', sport_duathlon:'Duathlon',
+    stat_days_to_race:'DIAS PARA A PROVA', stat_free_mode:'TREINO LIVRE', stat_no_race:'SEM PROVA DEFINIDA',
+    stat_no_race_desc:'Plano de base. Defina uma prova no perfil para ativar a contagem e a periodizacao.',
+    stat_adherence_title:'ADERENCIA DESSA SEMANA', stat_adherence_desc:'{done} de {total} treinos planejados feitos ate agora (seg-dom)',
+    stat_workouts_done:'TREINOS FEITOS', stat_of_sessions:'de {n} sessões', stat_current_week:'SEMANA ATUAL', stat_of_weeks:'de {n} semanas',
+    stat_strength_card:'MUSCULAÇÃO', stat_sessions_done:'sessões realizadas', stat_total_distance:'DISTANCIA TOTAL',
+    stat_period_title:'ACUMULO POR PERÍODO', stat_period_desc:'Volume real feito nesta semana/mes, comparado ao mesmo período anterior — não ao plano inteiro.',
+    stat_this_week:'ESTA SEMANA', stat_vs_last_week:'vs. semana passada', stat_vs_last_month:'vs. mes passado',
+    stat_workouts_count:'treinos', stat_first_period:'primeiro período registrado',
+    stat_phase_progress_title:'PROGRESSO POR FASE', stat_phase_base:'BASE', stat_phase_build:'CONSTRUÇÃO', stat_phase_peak:'PICO', stat_phase_taper:'AFUNILAMENTO', stat_phase_race:'PROVA',
+    stat_volume_title:'VOLUME ACUMULADO', stat_volume_subtitle:'(% do plano completo por modalidade)',
+    stat_swim:'NATAÇÃO', stat_bike:'BIKE', stat_run:'CORRIDA', stat_planned_total:'PLANEJADO TOTAL:',
+    stat_world_map_title:'NO MAPA DO MUNDO', stat_km_traveled:'km percorridos', stat_earth_pct:'da circunferencia da Terra', stat_view_routes_btn:'VER MAPA DAS MINHAS ROTAS',
+    stat_zone_time_title:'TEMPO POR ZONA',
+    stat_strength_core_mob_title:'FORÇA · CORE · MOBILIDADE', stat_strength_label:'Força Funcional', stat_core_label:'Core e Abdominal', stat_mobility_label:'Mobilidade e Along.',
+    stat_ranking_title:'RANKING DE CONSISTENCIA', stat_triathletes:'TRIATLETAS', stat_runners:'CORREDORES', stat_cyclists:'CICLISTAS',
+    stat_ranking_desc:'Classificação por constancia e aderencia ao treino — não por velocidade. Quanto mais regular você treina, mais sobe.',
+    stat_index_label:'INDICE', stat_ranking_position:'Você está em {pos}o de {total}', stat_streak_desc:'Sequencia: {n} {unit} · Aderencia média: {pct}%',
+    stat_week_unit:'semana', stat_weeks_unit:'semanas',
+    stat_index_explain_title:'COMO O INDICE E CALCULADO?',
+    stat_index_explain_intro:'O ranking do MyTri não mede quem e mais rápido — mede quem e mais constante. Um iniciante dedicado pode ficar a frente de um avancado que treina pouco. O indice vai de 0 a 100 e combina tres fatores:',
+    stat_adherence_factor_title:'ADERENCIA — 50%', stat_adherence_factor_desc:'Quantos dos treinos planejados você completou. E o que mais pesa: fazer o que foi combinado.',
+    stat_streak_factor_title:'SEQUENCIA — 30%', stat_streak_factor_desc:'Semanas seguidas treinando com regularidade. Premia não sumir — oito semanas seguidas chega ao máximo.',
+    stat_volume_factor_title:'VOLUME RELATIVO — 20%', stat_volume_factor_desc:'O quanto você treinou em relacao ao seu próprio plano — não ao dos outros. Assim quem treina para um 5k compete de igual para igual com quem treina para um Ironman.',
+    stat_index_explain_closing:'A ideia e simples: constancia vence intensidade. O atleta que aparece toda semana chega mais longe do que o que se esforca demais e desiste.',
+    stat_ranking_disclaimer:'Outros atletas são ilustrativos nesta versao. Com a comunidade ativa, o ranking será real e ao vivo.',
+    stat_reports_title:'REPORTS INTELIGENTES', stat_reports_desc:'Analise do seu treino gerada por IA a partir dos seus dados reais de aderencia e volume.',
+    stat_weekly_btn:'SEMANAL', stat_monthly_btn:'MENSAL', stat_postrace_btn:'POS-PROVA',
+    stat_strava_connected:'Conectado', stat_strava_not_connected:'Não conectado', stat_last_sync:'Último sync: {t}',
+    stat_strava_sync_desc:'Sincronize treinos do Garmin automaticamente', stat_sync_btn:'SYNC', stat_disconnect_btn:'DESCONECTAR', stat_connect_btn:'CONECTAR',
+    stat_never:'Nunca', stat_reset_limit:'resetar limite', stat_reset_limit_confirm:'Pronto. Clique em CONECTAR.',
+    stat_volume_per_week_title:'VOLUME POR SEMANA', stat_week_short:'SEM', stat_current_short:'ATUAL (SEM {n})',
+    stat_coaching_title:'COACHING SEMANAL', stat_generating_analysis:'Gerando analise...', stat_update_btn:'ATUALIZAR',
   },
   en:{
     nav_perfil:'Profile', nav_agenda:'Schedule', nav_stats:'Stats', nav_hist:'History', nav_fit:'Fit', nav_club:'Club',
@@ -11090,7 +11122,7 @@ async function showPlanSummary(profile){
 // de timeline horizontal: numero, nome da fase, periodo (se veio entre parenteses) e objetivo.
 // Reduz 4 linhas de texto corrido a algo escaneavel em 2 segundos.
 function renderFasesTimeline(fasesText){
-  const linhas=fasesText.split('\n').map(l=>l.trim()).filter(l=>l.length>2);
+  const linhas=fasesText.split('\n').map(l=>l.trim()).filter(l=>l.length>2).slice(0,6);
   if(!linhas.length)return '';
   const fases=linhas.map(l=>{
     let linha=l.replace(/^\d+[\).\s-]+/,'').trim();
@@ -11100,11 +11132,16 @@ function renderFasesTimeline(fasesText){
     let titulo=linha,objetivo='';
     const sep=linha.match(/^([^:—–-]+)[:—–-]\s*(.+)$/);
     if(sep){ titulo=sep[1].trim(); objetivo=sep[2].trim(); }
+    // Trava de seguranca: se uma "fase" veio absurdamente longa (sinal de que uma secao
+    // inteira vazou pra dentro do parsing, como ja aconteceu com ESTRATEGIA DE PROVA sem
+    // acento nao sendo reconhecida como fronteira), trunca em vez de quebrar o layout.
+    if(objetivo.length>220)objetivo=objetivo.slice(0,200).trim()+'…';
+    if(titulo.length>60)titulo=titulo.slice(0,50).trim()+'…';
     return{titulo,periodo,objetivo};
   });
   return `<div style="display:flex;gap:10px;overflow-x:auto;padding:12px 2px 6px;margin-top:4px">
     ${fases.map((f,i)=>`
-      <div style="flex:0 0 190px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px">
+      <div style="flex:0 0 190px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;word-break:break-word">
         <div style="width:24px;height:24px;border-radius:50%;background:var(--accent);color:#000;display:flex;align-items:center;justify-content:center;font-family:var(--font-ui);font-size:11px;font-weight:700;margin-bottom:10px">${i+1}</div>
         <div style="font-family:var(--font-display);font-size:15px;color:var(--text);line-height:1.2;margin-bottom:4px">${f.titulo}</div>
         ${f.periodo?`<div style="font-family:var(--font-ui);font-size:9px;color:var(--accent);letter-spacing:.5px;margin-bottom:8px">${f.periodo}</div>`:''}
