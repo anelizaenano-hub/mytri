@@ -32,16 +32,10 @@ exports.handler = async (event) => {
   const raceDate = profile.raceDate || '';
   const goalTime = profile.goalTime || '';
   const daysToRace = raceDate ? Math.max(0, Math.round((new Date(raceDate + 'T12:00:00') - new Date()) / (1000*60*60*24))) : '?';
-  // Pace/velocidade NECESSARIO, distancias EXATAS da prova, e o veredito da comparacao pace
-  // atual vs necessario — tudo isso ja vem calculado pronto do front-end. NAO deixar o modelo
-  // calcular nada disso de cabeca: ja aconteceu de inventar distancias de outra prova inteira
-  // (ex: "1h9 de natacao e 90km de bike" pra um sprint, que e 750m/20km/5km) e de inverter ou
-  // trocar o resultado da comparacao de pace entre uma chamada e outra.
   const paceNecessario = profile.paceNecessarioMeta || '';
   const distanciasProva = profile.distanciasProva || '';
   const comparacaoPace = profile.comparacaoPace || '';
 
-  // Níveis por modalidade
   let levelStr = '';
   if (sport === 'triathlon' || sport === 'duathlon') {
     levelStr = `Natacao: ${profile.swimLevel||'iniciante'} (${profile.swim||'?'}/100m), Bike: ${profile.bikeLevel||'iniciante'} (FTP ${profile.ftp||'?'}w), Corrida: ${profile.runLevel||'iniciante'} (${profile.pace||'?'}/km)`;
@@ -104,11 +98,6 @@ MENSAGEM DO COACH
 
   const requestBody = JSON.stringify({
     model: 'claude-sonnet-4-5',
-    // Reduzido de 1600 pra 1100: a function estava levando 35+ segundos pra gerar o relatorio
-    // completo (confirmado no log real da Netlify), bem acima de qualquer tempo limite
-    // disponivel agora. Enquanto o limite de tempo maior nao pode ser configurado (netlify.toml
-    // com [functions] esta quebrando o deploy por um motivo ainda nao resolvido do lado da
-    // Netlify), reduzir o tamanho da resposta e o unico jeito de garantir que termine a tempo.
     max_tokens: 1100,
     messages: [{ role: 'user', content: prompt }]
   });
