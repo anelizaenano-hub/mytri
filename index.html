@@ -7952,6 +7952,14 @@ async function showClubProfile(id){
     }catch(e){}
   }
   if(!p)return;
+  // Instants dessa pessoa: visualizador nao-dono, cada foto some do banco assim que visualizada.
+  let clubMoments=[];
+  try{
+    const rM=await fetch(`${SB_URL}/rest/v1/mytri_moments?user_id=eq.${id}&select=id,foto_url,nota,created_at&order=created_at.desc&limit=12`,{headers:sbHeaders()});
+    clubMoments=rM.ok?await rM.json():[];
+  }catch(e){}
+  const clubMomentsSource={urls:clubMoments.map(m=>m.foto_url),data:clubMoments.map(m=>({...m,_source:'moment'}))};
+  window['_clubMomentsSource_'+id.replace(/[^a-zA-Z0-9]/g,'')]=clubMomentsSource;
   const myShareIG=clubState.myProfile?.shareIG;
   const modal=document.createElement('div');
   modal.style.cssText='position:fixed;inset:0;z-index:400;background:var(--bg);overflow-y:auto';
@@ -7980,6 +7988,13 @@ async function showClubProfile(id){
           <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:2px">NADO</div>
         </div>
       </div>
+
+      ${clubMoments.length?`<div style="margin-bottom:20px">
+        <div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1.5px;margin-bottom:10px">INSTANTS</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
+          ${clubMoments.map((m,i)=>`<div onclick="viewMoment(${i},window._clubMomentsSource_${id.replace(/[^a-zA-Z0-9]/g,'')})" style="cursor:pointer;aspect-ratio:1;border-radius:6px;overflow:hidden;border:3px solid #fff;box-shadow:0 3px 10px rgba(0,0,0,0.4);transform:rotate(${i%2===0?'-2deg':'2deg'})"><img src="${m.foto_url}" style="width:100%;height:100%;object-fit:cover"></div>`).join('')}
+        </div>
+      </div>`:''}
 
       ${myShareIG&&p.ig_handle?`
       <a href="https://instagram.com/${p.ig_handle}" target="_blank" style="display:flex;align-items:center;gap:10px;background:linear-gradient(45deg,rgba(240,148,51,0.1),rgba(188,24,136,0.1));border:1px solid rgba(225,48,108,0.3);border-radius:8px;padding:12px 16px;margin-bottom:12px;text-decoration:none">
@@ -8440,9 +8455,12 @@ function detectGPSLocation(force){
       const uf=(d.principalSubdivisionCode||'').split('-').pop()||'';
       const loc=bairro&&cidade&&bairro!==cidade?`${bairro}, ${cidade}`:cidade||bairro||'';
       if(loc){
+        // Salva cidade e bairro em campos separados no perfil (loc combinado so serve pra
+        // exibicao no localStorage 'mytri_gps_city', usado como fallback de texto em outros lugares).
         localStorage.setItem('mytri_gps_city',loc);
         const saved=JSON.parse(localStorage.getItem('mytri_profile')||'{}');
-        saved.city=loc;
+        saved.city=cidade||saved.city||'';
+        if(bairro)saved.bairro=bairro;
         if(uf)saved.state=uf;
         localStorage.setItem('mytri_profile',JSON.stringify(saved));
         sbSet('mytri_profile',saved).catch(()=>{});
@@ -8845,30 +8863,72 @@ async function loadProfileMomentos(){
     box.innerHTML='<div style="text-align:center;padding:20px 0;color:var(--muted)">Nao consegui carregar os momentos agora.</div>';
   }
 }
-// Abre um Instant em tela cheia (estilo visualizador de Stories), com navegacao entre fotos.
-function viewMoment(idx){
-  const urls=window._momentosUrls||[];
-  const data=window._momentosData||[];
+// Abre um Instant em tela cheia (estilo visualizador de Stories): barra de progresso, avanco
+// automatico apos ~3.8s, swipe/tap pra navegar. source={urls,data} — se omitido, usa a galeria
+// do proprio usuario logado (window._momentosUrls/_momentosData) e o visitante e o dono, podendo
+// rever a vontade. Quando source e passado (Instant de OUTRA pessoa, ex: Clube da Meia Azul),
+// cada foto e apagada do banco assim que o visitante passa por ela — visto uma vez, some pra sempre.
+const MOMENT_VIEW_MS=3800;
+function viewMoment(idx,source){
+  const isOwner=!source;
+  const urls=(source?source.urls:window._momentosUrls)||[];
+  const data=(source?source.data:window._momentosData)||[];
   if(!urls.length)return;
   let i=Math.max(0,Math.min(idx,urls.length-1));
+  let timer=null,touchStartX=null;
   const overlay=document.createElement('div');
   overlay.style.cssText='position:fixed;inset:0;z-index:900;background:rgba(0,0,0,0.95);display:flex;align-items:center;justify-content:center';
+
+  function consume(consumedIdx){
+    if(isOwner)return;
+    const item=data[consumedIdx];
+    if(item&&item._source==='moment'&&item.id){
+      fetch(`${SB_URL}/rest/v1/mytri_moments?id=eq.${item.id}`,{method:'DELETE',headers:sbHeaders()}).catch(()=>{});
+    }
+  }
+  function goTo(newIdx){
+    if(newIdx===i)return;
+    if(newIdx<0)return;
+    clearTimeout(timer);
+    if(newIdx>=urls.length){ consume(i); overlay.remove(); return; }
+    consume(i);
+    i=newIdx;
+    render();
+  }
   function render(){
     const item=data[i]||{};
-    const canDelete=item._source==='moment'&&item.id;
+    const canDelete=isOwner&&item._source==='moment'&&item.id;
     overlay.innerHTML=`
+      <div style="position:absolute;top:12px;left:16px;right:16px;display:flex;gap:4px;z-index:2">
+        ${urls.map((_,j)=>`<div style="flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,0.25);overflow:hidden"><div id="moment-bar-${j}" style="height:100%;width:${j<i?'100%':'0%'};background:#fff;${j===i?`transition:width ${MOMENT_VIEW_MS}ms linear`:''}"></div></div>`).join('')}
+      </div>
       <div onclick="event.stopPropagation()" style="position:relative;max-width:520px;width:100%;padding:0 16px">
         <img src="${urls[i]}" style="width:100%;max-height:80vh;object-fit:contain;border-radius:8px">
-        ${urls.length>1?`<div style="display:flex;justify-content:center;gap:6px;margin-top:14px">${urls.map((_,j)=>`<div style="width:${j===i?'18px':'6px'};height:6px;border-radius:3px;background:${j===i?'var(--accent)':'rgba(255,255,255,0.3)'};transition:width .2s"></div>`).join('')}</div>`:''}
         ${canDelete?`<button onclick="event.stopPropagation();deleteMoment('${item.id}')" style="width:100%;margin-top:16px;padding:12px;background:none;border:1px solid rgba(224,92,42,0.5);color:#e05c2a;border-radius:8px;font-family:var(--font-ui);font-size:11px;letter-spacing:1.5px;cursor:pointer">APAGAR ESSE INSTANT</button>`:''}
       </div>
-      ${i>0?`<div onclick="event.stopPropagation();document.getElementById('moment-viewer').remove();viewMoment(${i-1})" style="position:absolute;left:0;top:0;bottom:0;width:30%;cursor:pointer"></div>`:''}
-      ${i<urls.length-1?`<div onclick="event.stopPropagation();document.getElementById('moment-viewer').remove();viewMoment(${i+1})" style="position:absolute;right:0;top:0;bottom:0;width:30%;cursor:pointer"></div>`:''}
-      <button onclick="document.getElementById('moment-viewer').remove()" style="position:absolute;top:20px;right:20px;background:rgba(255,255,255,0.15);border:none;color:#fff;width:36px;height:36px;border-radius:50%;font-size:18px;cursor:pointer">&times;</button>
+      <div onclick="event.stopPropagation();window._momentNav(-1)" style="position:absolute;left:0;top:0;bottom:0;width:30%;cursor:pointer"></div>
+      <div onclick="event.stopPropagation();window._momentNav(1)" style="position:absolute;right:0;top:0;bottom:0;width:30%;cursor:pointer"></div>
+      <button onclick="event.stopPropagation();window._momentCloseNow()" style="position:absolute;top:20px;right:20px;background:rgba(255,255,255,0.15);border:none;color:#fff;width:36px;height:36px;border-radius:50%;font-size:18px;cursor:pointer;z-index:2">&times;</button>
     `;
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      const bar=document.getElementById(`moment-bar-${i}`);
+      if(bar)bar.style.width='100%';
+    }));
+    clearTimeout(timer);
+    timer=setTimeout(()=>goTo(i+1),MOMENT_VIEW_MS);
   }
+  window._momentNav=(dir)=>goTo(i+dir);
+  window._momentCloseNow=()=>{ consume(i); overlay.remove(); };
+  overlay.addEventListener('touchstart',e=>{ touchStartX=e.touches[0].clientX; },{passive:true});
+  overlay.addEventListener('touchend',e=>{
+    if(touchStartX===null)return;
+    const dx=e.changedTouches[0].clientX-touchStartX;
+    touchStartX=null;
+    if(Math.abs(dx)<40)return;
+    goTo(dx<0?i+1:i-1);
+  },{passive:true});
+  overlay.onclick=()=>{ consume(i); overlay.remove(); };
   overlay.id='moment-viewer';
-  overlay.onclick=()=>overlay.remove();
   document.body.appendChild(overlay);
   render();
 }
@@ -10503,7 +10563,8 @@ function obFinish(){
     weight:obData.weight||prof.weight||athlete.weight||'',
     altura:obData.altura||prof.altura||'',
     sexo:obData.sexo||prof.sexo||'',
-    city:obData.cepCity||prof.city||localStorage.getItem('mytri_gps_city')||'',
+    city:obData.cepCidadeBase||prof.city||localStorage.getItem('mytri_gps_city')||'',
+    bairro:obData.cepBairro||prof.bairro||'',
     state:obData.state||prof.state||'',
     cep:obData.cep||prof.cep||'',
     cityLocked:!!obData.cepCity,
