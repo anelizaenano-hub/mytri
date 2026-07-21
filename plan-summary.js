@@ -102,7 +102,12 @@ MENSAGEM DO COACH
 
   const requestBody = JSON.stringify({
     model: 'claude-sonnet-4-5',
-    max_tokens: 1600,
+    // Reduzido de 1600 pra 1100: a function estava levando 35+ segundos pra gerar o relatorio
+    // completo (confirmado no log real da Netlify), bem acima de qualquer tempo limite
+    // disponivel agora. Enquanto o limite de tempo maior nao pode ser configurado (netlify.toml
+    // com [functions] esta quebrando o deploy por um motivo ainda nao resolvido do lado da
+    // Netlify), reduzir o tamanho da resposta e o unico jeito de garantir que termine a tempo.
+    max_tokens: 1100,
     messages: [{ role: 'user', content: prompt }]
   });
 
