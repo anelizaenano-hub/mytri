@@ -17,8 +17,10 @@ async function verifyAuth(event) {
 }
 
 exports.handler = async (event) => {
+  const _t0 = Date.now();
   if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Method Not Allowed' };
   const user = await verifyAuth(event);
+  console.log(`[timing] verifyAuth levou ${Date.now() - _t0}ms`);
   if (!user) return { statusCode: 401, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: 'Nao autenticado.' }) };
   let profile;
   try { profile = JSON.parse(event.body).profile; } catch { return { statusCode: 400, body: 'Invalid JSON' }; }
@@ -112,6 +114,7 @@ MENSAGEM DO COACH
   });
 
   try {
+    const _tAnthropicStart = Date.now();
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -121,13 +124,17 @@ MENSAGEM DO COACH
       },
       body: requestBody
     });
+    console.log(`[timing] chamada a Anthropic levou ${Date.now() - _tAnthropicStart}ms (total ate aqui: ${Date.now() - _t0}ms)`);
     const data = await response.json();
     if (!response.ok) {
+      console.log(`[timing] erro da Anthropic:`, response.status, JSON.stringify(data).slice(0,300));
       return { statusCode: response.status, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: '', error: data.error?.message || 'Erro na API' }) };
     }
     const text = data?.content?.[0]?.text || '';
+    console.log(`[timing] total da function: ${Date.now() - _t0}ms`);
     return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) };
   } catch (e) {
+    console.log(`[timing] excecao apos ${Date.now() - _t0}ms:`, e.message);
     return { statusCode: 500, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: '', error: e.message }) };
   }
 };
