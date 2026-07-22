@@ -32,10 +32,16 @@ exports.handler = async (event) => {
   const raceDate = profile.raceDate || '';
   const goalTime = profile.goalTime || '';
   const daysToRace = raceDate ? Math.max(0, Math.round((new Date(raceDate + 'T12:00:00') - new Date()) / (1000*60*60*24))) : '?';
+  // Pace/velocidade NECESSARIO, distancias EXATAS da prova, e o veredito da comparacao pace
+  // atual vs necessario — tudo isso ja vem calculado pronto do front-end. NAO deixar o modelo
+  // calcular nada disso de cabeca: ja aconteceu de inventar distancias de outra prova inteira
+  // (ex: "1h9 de natacao e 90km de bike" pra um sprint, que e 750m/20km/5km) e de inverter ou
+  // trocar o resultado da comparacao de pace entre uma chamada e outra.
   const paceNecessario = profile.paceNecessarioMeta || '';
   const distanciasProva = profile.distanciasProva || '';
   const comparacaoPace = profile.comparacaoPace || '';
 
+  // Níveis por modalidade
   let levelStr = '';
   if (sport === 'triathlon' || sport === 'duathlon') {
     levelStr = `Natacao: ${profile.swimLevel||'iniciante'} (${profile.swim||'?'}/100m), Bike: ${profile.bikeLevel||'iniciante'} (FTP ${profile.ftp||'?'}w), Corrida: ${profile.runLevel||'iniciante'} (${profile.pace||'?'}/km)`;
@@ -97,8 +103,13 @@ MENSAGEM DO COACH
 [Mensagem motivacional personalizada e especifica para este atleta e sua jornada]`;
 
   const requestBody = JSON.stringify({
-    model: 'claude-sonnet-4-5',
-    max_tokens: 1100,
+    // Trocado de claude-sonnet-4-5 pra claude-haiku-4-5: o gargalo real do 504 e o tempo de
+    // geracao do Sonnet (33-35s), acima do teto fixo de ~26-30s do gateway sincrono das Netlify
+    // Functions (esse teto nao e configuravel via netlify.toml, por isso o bloco [functions]
+    // quebrava o parse). Haiku gera esse mesmo volume de texto bem mais rapido, o que deve
+    // manter a function inteira dentro do limite do gateway.
+    model: 'claude-haiku-4-5',
+    max_tokens: 1600,
     messages: [{ role: 'user', content: prompt }]
   });
 
