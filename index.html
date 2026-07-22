@@ -6990,7 +6990,11 @@ Depois dessa linha, escreva todo o texto explicativo normalmente.`;
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({prompt,imageBase64:photoB64||null})
     },10000);
-    if(!kickoff.ok) throw new Error(`Nao consegui iniciar a analise (HTTP ${kickoff.status}). A function pode nao estar publicada corretamente.`);
+    if(!kickoff.ok){
+      let bodyTxt='';
+      try{ bodyTxt=(await kickoff.text()).slice(0,300); }catch(e){}
+      throw new Error(`Nao consegui iniciar a analise (HTTP ${kickoff.status}): ${bodyTxt||'sem detalhe'}`);
+    }
 
     // Fica consultando o status ate sair de "pending". Foto+visao pode demorar mais que texto
     // puro, entao damos mais margem aqui: 50 tentativas de 1.5s = 75s de espera maxima.
@@ -11171,7 +11175,9 @@ async function showPlanSummary(profile){
       }})
     },10000);
     if(!kickoff.ok){
-      renderPlanSummary(el,profile,'',`Nao consegui iniciar a geracao (HTTP ${kickoff.status}). A function pode nao estar publicada corretamente.`);
+      let bodyTxt='';
+      try{ bodyTxt=(await kickoff.text()).slice(0,300); }catch(e){}
+      renderPlanSummary(el,profile,'',`Nao consegui iniciar a geracao (HTTP ${kickoff.status}): ${bodyTxt||'sem detalhe'}`);
       return;
     }
   }catch(e){
