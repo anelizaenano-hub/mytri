@@ -1,23 +1,22 @@
-// BACKGROUND FUNCTION — marcada pelo NOME do arquivo (sufixo -background), que é a convenção
-// mais antiga e mais confiavel da Netlify pra isso (documentada como "ainda totalmente
-// suportada"). Trocamos de config.background=true pra essa convencao porque a primeira tentativa
-// travou indefinidamente (sinal de que a deteccao por config pode nao ter sido reconhecida no
-// build). Motivo de ser background: ja tentamos synchronous (~26-30s de teto de gateway, nao
-// configuravel) e streaming (teto de SO 10s, documentado pela propria Netlify — mais curto ainda
-// que o problema que estavamos tentando resolver). Background Function tem teto de 15 MINUTOS.
+// BACKGROUND FUNCTION — formato classico exports.handler (Lambda-compatible), sufixo
+// -background no nome do arquivo. Trocamos do formato novo (export default) pra esse porque a
+// tentativa anterior nunca chegou a rodar de verdade (confirmado: 0 linhas gravadas na tabela,
+// nem o "pending" inicial) — sinal de que esse projeto/build nao reconhece o formato v2 corretamente.
+// Esse formato classico e o MESMO que todas as outras functions do projeto ja usam com sucesso
+// comprovado (temos logs reais de execucao do plan-summary.js antigo, race-search.js, etc.).
 //
-// Como funciona: o cliente chama essa function e recebe 202 IMEDIATAMENTE (o retorno da function
-// e descartado pela plataforma) — a function continua rodando por tras e, quando termina, grava
-// o resultado na tabela mytri_plan_summaries usando a service role key (contorna RLS de proposito,
-// e o mesmo padrao ja usado no webhook do Didit). O cliente fica consultando essa tabela
-// (plan-summary-status.js) ate aparecer pronto.
+// Como funciona: o cliente chama essa function e recebe 202 IMEDIATAMENTE — a function continua
+// rodando por tras (ate 15 minutos) e, quando termina, grava o resultado na tabela
+// mytri_plan_summaries usando a service role key (contorna RLS de proposito, mesmo padrao do
+// webhook do Didit). O cliente fica consultando essa tabela (plan-summary-status.js) ate aparecer
+// pronto.
 
 const SUPABASE_URL = 'https://dlahyvsrqouxlalqexrp.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_mVgR-2qjgAGzEBeitJ8SAg_DTFYuw-t';
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-async function verifyAuth(req) {
-  const auth = req.headers.get('authorization') || req.headers.get('Authorization') || '';
+async function verifyAuth(event) {
+  const auth = (event.headers && (event.headers.authorization || event.headers.Authorization)) || '';
   const token = auth.replace(/^Bearer\s+/i, '');
   if (!token) return null;
   try {
@@ -46,16 +45,16 @@ async function upsertResult(userId, fields) {
   } catch (e) { console.log('[plan-summary-bg] falha ao gravar resultado:', e.message); }
 }
 
-export default async (req) => {
-  const user = await verifyAuth(req);
-  if (!user) { console.log('[plan-summary-bg] chamada sem autenticacao valida, abortando.'); return; }
+exports.handler = async (event) => {
+  console.log('[plan-summary-bg] invocada.');
+  const user = await verifyAuth(event);
+  if (!user) { console.log('[plan-summary-bg] sem autenticacao valida, abortando.'); return { statusCode: 202, body: '' }; }
 
   let profile;
-  try { profile = (await req.json()).profile; } catch { console.log('[plan-summary-bg] corpo invalido.'); return; }
+  try { profile = JSON.parse(event.body).profile; } catch { console.log('[plan-summary-bg] corpo invalido.'); return { statusCode: 202, body: '' }; }
 
   // Marca "pending" assim que comeca, pra sobrescrever qualquer resultado antigo (done/error) de
-  // uma geracao anterior — sem isso, o cliente podia ficar lendo um resultado velho por engano
-  // enquanto essa nova geracao ainda nao tinha escrito nada.
+  // uma geracao anterior.
   await upsertResult(user.id, { status: 'pending', text_result: null, error_message: null });
 
   const sport = profile.sport || 'triathlon';
@@ -148,7 +147,7 @@ MENSAGEM DO COACH
     console.log(`[plan-summary-bg] chamada a Anthropic levou ${Date.now() - _t0}ms, HTTP ${response.status}`);
     if (!response.ok) {
       await upsertResult(user.id, { status: 'error', error_message: data.error?.message || `HTTP ${response.status}` });
-      return;
+      return { statusCode: 202, body: '' };
     }
     const text = data?.content?.[0]?.text || '';
     await upsertResult(user.id, { status: 'done', text_result: text, error_message: null });
@@ -157,4 +156,5 @@ MENSAGEM DO COACH
     console.log('[plan-summary-bg] excecao:', e.message);
     await upsertResult(user.id, { status: 'error', error_message: e.message });
   }
+  return { statusCode: 202, body: '' };
 };

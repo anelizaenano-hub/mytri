@@ -1,20 +1,13 @@
-// BACKGROUND FUNCTION — mesmo padrao do plan-summary-background.js. A analise de bike fit
-// SEMPRE envolveu o mesmo problema de arquitetura: function sincrona (exports.handler classico)
-// chamando a Anthropic com uma imagem anexada (analise visual e mais lenta que so texto) e
-// max_tokens alto — presa no mesmo teto de ~26-30s do gateway sincrono da Netlify. "Load failed"
-// no Safari e esse mesmo estouro de tempo, so que aparece como erro de rede generico em vez de
-// um 504 explicito porque o payload da foto deixa a chamada mais pesada.
-//
-// Nome do arquivo com sufixo -background (convencao mais confiavel da Netlify, testada agora no
-// plan-summary). Cliente recebe 202 na hora, function roda ate 15 minutos por tras, grava o
-// resultado em mytri_bikefit_analyses quando termina.
+// BACKGROUND FUNCTION — mesmo formato classico (exports.handler + sufixo -background) do
+// plan-summary-background.js, pelo mesmo motivo: o formato novo (export default) nunca chegou a
+// rodar de verdade nesse projeto.
 
 const SUPABASE_URL = 'https://dlahyvsrqouxlalqexrp.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_mVgR-2qjgAGzEBeitJ8SAg_DTFYuw-t';
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-async function verifyAuth(req) {
-  const auth = req.headers.get('authorization') || req.headers.get('Authorization') || '';
+async function verifyAuth(event) {
+  const auth = (event.headers && (event.headers.authorization || event.headers.Authorization)) || '';
   const token = auth.replace(/^Bearer\s+/i, '');
   if (!token) return null;
   try {
@@ -43,12 +36,13 @@ async function upsertResult(userId, fields) {
   } catch (e) { console.log('[bike-fit-bg] falha ao gravar resultado:', e.message); }
 }
 
-export default async (req) => {
-  const user = await verifyAuth(req);
-  if (!user) { console.log('[bike-fit-bg] chamada sem autenticacao valida, abortando.'); return; }
+exports.handler = async (event) => {
+  console.log('[bike-fit-bg] invocada.');
+  const user = await verifyAuth(event);
+  if (!user) { console.log('[bike-fit-bg] sem autenticacao valida, abortando.'); return { statusCode: 202, body: '' }; }
 
   let body;
-  try { body = await req.json(); } catch { console.log('[bike-fit-bg] corpo invalido.'); return; }
+  try { body = JSON.parse(event.body); } catch { console.log('[bike-fit-bg] corpo invalido.'); return { statusCode: 202, body: '' }; }
   const { prompt, imageBase64 } = body;
 
   await upsertResult(user.id, { status: 'pending', text_result: null, error_message: null });
@@ -56,7 +50,7 @@ export default async (req) => {
   const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
   if (!ANTHROPIC_API_KEY) {
     await upsertResult(user.id, { status: 'error', error_message: 'API key not configured' });
-    return;
+    return { statusCode: 202, body: '' };
   }
 
   const messages = [{
@@ -87,7 +81,7 @@ export default async (req) => {
 
     if (!response.ok) {
       await upsertResult(user.id, { status: 'error', error_message: data.error?.message || `HTTP ${response.status}` });
-      return;
+      return { statusCode: 202, body: '' };
     }
 
     const text = data.content?.map(b => b.text || '').join('') || '';
@@ -97,4 +91,5 @@ export default async (req) => {
     console.log('[bike-fit-bg] excecao:', e.message);
     await upsertResult(user.id, { status: 'error', error_message: e.message });
   }
+  return { statusCode: 202, body: '' };
 };
