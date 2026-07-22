@@ -11129,7 +11129,8 @@ async function showPlanSummary(profile){
     </div>`;
 
   try{
-    const resp=await authedFetch('/.netlify/functions/plan-summary',{
+    // Dispara a geracao em background — recebe 202 na hora, o texto ainda nao vem aqui.
+    await authedFetch('/.netlify/functions/plan-summary',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({profile:{...profile,
@@ -11138,40 +11139,34 @@ async function showPlanSummary(profile){
         comparacaoPace: calcComparacaoPace(profile, calcPaceNecessarioMeta(profile))
       }})
     });
-    // Erros (401/400/erro da Anthropic) ainda vem como JSON de uma vez so, sem stream.
-    const ct=resp.headers.get('content-type')||'';
-    if(!resp.ok||ct.includes('application/json')){
-      let data={};
-      try{ data=await resp.json(); }catch(e){}
-      renderPlanSummary(el,profile,'',`Erro da function (HTTP ${resp.status}): ${JSON.stringify(data).slice(0,200)}`);
-      return;
-    }
-    if(!resp.body){
-      // Fallback pra ambiente sem suporte a streaming: le tudo de uma vez.
-      const text=await resp.text();
-      renderPlanSummary(el,profile,text);
-      return;
-    }
-    // Le o stream de texto puro (ja desembrulhado do SSE da Anthropic pela function) e vai
-    // renderizando conforme os pedacos chegam — a conexao nunca fica parada esperando o texto
-    // inteiro terminar, o que e o que evitava o 504 antes.
-    const reader=resp.body.getReader();
-    const decoder=new TextDecoder();
-    let acc='';
-    while(true){
-      const {done,value}=await reader.read();
-      if(done)break;
-      acc+=decoder.decode(value,{stream:true});
-      renderPlanSummary(el,profile,acc);
-    }
-    if(!acc.trim()){
-      renderPlanSummary(el,profile,'',`Resposta vazia da function (HTTP ${resp.status}).`);
-      return;
-    }
-    renderPlanSummary(el,profile,acc);
   }catch(e){
-    renderPlanSummary(el,profile,'',`Erro de rede/fetch: ${e.message}`);
+    renderPlanSummary(el,profile,'',`Erro de rede/fetch ao iniciar geracao: ${e.message}`);
+    return;
   }
+
+  // Fica consultando o status ate sair de "pending" — cada tentativa é rapida (so le uma
+  // linha do banco), entao nao esbarra em nenhum teto de tempo de function. 40 tentativas de
+  // 1.5s = 60s de espera maxima, bem acima do que a geracao real costuma levar.
+  const maxAttempts=40;
+  for(let attempt=0;attempt<maxAttempts;attempt++){
+    await new Promise(r=>setTimeout(r,1500));
+    let statusResp;
+    try{
+      statusResp=await authedFetch('/.netlify/functions/plan-summary-status',{method:'GET'});
+    }catch(e){ continue; } // falha de rede pontual no polling, so tenta de novo
+    let statusData={};
+    try{ statusData=await statusResp.json(); }catch(e){ continue; }
+    if(statusData.status==='done'){
+      renderPlanSummary(el,profile,statusData.text_result||'');
+      return;
+    }
+    if(statusData.status==='error'){
+      renderPlanSummary(el,profile,'',`Erro ao gerar: ${statusData.error_message||'erro desconhecido'}`);
+      return;
+    }
+    // status 'pending' — continua esperando
+  }
+  renderPlanSummary(el,profile,'',`A geracao esta demorando mais que o esperado (mais de ${Math.round(maxAttempts*1.5)}s). Tente novamente em instantes.`);
 }
 
 // Transforma o texto de "FASES DO PLANO" (uma fase por linha, formato livre da IA) em cards
