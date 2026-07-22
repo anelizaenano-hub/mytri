@@ -1,9 +1,22 @@
-// CLC item 3: valida o token de sessao do Supabase antes de gastar credito de API — sem isso,
-// qualquer pessoa que descobrisse essa URL conseguia chamar direto, sem estar logada no app.
+// STREAMING FUNCTION (Netlify Functions v2 — export default + Request/Response padrao da web).
+// Motivo da reescrita: a versao antiga (exports.handler classico) sempre estourava 504 porque
+// a resposta so e entregue ao cliente DEPOIS que a function inteira termina — e o gateway
+// sincrono da Netlify tem um teto fixo de tempo (~26-30s) que nao e configuravel via
+// netlify.toml (foi o que quebrou o deploy quando tentamos [functions] timeout=26 antes).
+// Streaming resolve isso na raiz: os bytes comecam a chegar no cliente assim que a Anthropic
+// comeca a gerar, entao a conexao nunca fica "parada" tempo suficiente pra bater o teto —
+// nao importa se o modelo demora 15s ou 35s pra terminar o texto inteiro.
+//
+// O cliente (index.html/showPlanSummary) le esse stream como TEXTO PURO (nao JSON, nao SSE
+// bruto da Anthropic) — esta function ja desembrulha os eventos SSE da Anthropic e repassa só
+// o texto de cada pedaco, entao o parsing de secoes (VISAO GERAL/PONTO CRITICO/etc) do lado do
+// cliente continua funcionando exatamente igual, sobre o texto final acumulado.
+
 const SUPABASE_URL = 'https://dlahyvsrqouxlalqexrp.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_mVgR-2qjgAGzEBeitJ8SAg_DTFYuw-t';
-async function verifyAuth(event) {
-  const auth = (event.headers && (event.headers.authorization || event.headers.Authorization)) || '';
+
+async function verifyAuth(req) {
+  const auth = req.headers.get('authorization') || req.headers.get('Authorization') || '';
   const token = auth.replace(/^Bearer\s+/i, '');
   if (!token) return null;
   try {
@@ -16,41 +29,35 @@ async function verifyAuth(event) {
   } catch (e) { return null; }
 }
 
-exports.handler = async (event) => {
-  const _t0 = Date.now();
-  if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Method Not Allowed' };
-  const user = await verifyAuth(event);
-  console.log(`[timing] verifyAuth levou ${Date.now() - _t0}ms`);
-  if (!user) return { statusCode: 401, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: 'Nao autenticado.' }) };
+export default async (req) => {
+  if (req.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
+
+  const user = await verifyAuth(req);
+  if (!user) return new Response(JSON.stringify({ error: 'Nao autenticado.' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+
   let profile;
-  try { profile = JSON.parse(event.body).profile; } catch { return { statusCode: 400, body: 'Invalid JSON' }; }
+  try { profile = (await req.json()).profile; } catch { return new Response('Invalid JSON', { status: 400 }); }
 
   const sport = profile.sport || 'triathlon';
-  const sportNames = { triathlon:'Triathlon', corrida:'Corrida', ciclismo:'Ciclismo', natacao:'Natacao', duathlon:'Duathlon' };
+  const sportNames = { triathlon: 'Triathlon', corrida: 'Corrida', ciclismo: 'Ciclismo', natacao: 'Natacao', duathlon: 'Duathlon' };
   const sportName = sportNames[sport] || sport;
   const raceName = profile.raceName || profile.nextRace || 'prova principal';
   const raceDate = profile.raceDate || '';
   const goalTime = profile.goalTime || '';
-  const daysToRace = raceDate ? Math.max(0, Math.round((new Date(raceDate + 'T12:00:00') - new Date()) / (1000*60*60*24))) : '?';
-  // Pace/velocidade NECESSARIO, distancias EXATAS da prova, e o veredito da comparacao pace
-  // atual vs necessario — tudo isso ja vem calculado pronto do front-end. NAO deixar o modelo
-  // calcular nada disso de cabeca: ja aconteceu de inventar distancias de outra prova inteira
-  // (ex: "1h9 de natacao e 90km de bike" pra um sprint, que e 750m/20km/5km) e de inverter ou
-  // trocar o resultado da comparacao de pace entre uma chamada e outra.
+  const daysToRace = raceDate ? Math.max(0, Math.round((new Date(raceDate + 'T12:00:00') - new Date()) / (1000 * 60 * 60 * 24))) : '?';
   const paceNecessario = profile.paceNecessarioMeta || '';
   const distanciasProva = profile.distanciasProva || '';
   const comparacaoPace = profile.comparacaoPace || '';
 
-  // Níveis por modalidade
   let levelStr = '';
   if (sport === 'triathlon' || sport === 'duathlon') {
-    levelStr = `Natacao: ${profile.swimLevel||'iniciante'} (${profile.swim||'?'}/100m), Bike: ${profile.bikeLevel||'iniciante'} (FTP ${profile.ftp||'?'}w), Corrida: ${profile.runLevel||'iniciante'} (${profile.pace||'?'}/km)`;
+    levelStr = `Natacao: ${profile.swimLevel || 'iniciante'} (${profile.swim || '?'}/100m), Bike: ${profile.bikeLevel || 'iniciante'} (FTP ${profile.ftp || '?'}w), Corrida: ${profile.runLevel || 'iniciante'} (${profile.pace || '?'}/km)`;
   } else if (sport === 'corrida') {
-    levelStr = `Nivel: ${profile.runLevel||'iniciante'}, Pace atual: ${profile.pace||'?'}/km`;
+    levelStr = `Nivel: ${profile.runLevel || 'iniciante'}, Pace atual: ${profile.pace || '?'}/km`;
   } else if (sport === 'ciclismo') {
-    levelStr = `Nivel: ${profile.bikeLevel||'iniciante'}, FTP: ${profile.ftp||'?'}w`;
+    levelStr = `Nivel: ${profile.bikeLevel || 'iniciante'}, FTP: ${profile.ftp || '?'}w`;
   } else if (sport === 'natacao') {
-    levelStr = `Nivel: ${profile.swimLevel||'iniciante'}, Pace: ${profile.swim||'?'}/100m`;
+    levelStr = `Nivel: ${profile.swimLevel || 'iniciante'}, Pace: ${profile.swim || '?'}/100m`;
   }
 
   const diasStr = profile.diasDisponiveis?.join(', ') || 'seg, ter, qua, qui, sex';
@@ -102,39 +109,71 @@ ESTRATEGIA DE PROVA
 MENSAGEM DO COACH
 [Mensagem motivacional personalizada e especifica para este atleta e sua jornada]`;
 
-  const requestBody = JSON.stringify({
-    // Trocado de claude-sonnet-4-5 pra claude-haiku-4-5: o gargalo real do 504 e o tempo de
-    // geracao do Sonnet (33-35s), acima do teto fixo de ~26-30s do gateway sincrono das Netlify
-    // Functions (esse teto nao e configuravel via netlify.toml, por isso o bloco [functions]
-    // quebrava o parse). Haiku gera esse mesmo volume de texto bem mais rapido, o que deve
-    // manter a function inteira dentro do limite do gateway.
+  const anthropicBody = JSON.stringify({
     model: 'claude-haiku-4-5',
     max_tokens: 1600,
+    stream: true,
     messages: [{ role: 'user', content: prompt }]
   });
 
+  let anthropicResp;
   try {
-    const _tAnthropicStart = Date.now();
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    anthropicResp = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': process.env.ANTHROPIC_API_KEY,
         'anthropic-version': '2023-06-01'
       },
-      body: requestBody
+      body: anthropicBody
     });
-    console.log(`[timing] chamada a Anthropic levou ${Date.now() - _tAnthropicStart}ms (total ate aqui: ${Date.now() - _t0}ms)`);
-    const data = await response.json();
-    if (!response.ok) {
-      console.log(`[timing] erro da Anthropic:`, response.status, JSON.stringify(data).slice(0,300));
-      return { statusCode: response.status, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: '', error: data.error?.message || 'Erro na API' }) };
-    }
-    const text = data?.content?.[0]?.text || '';
-    console.log(`[timing] total da function: ${Date.now() - _t0}ms`);
-    return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) };
   } catch (e) {
-    console.log(`[timing] excecao apos ${Date.now() - _t0}ms:`, e.message);
-    return { statusCode: 500, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: '', error: e.message }) };
+    return new Response(JSON.stringify({ error: 'Falha de rede ao chamar a API: ' + e.message }), { status: 502, headers: { 'Content-Type': 'application/json' } });
   }
+
+  if (!anthropicResp.ok) {
+    let msg = 'Erro na API (HTTP ' + anthropicResp.status + ')';
+    try { const errBody = await anthropicResp.json(); msg = errBody.error?.message || msg; } catch (e) {}
+    return new Response(JSON.stringify({ error: msg }), { status: anthropicResp.status, headers: { 'Content-Type': 'application/json' } });
+  }
+
+  // Desembrulha o SSE da Anthropic (linhas "data: {...}") e repassa so o texto de cada
+  // content_block_delta — o cliente recebe texto puro incremental, sem precisar entender o
+  // formato de evento da Anthropic.
+  const reader = anthropicResp.body.getReader();
+  const decoder = new TextDecoder();
+  const encoder = new TextEncoder();
+
+  const stream = new ReadableStream({
+    async start(controller) {
+      let buffer = '';
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            const raw = line.slice(6).trim();
+            if (!raw || raw === '[DONE]') continue;
+            try {
+              const evt = JSON.parse(raw);
+              if (evt.type === 'content_block_delta' && evt.delta && typeof evt.delta.text === 'string') {
+                controller.enqueue(encoder.encode(evt.delta.text));
+              }
+            } catch (e) { /* linha SSE incompleta ou nao-JSON, ignora */ }
+          }
+        }
+      } catch (e) {
+        console.log('[plan-summary-stream] erro lendo stream da Anthropic:', e.message);
+      }
+      controller.close();
+    }
+  });
+
+  return new Response(stream, {
+    headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-cache' }
+  });
 };

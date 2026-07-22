@@ -11138,20 +11138,37 @@ async function showPlanSummary(profile){
         comparacaoPace: calcComparacaoPace(profile, calcPaceNecessarioMeta(profile))
       }})
     });
-    let data;
-    try{
-      data=await resp.json();
-    }catch(parseErr){
-      const raw=await resp.text().catch(()=>'');
-      renderPlanSummary(el,profile,'',`HTTP ${resp.status} — resposta não-JSON: ${raw.slice(0,200)}`);
+    // Erros (401/400/erro da Anthropic) ainda vem como JSON de uma vez so, sem stream.
+    const ct=resp.headers.get('content-type')||'';
+    if(!resp.ok||ct.includes('application/json')){
+      let data={};
+      try{ data=await resp.json(); }catch(e){}
+      renderPlanSummary(el,profile,'',`Erro da function (HTTP ${resp.status}): ${JSON.stringify(data).slice(0,200)}`);
       return;
     }
-    const text=data.text||'';
-    if(!text&&data.error){
-      renderPlanSummary(el,profile,'',`Erro da function: ${JSON.stringify(data).slice(0,200)}`);
+    if(!resp.body){
+      // Fallback pra ambiente sem suporte a streaming: le tudo de uma vez.
+      const text=await resp.text();
+      renderPlanSummary(el,profile,text);
       return;
     }
-    renderPlanSummary(el,profile,text);
+    // Le o stream de texto puro (ja desembrulhado do SSE da Anthropic pela function) e vai
+    // renderizando conforme os pedacos chegam — a conexao nunca fica parada esperando o texto
+    // inteiro terminar, o que e o que evitava o 504 antes.
+    const reader=resp.body.getReader();
+    const decoder=new TextDecoder();
+    let acc='';
+    while(true){
+      const {done,value}=await reader.read();
+      if(done)break;
+      acc+=decoder.decode(value,{stream:true});
+      renderPlanSummary(el,profile,acc);
+    }
+    if(!acc.trim()){
+      renderPlanSummary(el,profile,'',`Resposta vazia da function (HTTP ${resp.status}).`);
+      return;
+    }
+    renderPlanSummary(el,profile,acc);
   }catch(e){
     renderPlanSummary(el,profile,'',`Erro de rede/fetch: ${e.message}`);
   }
