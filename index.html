@@ -6985,11 +6985,12 @@ Depois dessa linha, escreva todo o texto explicativo normalmente.`;
   let text='';
   try{
     // Dispara a analise em background — recebe 202 na hora, o texto ainda nao vem aqui.
-    await fetchComTimeout('/.netlify/functions/bike-fit-background',{
+    const kickoff=await fetchComTimeout('/.netlify/functions/bike-fit-background',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({prompt,imageBase64:photoB64||null})
     },10000);
+    if(!kickoff.ok) throw new Error(`Nao consegui iniciar a analise (HTTP ${kickoff.status}). A function pode nao estar publicada corretamente.`);
 
     // Fica consultando o status ate sair de "pending". Foto+visao pode demorar mais que texto
     // puro, entao damos mais margem aqui: 50 tentativas de 1.5s = 75s de espera maxima.
@@ -11160,7 +11161,7 @@ async function showPlanSummary(profile){
     // Dispara a geracao em background — recebe 202 na hora, o texto ainda nao vem aqui.
     // Teto de 10s aqui: so pra confirmar que a function aceitou o pedido, nao pra esperar o
     // resultado (isso e o polling abaixo).
-    await fetchComTimeout('/.netlify/functions/plan-summary-background',{
+    const kickoff=await fetchComTimeout('/.netlify/functions/plan-summary-background',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({profile:{...profile,
@@ -11169,6 +11170,10 @@ async function showPlanSummary(profile){
         comparacaoPace: calcComparacaoPace(profile, calcPaceNecessarioMeta(profile))
       }})
     },10000);
+    if(!kickoff.ok){
+      renderPlanSummary(el,profile,'',`Nao consegui iniciar a geracao (HTTP ${kickoff.status}). A function pode nao estar publicada corretamente.`);
+      return;
+    }
   }catch(e){
     renderPlanSummary(el,profile,'',`Erro de rede/fetch ao iniciar geracao: ${e.name==='AbortError'?'sem resposta em 10s':e.message}`);
     return;
