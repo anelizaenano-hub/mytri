@@ -621,38 +621,6 @@ const I18N={
     pf_moments_title:'Momentos', pf_loading:'Carregando...',
     pf_store_title:'Loja', pf_my_store:'MINHA LOJA', pf_store_desc:'Os equipamentos que eu uso, direto na Amazon.', pf_view_amazon:'VER NA AMAZON',
     sport_triathlon:'Triathlon', sport_corrida:'Corrida', sport_ciclismo:'Ciclismo', sport_natacao:'Natação', sport_duathlon:'Duathlon',
-    stat_days_to_race:'DIAS PARA A PROVA', stat_free_mode:'TREINO LIVRE', stat_no_race:'SEM PROVA DEFINIDA',
-    stat_no_race_desc:'Plano de base. Defina uma prova no perfil para ativar a contagem e a periodizacao.',
-    stat_adherence_title:'ADERENCIA DESSA SEMANA', stat_adherence_desc:'{done} de {total} treinos planejados feitos ate agora (seg-dom)',
-    stat_workouts_done:'TREINOS FEITOS', stat_of_sessions:'de {n} sessões', stat_current_week:'SEMANA ATUAL', stat_of_weeks:'de {n} semanas',
-    stat_strength_card:'MUSCULAÇÃO', stat_sessions_done:'sessões realizadas', stat_total_distance:'DISTANCIA TOTAL',
-    stat_period_title:'ACUMULO POR PERÍODO', stat_period_desc:'Volume real feito nesta semana/mes, comparado ao mesmo período anterior — não ao plano inteiro.',
-    stat_this_week:'ESTA SEMANA', stat_vs_last_week:'vs. semana passada', stat_vs_last_month:'vs. mes passado',
-    stat_workouts_count:'treinos', stat_first_period:'primeiro período registrado',
-    stat_phase_progress_title:'PROGRESSO POR FASE', stat_phase_base:'BASE', stat_phase_build:'CONSTRUÇÃO', stat_phase_peak:'PICO', stat_phase_taper:'AFUNILAMENTO', stat_phase_race:'PROVA',
-    stat_volume_title:'VOLUME ACUMULADO', stat_volume_subtitle:'(% do plano completo por modalidade)',
-    stat_swim:'NATAÇÃO', stat_bike:'BIKE', stat_run:'CORRIDA', stat_planned_total:'PLANEJADO TOTAL:',
-    stat_world_map_title:'NO MAPA DO MUNDO', stat_km_traveled:'km percorridos', stat_earth_pct:'da circunferencia da Terra', stat_view_routes_btn:'VER MAPA DAS MINHAS ROTAS',
-    stat_zone_time_title:'TEMPO POR ZONA',
-    stat_strength_core_mob_title:'FORÇA · CORE · MOBILIDADE', stat_strength_label:'Força Funcional', stat_core_label:'Core e Abdominal', stat_mobility_label:'Mobilidade e Along.',
-    stat_ranking_title:'RANKING DE CONSISTENCIA', stat_triathletes:'TRIATLETAS', stat_runners:'CORREDORES', stat_cyclists:'CICLISTAS',
-    stat_ranking_desc:'Classificação por constancia e aderencia ao treino — não por velocidade. Quanto mais regular você treina, mais sobe.',
-    stat_index_label:'INDICE', stat_ranking_position:'Você está em {pos}o de {total}', stat_streak_desc:'Sequencia: {n} {unit} · Aderencia média: {pct}%',
-    stat_week_unit:'semana', stat_weeks_unit:'semanas',
-    stat_index_explain_title:'COMO O INDICE E CALCULADO?',
-    stat_index_explain_intro:'O ranking do MyTri não mede quem e mais rápido — mede quem e mais constante. Um iniciante dedicado pode ficar a frente de um avancado que treina pouco. O indice vai de 0 a 100 e combina tres fatores:',
-    stat_adherence_factor_title:'ADERENCIA — 50%', stat_adherence_factor_desc:'Quantos dos treinos planejados você completou. E o que mais pesa: fazer o que foi combinado.',
-    stat_streak_factor_title:'SEQUENCIA — 30%', stat_streak_factor_desc:'Semanas seguidas treinando com regularidade. Premia não sumir — oito semanas seguidas chega ao máximo.',
-    stat_volume_factor_title:'VOLUME RELATIVO — 20%', stat_volume_factor_desc:'O quanto você treinou em relacao ao seu próprio plano — não ao dos outros. Assim quem treina para um 5k compete de igual para igual com quem treina para um Ironman.',
-    stat_index_explain_closing:'A ideia e simples: constancia vence intensidade. O atleta que aparece toda semana chega mais longe do que o que se esforca demais e desiste.',
-    stat_ranking_disclaimer:'Outros atletas são ilustrativos nesta versao. Com a comunidade ativa, o ranking será real e ao vivo.',
-    stat_reports_title:'REPORTS INTELIGENTES', stat_reports_desc:'Analise do seu treino gerada por IA a partir dos seus dados reais de aderencia e volume.',
-    stat_weekly_btn:'SEMANAL', stat_monthly_btn:'MENSAL', stat_postrace_btn:'POS-PROVA',
-    stat_strava_connected:'Conectado', stat_strava_not_connected:'Não conectado', stat_last_sync:'Último sync: {t}',
-    stat_strava_sync_desc:'Sincronize treinos do Garmin automaticamente', stat_sync_btn:'SYNC', stat_disconnect_btn:'DESCONECTAR', stat_connect_btn:'CONECTAR',
-    stat_never:'Nunca', stat_reset_limit:'resetar limite', stat_reset_limit_confirm:'Pronto. Clique em CONECTAR.',
-    stat_volume_per_week_title:'VOLUME POR SEMANA', stat_week_short:'SEM', stat_current_short:'ATUAL (SEM {n})',
-    stat_coaching_title:'COACHING SEMANAL', stat_generating_analysis:'Gerando analise...', stat_update_btn:'ATUALIZAR',
   },
   en:{
     nav_perfil:'Profile', nav_agenda:'Schedule', nav_stats:'Stats', nav_hist:'History', nav_fit:'Fit', nav_club:'Club',
@@ -2512,7 +2480,19 @@ function renderPaceEvolutionChart(){
   const sportsToShow=(prof.sport==='triathlon'||prof.sport==='duathlon')?['corrida','ciclismo','natacao']
     :prof.sport==='corrida'?['corrida']:prof.sport==='ciclismo'?['ciclismo']:prof.sport==='natacao'?['natacao']
     :['corrida','ciclismo','natacao'];
-  const sportMeta={corrida:{color:'#00e676'},ciclismo:{color:'#e05c2a'},natacao:{color:'#1a6cf0'}};
+  const sportMeta={corrida:{color:'#00e676',label:'Corrida'},ciclismo:{color:'#e05c2a',label:'Ciclismo'},natacao:{color:'#1a6cf0',label:'Natacao'}};
+  // Converte o valor normalizado do eixo Y (so serve pra desenhar a linha) de volta pra uma
+  // unidade real que faz sentido mostrar como legenda dos dois lados do grafico.
+  function formatY(sp,y){
+    if(sp==='ciclismo')return y.toFixed(1)+'km/h';
+    const secPerUnit=1000/y;
+    const m=Math.floor(secPerUnit/60),s=Math.round(secPerUnit%60);
+    return `${m}:${String(s).padStart(2,'0')}${sp==='natacao'?'/100m':'/km'}`;
+  }
+  function formatDate(d){
+    const parts=String(d||'').split('-');
+    return parts.length===3?`${parts[2]}/${parts[1]}`:'';
+  }
   let blocks='';
   sportsToShow.forEach(sp=>{
     const pts=hist.filter(h=>h.sport===sp).slice(-15);
@@ -2521,21 +2501,50 @@ function renderPaceEvolutionChart(){
     const yVals=pts.map(p=>sp==='ciclismo'?p.kmh:(1000/p.secPerUnit));
     const minY=Math.min(...yVals),maxY=Math.max(...yVals);
     const rangeY=(maxY-minY)||1;
-    const W=300,H=70,PAD=8;
-    const stepX=pts.length>1?(W-PAD*2)/(pts.length-1):0;
-    const coords=yVals.map((y,i)=>[PAD+i*stepX,H-PAD-((y-minY)/rangeY)*(H-PAD*2)]);
+    // Espaco reservado: esquerda pros rotulos do eixo Y, embaixo pras datas do eixo X.
+    const W=300,H=110,PAD_L=38,PAD_R=6,PAD_T=10,PAD_B=16;
+    const chartW=W-PAD_L-PAD_R,chartH=H-PAD_T-PAD_B;
+    const stepX=pts.length>1?chartW/(pts.length-1):0;
+    const xOf=i=>PAD_L+i*stepX;
+    const yOf=y=>PAD_T+chartH-((y-minY)/rangeY)*chartH;
+    const coords=yVals.map((y,i)=>[xOf(i),yOf(y)]);
     const pathD=coords.map(([x,y],i)=>(i===0?'M':'L')+x.toFixed(1)+','+y.toFixed(1)).join(' ');
+    const areaD=pathD+` L${coords[coords.length-1][0].toFixed(1)},${(PAD_T+chartH).toFixed(1)} L${coords[0][0].toFixed(1)},${(PAD_T+chartH).toFixed(1)} Z`;
     const first=pts[0],last=pts[pts.length-1];
     const improved=sp==='ciclismo'?last.kmh>=first.kmh:last.secPerUnit<=first.secPerUnit;
+    // 3 linhas de grade horizontais com o valor real (nao o numero normalizado) do lado esquerdo.
+    const gridVals=[maxY,minY+rangeY/2,minY];
+    const gridLines=gridVals.map(gv=>{
+      const gy=yOf(gv);
+      return `<line x1="${PAD_L}" y1="${gy.toFixed(1)}" x2="${W-PAD_R}" y2="${gy.toFixed(1)}" stroke="var(--border)" stroke-width="0.6" stroke-dasharray="2,2"/>
+        <text x="${PAD_L-4}" y="${(gy+2.5).toFixed(1)}" text-anchor="end" font-size="7" fill="var(--muted)">${formatY(sp,gv)}</text>`;
+    }).join('');
+    // Datas no eixo X: primeira, meio e ultima atividade — o suficiente pra dar referencia de
+    // periodo sem poluir, ja que ate 15 pontos nao cabem 15 datas legiveis nesse espaco.
+    const midIdx=Math.floor((pts.length-1)/2);
+    const xLabels=[[0,first.date],[midIdx,pts[midIdx].date],[pts.length-1,last.date]]
+      .filter((v,i,arr)=>arr.findIndex(w=>w[0]===v[0])===i)
+      .map(([i,d])=>`<text x="${xOf(i).toFixed(1)}" y="${H-3}" text-anchor="${i===0?'start':i===pts.length-1?'end':'middle'}" font-size="7" fill="var(--muted)">${formatDate(d)}</text>`).join('');
+    const gradId=`paceGrad_${sp}`;
     blocks+=`
-      <div style="margin-bottom:18px">
+      <div style="margin-bottom:20px">
         <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
-          <span style="font-family:var(--font-ui);font-size:10px;font-weight:700;color:${meta.color};letter-spacing:1px;text-transform:uppercase">${sp}</span>
-          <span style="font-family:var(--font-ui);font-size:9px;color:${improved?'#00e676':'var(--muted)'}">${first.label} &rarr; ${last.label}${improved?' &#9650;':''}</span>
+          <span style="font-family:var(--font-ui);font-size:10px;font-weight:700;color:${meta.color};letter-spacing:1px;text-transform:uppercase">${meta.label}</span>
+          <span style="font-family:var(--font-ui);font-size:9px;color:${improved?'#00e676':'var(--muted)'}">${first.label} &rarr; ${last.label}${improved?' &#9650;':' &#9660;'}</span>
         </div>
         <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:${H}px;display:block">
+          <defs>
+            <linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="${meta.color}" stop-opacity="0.35"/>
+              <stop offset="100%" stop-color="${meta.color}" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          ${gridLines}
+          <path d="${areaD}" fill="url(#${gradId})" stroke="none"/>
           <path d="${pathD}" fill="none" stroke="${meta.color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
-          ${coords.map(([x,y])=>`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="2.5" fill="${meta.color}"/>`).join('')}
+          ${coords.slice(0,-1).map(([x,y])=>`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="2" fill="${meta.color}" opacity="0.6"/>`).join('')}
+          <circle cx="${coords[coords.length-1][0].toFixed(1)}" cy="${coords[coords.length-1][1].toFixed(1)}" r="4" fill="var(--bg)" stroke="${meta.color}" stroke-width="2"/>
+          ${xLabels}
         </svg>
         <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);margin-top:2px">Ultimas ${pts.length} atividades de ${sp} sincronizadas do Strava</div>
       </div>`;
@@ -6630,7 +6639,7 @@ async function stravaSyncActivities(){
           const ok=ovKey(wd.w,wd.d,sess._si);
           const existing=o[ok]||{};
           // Sempre sobrescreve dados do Strava com os mais recentes
-          o[ok]={...existing,type:sess.type,stravaData:realData,stravaDist:targetType===SWIM?actDistSwimFmt:actDistKmFmt,stravaTime:actTime,stravaHR:actHR,stravaCal:actCal,stravaZone:actZone};
+          o[ok]={...existing,type:sess.type,stravaData:realData,stravaDist:targetType===SWIM?actDistSwimFmt:actDistKmFmt,stravaTime:actTime,stravaPace:actPace,stravaHR:actHR,stravaCal:actCal,stravaZone:actZone};
           saveOverrides(o);
         }
         matched++;      // conta sempre que casa e salva dados (não só quando marca novo)
@@ -7915,6 +7924,7 @@ function renderClubOnboard(c){
   // Pré-preenche tudo do perfil central
   const nome=prof.name||'';
   const cidade=prof.city||localStorage.getItem('mytri_gps_city')||'';
+  const bairro=prof.bairro||'';
   const idade=prof.age||'';
   const pace=prof.pace||'';
   const ftp=prof.ftp||'';
@@ -7945,9 +7955,13 @@ function renderClubOnboard(c){
             </select>
           </div>
           <div>
-            <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;display:block;margin-bottom:6px">CIDADE / BAIRRO</label>
-            <input id="cl-cidade" type="text" value="${cidade}" placeholder="São Paulo SP" autocomplete="off" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:13px;border-radius:4px;color-scheme:dark">
+            <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;display:block;margin-bottom:6px">CIDADE</label>
+            <input id="cl-cidade" type="text" value="${cidade}" placeholder="São Paulo" autocomplete="off" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:13px;border-radius:4px;color-scheme:dark">
           </div>
+        </div>
+        <div>
+          <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;display:block;margin-bottom:6px">BAIRRO</label>
+          <input id="cl-bairro" type="text" value="${bairro}" placeholder="ex: Moema" autocomplete="off" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:13px;border-radius:4px;color-scheme:dark">
         </div>
         <div id="cl-cep-status" style="font-family:var(--font-body);font-size:11px;color:var(--muted);margin-top:-6px"></div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
@@ -8071,8 +8085,10 @@ async function clFormatCep(el){
       const d=await r.json();
       if(!d.erro){
         const cidadeInput=document.getElementById('cl-cidade');
+        const bairroInput=document.getElementById('cl-bairro');
         const estadoSelect=document.getElementById('cl-estado');
-        if(cidadeInput)cidadeInput.value=d.bairro?`${d.bairro}, ${d.localidade}`:d.localidade;
+        if(cidadeInput)cidadeInput.value=d.localidade||'';
+        if(bairroInput)bairroInput.value=d.bairro||'';
         if(estadoSelect)estadoSelect.value=d.uf;
         if(status)status.textContent=`${d.bairro?d.bairro+', ':''}${d.localidade} — ${d.uf}`;
       } else {
@@ -8157,6 +8173,7 @@ function submitClubOnboard(){
   clubState.myProfile={
     name:nome,age:idade,
     city:gv('cl-cidade'),
+    bairro:gv('cl-bairro'),
     pace:gv('cl-pace'),
     ftp:gv('cl-ftp'),
     swim:gv('cl-swim'),
@@ -9527,15 +9544,26 @@ function calcPRs(){
       const hr=parseInt(o.stravaHR)||0;
       if(hr>0&&hr<prs.bestHR)prs.bestHR=hr;
     }
-    if(o.type==='run'&&o.stravaDist&&o.stravaTime){
+    if(o.type==='run'&&o.stravaDist&&(o.stravaPace||o.stravaTime)){
       const dist=parseFloat(o.stravaDist)||0;
-      const timeStr=o.stravaTime||'';
-      const parts=timeStr.match(/(\d+)h\s*(\d+)min|(\d+)min/);
-      if(parts&&dist>0){
-        let mins=parts[1]?parseInt(parts[1])*60+parseInt(parts[2]):parseInt(parts[3]);
-        const pace=mins/dist;
-        if(!prs.bestPaceRun||pace<prs.bestPaceRun){prs.bestPaceRun=pace;prs.bestPaceRunDist=dist;}
+      let pace=null;
+      // Preferir stravaPace: calculado com segundos, sem passar pelo arredondamento
+      // pra minuto cheio que stravaTime sofre (ex: 34:30 vira "35min", pace vira 7:00
+      // em vez de 6:54). stravaTime fica so como fallback pra dados sincronizados antes
+      // desse campo existir.
+      if(o.stravaPace){
+        const pm=String(o.stravaPace).match(/(\d+):(\d+)\/km/);
+        if(pm)pace=parseInt(pm[1])+parseInt(pm[2])/60;
       }
+      if(pace===null&&o.stravaTime){
+        const timeStr=o.stravaTime||'';
+        const parts=timeStr.match(/(\d+)h\s*(\d+)min|(\d+)min/);
+        if(parts){
+          let mins=parts[1]?parseInt(parts[1])*60+parseInt(parts[2]):parseInt(parts[3]);
+          pace=mins/dist;
+        }
+      }
+      if(pace!==null&&dist>0&&(!prs.bestPaceRun||pace<prs.bestPaceRun)){prs.bestPaceRun=pace;prs.bestPaceRunDist=dist;}
     }
   });
   return prs;
@@ -11122,7 +11150,7 @@ async function showPlanSummary(profile){
 // de timeline horizontal: numero, nome da fase, periodo (se veio entre parenteses) e objetivo.
 // Reduz 4 linhas de texto corrido a algo escaneavel em 2 segundos.
 function renderFasesTimeline(fasesText){
-  const linhas=fasesText.split('\n').map(l=>l.trim()).filter(l=>l.length>2).slice(0,6);
+  const linhas=fasesText.split('\n').map(l=>l.trim()).filter(l=>l.length>2);
   if(!linhas.length)return '';
   const fases=linhas.map(l=>{
     let linha=l.replace(/^\d+[\).\s-]+/,'').trim();
@@ -11132,16 +11160,11 @@ function renderFasesTimeline(fasesText){
     let titulo=linha,objetivo='';
     const sep=linha.match(/^([^:—–-]+)[:—–-]\s*(.+)$/);
     if(sep){ titulo=sep[1].trim(); objetivo=sep[2].trim(); }
-    // Trava de seguranca: se uma "fase" veio absurdamente longa (sinal de que uma secao
-    // inteira vazou pra dentro do parsing, como ja aconteceu com ESTRATEGIA DE PROVA sem
-    // acento nao sendo reconhecida como fronteira), trunca em vez de quebrar o layout.
-    if(objetivo.length>220)objetivo=objetivo.slice(0,200).trim()+'…';
-    if(titulo.length>60)titulo=titulo.slice(0,50).trim()+'…';
     return{titulo,periodo,objetivo};
   });
   return `<div style="display:flex;gap:10px;overflow-x:auto;padding:12px 2px 6px;margin-top:4px">
     ${fases.map((f,i)=>`
-      <div style="flex:0 0 190px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;word-break:break-word">
+      <div style="flex:0 0 190px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px">
         <div style="width:24px;height:24px;border-radius:50%;background:var(--accent);color:#000;display:flex;align-items:center;justify-content:center;font-family:var(--font-ui);font-size:11px;font-weight:700;margin-bottom:10px">${i+1}</div>
         <div style="font-family:var(--font-display);font-size:15px;color:var(--text);line-height:1.2;margin-bottom:4px">${f.titulo}</div>
         ${f.periodo?`<div style="font-family:var(--font-ui);font-size:9px;color:var(--accent);letter-spacing:.5px;margin-bottom:8px">${f.periodo}</div>`:''}
@@ -11179,7 +11202,7 @@ function renderPlanSummary(el,profile,text,debugMsg){
   // Parse sections — suporta formatos variados do Haiku
   function extractSection(titles){
     const t=titles instanceof Array?titles:[titles];
-    const allTitles=['VISÃO GERAL','VISAO GERAL','PONTO CRÍTICO','PONTO CRITICO','FASES DO PLANO','ESTRATÉGIA DE PROVA','ESTRATÉGIA DE PROVA','MENSAGEM DO COACH'];
+    const allTitles=['VISÃO GERAL','VISAO GERAL','PONTO CRÍTICO','PONTO CRITICO','FASES DO PLANO','ESTRATÉGIA DE PROVA','ESTRATEGIA DE PROVA','MENSAGEM DO COACH'];
     for(const title of t){
       const escaped=title.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
       const variants=[escaped,'\\*\\*'+escaped+'\\*\\*'];
@@ -11197,7 +11220,7 @@ function renderPlanSummary(el,profile,text,debugMsg){
   const visao=extractSection(['VISÃO GERAL','VISAO GERAL','VISAO']);
   const critico=extractSection(['PONTO CRÍTICO','PONTO CRITICO']);
   const fases=extractSection(['FASES DO PLANO','FASES']);
-  const estratégia=extractSection(['ESTRATÉGIA DE PROVA','ESTRATÉGIA DE PROVA','ESTRATÉGIA']);
+  const estratégia=extractSection(['ESTRATÉGIA DE PROVA','ESTRATEGIA DE PROVA','ESTRATÉGIA','ESTRATEGIA']);
   const mensagem=extractSection(['MENSAGEM DO COACH','MENSAGEM']);
 
   // Se parsing falhou (texto existe mas seções não extraíram), exibe o texto limpo inteiro
