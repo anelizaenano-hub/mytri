@@ -1895,6 +1895,18 @@ function authedFetch(url, options){
   return fetch(url, {...(options||{}), headers});
 }
 
+// fetch com teto de tempo BLINDADO — um fetch() normal pode ficar pendurado pra sempre se a
+// rede/servidor nao responder nada (nem sucesso nem erro). AbortController garante que a chamada
+// morre sozinha no tempo definido, nao importa o que aconteça do outro lado. Usado por qualquer
+// fluxo de background+polling (plan-summary, bike-fit).
+async function fetchComTimeout(url,options,timeoutMs){
+  const ctrl=new AbortController();
+  const timer=setTimeout(()=>ctrl.abort(),timeoutMs);
+  try{
+    return await authedFetch(url,{...options,signal:ctrl.signal});
+  }finally{ clearTimeout(timer); }
+}
+
 let _syncReady=false;
 let _syncPending=false;
 
@@ -6970,15 +6982,31 @@ RESUMO_JSON:{"selim_atual":"${selim||''}","selim_ideal":"NUM","selim_recuo":"NUM
 
 Depois dessa linha, escreva todo o texto explicativo normalmente.`;
 
+  let text='';
   try{
-    const resp=await authedFetch('/.netlify/functions/bike-fit',{
+    // Dispara a analise em background — recebe 202 na hora, o texto ainda nao vem aqui.
+    await fetchComTimeout('/.netlify/functions/bike-fit-background',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({prompt,imageBase64:photoB64||null})
-    });
-    const data=await resp.json();
-    if(!resp.ok)throw new Error(data.error||'Erro');
-    let text=data.text||'';
+    },10000);
+
+    // Fica consultando o status ate sair de "pending". Foto+visao pode demorar mais que texto
+    // puro, entao damos mais margem aqui: 50 tentativas de 1.5s = 75s de espera maxima.
+    const maxAttempts=50;
+    let done=false;
+    for(let attempt=0;attempt<maxAttempts;attempt++){
+      await new Promise(r=>setTimeout(r,1500));
+      let statusResp;
+      try{
+        statusResp=await fetchComTimeout('/.netlify/functions/bike-fit-status',{method:'GET'},8000);
+      }catch(e){ continue; }
+      let statusData={};
+      try{ statusData=await statusResp.json(); }catch(e){ continue; }
+      if(statusData.status==='done'){ text=statusData.text_result||''; done=true; break; }
+      if(statusData.status==='error'){ throw new Error(statusData.error_message||'Erro na analise'); }
+    }
+    if(!done) throw new Error(`Analise demorou mais que o esperado (mais de ${Math.round(maxAttempts*1.5)}s). Tente novamente.`);
 
     // Extrai o resumo estruturado (RESUMO_JSON na 1a linha) pra montar um card visual
     // "atual -> recomendado" antes do texto corrido — antes só tinha a explicação longa,
@@ -11127,18 +11155,6 @@ async function showPlanSummary(profile){
       <div style="font-family:var(--font-ui);font-size:13px;color:var(--muted);letter-spacing:1.5px;text-align:center">CRIANDO SEU PLANO<br>PERSONALIZADO...</div>
       <div style="font-family:var(--font-body);font-size:12px;color:var(--muted2);text-align:center;line-height:1.6">Analisando seu perfil,<br>prova e objetivos</div>
     </div>`;
-
-  // fetch com teto de tempo BLINDADO — um fetch() normal pode ficar pendurado pra sempre se a
-  // rede/servidor nao responder nada (nem sucesso nem erro), e foi exatamente isso que travou a
-  // tela por 2 minutos. AbortController garante que a chamada morre sozinha no tempo definido,
-  // nao importa o que aconteça do outro lado.
-  async function fetchComTimeout(url,options,timeoutMs){
-    const ctrl=new AbortController();
-    const timer=setTimeout(()=>ctrl.abort(),timeoutMs);
-    try{
-      return await authedFetch(url,{...options,signal:ctrl.signal});
-    }finally{ clearTimeout(timer); }
-  }
 
   try{
     // Dispara a geracao em background — recebe 202 na hora, o texto ainda nao vem aqui.
