@@ -6840,8 +6840,8 @@ function renderBikeFitReal(){
   const photoWrap=document.createElement('div');
   photoWrap.innerHTML=`
     <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;display:block;margin-bottom:6px">Foto pedalando de lado (perfil)</label>
-    <div id="bf-photo-preview" style="width:100%;height:160px;background:var(--surface);border:1px dashed var(--border2);border-radius:4px;display:flex;align-items:center;justify-content:center;cursor:pointer;margin-bottom:0" onclick="document.getElementById('bf-photo-input').click()">
-      <span style="font-family:var(--font-ui);font-size:11px;color:var(--muted);letter-spacing:1px">TOQUE PARA ADICIONAR FOTO</span>
+    <div id="bf-photo-preview" style="width:100%;aspect-ratio:3/4;max-height:420px;background:var(--surface);border:1px dashed var(--border2);border-radius:4px;display:flex;align-items:center;justify-content:center;cursor:pointer;margin-bottom:0" onclick="document.getElementById('bf-photo-input').click()">
+      <span style="font-family:var(--font-ui);font-size:11px;color:var(--muted);letter-spacing:1px;text-align:center;padding:0 20px">TOQUE PARA ADICIONAR FOTO<br>(vertical, tirada pelo celular)</span>
     </div>
     <div style="font-family:var(--font-body);font-size:11px;color:var(--muted);margin-top:6px;line-height:1.5">Tire a foto montado na bike, de lado (perfil), pedalando ou parado na posição normal — e o que da pra IA analisar angulo de joelho, quadril e tronco.</div>
     <input type="file" id="bf-photo-input" accept="image/*" style="display:none">`;
@@ -6876,7 +6876,7 @@ function renderBikeFitReal(){
     const reader=new FileReader();
     reader.onload=ev=>{
       const preview=document.getElementById('bf-photo-preview');
-      preview.innerHTML=`<img src="${ev.target.result}" style="width:100%;height:100%;object-fit:cover;border-radius:4px">`;
+      preview.innerHTML=`<img src="${ev.target.result}" style="width:100%;height:100%;object-fit:contain;border-radius:4px">`;
       preview.dataset.b64=ev.target.result.split(',')[1];
     };
     reader.readAsDataURL(file);
@@ -7404,13 +7404,13 @@ async function submitCreateGroup(){
   }
   const uid=currentUserId();
   if(!uid){ alert('Precisa estar logado.'); return; }
-  const código=Math.random().toString(36).slice(2,8).toUpperCase();
+  const codigo=Math.random().toString(36).slice(2,8).toUpperCase();
   const prof=getMytriProfile();
   try{
     const r=await fetch(`${SB_URL}/rest/v1/mytri_groups`,{
       method:'POST',
       headers:sbHeaders({'Prefer':'return=representation'}),
-      body:JSON.stringify({nome,foco,scoring,código,owner_id:uid})
+      body:JSON.stringify({nome,foco,scoring,codigo,owner_id:uid})
     });
     const rows=await r.json();
     if(!r.ok||!rows||!rows[0]){
@@ -8853,10 +8853,13 @@ function renderProfile(){
         <div style="position:absolute;inset:0;background:url('${secondary}') center/contain no-repeat"></div>`:''}
         ${secondary?`<div style="position:absolute;top:10px;right:12px;background:rgba(0,0,0,0.55);border-radius:4px;padding:5px 10px;font-family:var(--font-ui);font-size:9px;color:#fff;letter-spacing:.5px">${t('pf_edit_cover')}</div>`:`<div style="position:absolute;top:10px;right:12px;font-family:var(--font-ui);font-size:9px;color:rgba(255,255,255,0.6);letter-spacing:.5px">${t('pf_add_cover')}</div>`}
       </div>
-      <!-- Avatar sobreposto + dados ao lado (estilo LinkedIn compacto) -->
-      <div style="padding:0 20px 16px;position:relative">
+      <!-- Avatar sobreposto + dados ao lado (estilo LinkedIn compacto). onclick de capa aqui
+           tambem — Nano pediu pra area inteira (nao so a faixa da foto acima) abrir o seletor
+           de foto de capa; os elementos de dentro que ja tem acao propria (avatar, instants,
+           atualizar localizacao, strava/instagram) param a propagacao pra nao abrir os dois. -->
+      <div style="padding:0 20px 16px;position:relative;cursor:pointer" onclick="changeCoverPhoto()">
         <div style="display:flex;align-items:flex-end;gap:14px;margin-top:-40px">
-          <div style="position:relative;flex-shrink:0">
+          <div style="position:relative;flex-shrink:0" onclick="event.stopPropagation()">
             <div id="moments-ring" style="display:inline-block;border-radius:50%;padding:3px;background:var(--bg);line-height:0">
               <div onclick="(window._momentosUrls&&window._momentosUrls.length)?viewMoment(0):changeProfilePhoto()" style="cursor:pointer;border-radius:50%;line-height:0;display:inline-block">${photoEl}</div>
             </div>
@@ -8874,11 +8877,11 @@ function renderProfile(){
         <div style="margin-top:8px">
           <div class="profile-city" id="profile-city-display" style="text-align:left">${prof.country&&prof.country!=='BR'?((COUNTRY_LIST.find(c=>c.code===prof.country)||{}).flag||'')+' ':''}${prof.city||t('pf_detecting_location')}</div>
           <div style="display:flex;align-items:center;gap:14px;margin-top:4px;flex-wrap:wrap">
-            <div onclick="resetCity()" style="font-family:var(--font-ui);font-size:9px;color:var(--muted2);letter-spacing:1px;cursor:pointer;text-decoration:underline">${t('pf_update_location')}</div>
+            <div onclick="event.stopPropagation();resetCity()" style="font-family:var(--font-ui);font-size:9px;color:var(--muted2);letter-spacing:1px;cursor:pointer;text-decoration:underline">${t('pf_update_location')}</div>
             ${athlete.firstname?`<div style="font-family:var(--font-ui);font-size:9px;color:var(--muted2);letter-spacing:1px">STRAVA: ${athlete.firstname} ${athlete.lastname||''}</div>`:''}
           </div>
           <!-- Atalhos rapidos Strava / Instagram -->
-          <div style="display:flex;align-items:center;gap:10px;margin-top:12px">
+          <div style="display:flex;align-items:center;gap:10px;margin-top:12px" onclick="event.stopPropagation()">
             ${(()=>{ const igh=localStorage.getItem('mytri_ig_handle')||''; const stravaId=(athlete&&athlete.id)?athlete.id:''; const stravaUrl=stravaId?('https://www.strava.com/athletes/'+stravaId):'https://www.strava.com'; return `
               <a href="${stravaUrl}" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:7px;text-decoration:none;background:rgba(252,76,2,0.12);border:1px solid rgba(252,76,2,0.35);border-radius:8px;padding:8px 12px">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="#fc4c02"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg>
@@ -9756,7 +9759,15 @@ function renderObWelcome(c){
     document.getElementById('ob-vid-1'),
     document.getElementById('ob-vid-2'),
   ];
-  vids.forEach(v=>v.play().catch(()=>{}));
+  // play() pode falhar silenciosamente por política de autoplay do navegador — o caso mais comum
+  // no iOS é o Modo de Baixa Energia (ativa sozinho abaixo de ~20% de bateria), que bloqueia
+  // autoplay de video mesmo com muted+playsinline. Loga o motivo real em vez de engolir o erro,
+  // e usa qualquer toque na tela como gatilho de retry — um play() disparado por gesto do
+  // usuário sempre tem permissão, mesmo quando o autoplay automático foi bloqueado.
+  vids.forEach(v=>v.play().catch(err=>console.log('[ob-video] autoplay bloqueado:',v.id,err.name,err.message)));
+  const _retryPlay=()=>{ vids.forEach(v=>{ if(v.paused)v.play().catch(()=>{}); }); };
+  document.getElementById('ob-vid-wrap')?.addEventListener('touchstart',_retryPlay,{once:true,passive:true});
+  document.getElementById('ob-vid-wrap')?.addEventListener('click',_retryPlay,{once:true});
   let vcur=0;
   const iv=setInterval(()=>{
     vids[vcur].style.opacity='0';
