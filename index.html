@@ -410,10 +410,10 @@ body.auth-active .bottom-nav,body.auth-active .app-header,body.auth-active #cons
 .disclaimer-btn-cancel{width:100%;padding:12px;background:none;color:var(--muted);font-family:var(--font-ui);font-size:11px;letter-spacing:1px;border:none;cursor:pointer;margin-top:8px}
 
 /* ── PLANO GERADO ── */
-#view-plan-summary{display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:250;background:var(--bg);overflow-y:auto}
+#view-plan-summary{display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:250;background:var(--bg);overflow-y:auto;-webkit-overflow-scrolling:touch}
 #view-plan-summary.active{display:block}
 /* ── SESSION ANALYSIS MODAL ── */
-#session-analysis-modal{display:none;position:fixed;bottom:0;left:0;right:0;z-index:300;background:var(--surface);border-top:1px solid var(--border);border-radius:16px 16px 0 0;padding:24px 20px 40px;max-height:80vh;overflow-y:auto;transform:translateY(100%);transition:transform .35s cubic-bezier(.4,0,.2,1)}
+#session-analysis-modal{display:none;position:fixed;bottom:0;left:0;right:0;z-index:300;background:var(--surface);border-top:1px solid var(--border);border-radius:16px 16px 0 0;padding:24px 20px calc(56px + env(safe-area-inset-bottom));max-height:85vh;overflow-y:auto;-webkit-overflow-scrolling:touch;transform:translateY(100%);transition:transform .35s cubic-bezier(.4,0,.2,1)}
 #session-analysis-modal.active{display:block;transform:translateY(0)}
 .sa-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
 .sa-label{font-family:var(--font-ui);font-size:9px;color:var(--accent);letter-spacing:2px;text-transform:uppercase}
@@ -6651,7 +6651,7 @@ async function stravaSyncActivities(){
           const ok=ovKey(wd.w,wd.d,sess._si);
           const existing=o[ok]||{};
           // Sempre sobrescreve dados do Strava com os mais recentes
-          o[ok]={...existing,type:sess.type,stravaData:realData,stravaDist:targetType===SWIM?actDistSwimFmt:actDistKmFmt,stravaTime:actTime,stravaPace:actPace,stravaHR:actHR,stravaCal:actCal,stravaZone:actZone};
+          o[ok]={...existing,type:sess.type,stravaData:realData,stravaDist:targetType===SWIM?actDistSwimFmt:actDistKmFmt,stravaTime:actTime,stravaPace:actPace,stravaHR:actHR,stravaCal:actCal,stravaZone:actZone,stravaActivityId:act.id};
           saveOverrides(o);
         }
         matched++;      // conta sempre que casa e salva dados (não só quando marca novo)
@@ -10062,41 +10062,53 @@ async function obSearchRaces(){
   renderOnboarding();
   const distLabel=(DIST_INFO[obData.raceDist]&&DIST_INFO[obData.raceDist].label)||obData.raceDist||'';
   const location=(getMytriProfile().city)||localStorage.getItem('mytri_gps_city')||'Brasil';
-  // Estado (UF) separado da cidade — ajuda a busca a cobrir provas regionais/de assessoria
-  // que não aparecem numa busca só pela cidade exata do atleta.
   const state=getMytriProfile().state||'';
   obData._raceSearchError=null;
   try{
-    const resp=await authedFetch('/.netlify/functions/race-search',{
+    const kickoff=await fetchComTimeout('/.netlify/functions/race-search-background',{
       method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({sport:obData.sport||'triathlon',raceDist:obData.raceDist||'',distLabel,location,state,monthsAhead:10})
-    });
-    let data={};
-    try{ data=await resp.json(); }catch(e){ data={}; }
-    // Diagnostico: se a function retornou erro, guarda o motivo para exibir
-    if(!resp.ok || data.error){
-      obData._raceSearchError = friendlyRaceError(data.error || ('erro '+resp.status));
+    },10000);
+    if(!kickoff.ok){
+      let bodyTxt=''; try{ bodyTxt=(await kickoff.text()).slice(0,300); }catch(e){}
+      obData._raceSearchError=friendlyRaceError(bodyTxt||('HTTP '+kickoff.status));
+      obData.webRaces=[];
+      obData._searchingRaces=false;
+      renderOnboarding();
+      return;
     }
+    // A busca de provas e a mais demorada das tres (ate 6 buscas web + possivel retry mais
+    // amplo dentro da propria function) — damos bastante margem: 50 tentativas de 1.8s = 90s.
+    const maxAttempts=50;
+    let done=false;
     const today=new Date().toISOString().slice(0,10);
-    let races=(Array.isArray(data.races)?data.races:[]).filter(r=>r&&r.date&&r.date>=today);
-
-    // Se a 1a busca vier vazia, tenta 2a vez automaticamente com criterio mais amplo
-    // (janela maior + área mais ampla). Não e plausivel não existir prova alguma no ano.
-    if(races.length===0){
-      try{
-        const resp2=await authedFetch('/.netlify/functions/race-search',{
-          method:'POST',headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({sport:obData.sport||'triathlon',raceDist:obData.raceDist||'',distLabel,location:'Brasil',monthsAhead:14,broaden:true})
-        });
-        const data2=await resp2.json();
-        races=(Array.isArray(data2.races)?data2.races:[]).filter(r=>r&&r.date&&r.date>=today);
-        // Se o retry trouxe provas, limpa erro. Se ainda vazio e veio erro, mostra o do retry.
-        if(races.length>0){ obData._raceSearchError=null; }
-        else if(data2.error){ obData._raceSearchError=friendlyRaceError(data2.error); }
-      }catch(e){ if(!obData._raceSearchError) obData._raceSearchError=friendlyRaceError('conexão'); }
+    for(let attempt=0;attempt<maxAttempts;attempt++){
+      await new Promise(r=>setTimeout(r,1800));
+      let statusResp;
+      try{ statusResp=await fetchComTimeout('/.netlify/functions/race-search-status',{method:'GET'},8000); }catch(e){ continue; }
+      let statusData={};
+      try{ statusData=await statusResp.json(); }catch(e){ continue; }
+      if(statusData.status==='done'){
+        let races=[];
+        try{ races=JSON.parse(statusData.races_json||'[]'); }catch(e){}
+        races=(Array.isArray(races)?races:[]).filter(r=>r&&r.date&&r.date>=today);
+        obData.webRaces=races;
+        if(races.length===0&&statusData.error_message) obData._raceSearchError=friendlyRaceError(statusData.error_message);
+        done=true;
+        break;
+      }
+      if(statusData.status==='error'){
+        obData._raceSearchError=friendlyRaceError(statusData.error_message||'erro desconhecido');
+        obData.webRaces=[];
+        done=true;
+        break;
+      }
     }
-    obData.webRaces=races;
-  }catch(e){ obData.webRaces=[]; }
+    if(!done){
+      obData._raceSearchError=friendlyRaceError('longa demais');
+      obData.webRaces=[];
+    }
+  }catch(e){ obData.webRaces=[]; obData._raceSearchError=friendlyRaceError(e.message||'conexão'); }
   obData._searchingRaces=false;
   renderOnboarding();
 }
@@ -11086,60 +11098,119 @@ function calcComparacaoPace(profile, paceNecessario){
   }catch(e){ return ''; }
 }
 
-// Versao VISUAL (gauge de barras) da mesma comparacao que calcComparacaoPace faz em texto —
-// pra reduzir a leitura no relatorio. Duas barras numa escala comum "maior=melhor" (pace
-// vira velocidade invertida, bike ja e velocidade direta), com veredito curto embaixo.
+// Versao VISUAL (comparativo por modalidade) da mesma comparacao que calcComparacaoPace faz em
+// texto. Pra corrida/natacao/ciclismo solo, uma unica barra atual-vs-necessario. Pra
+// triathlon/duathlon, um comparativo das TRES modalidades juntas — antes so mostrava a perna de
+// corrida, o que nao fazia sentido pra uma prova com 3 etapas.
 function renderPaceGaugeHTML(profile){
   try{
     const paceNecessario=calcPaceNecessarioMeta(profile);
     if(!paceNecessario)return '';
     const toSec=(s)=>{ const m=String(s).match(/(\d+):(\d{2})/); return m?parseInt(m[1])*60+parseInt(m[2]):null; };
-    let atualLabel='',necLabel='',atualVal=null,necVal=null,tituloLabel='';
+
+    function barRow(label,color,atualLabel,atualVal,necLabel,necVal,isEstimate){
+      const maxV=Math.max(atualVal,necVal);
+      const atualPct=Math.max(8,Math.round((atualVal/maxV)*100));
+      const necPct=Math.max(8,Math.round((necVal/maxV)*100));
+      const isReady=atualVal>=necVal;
+      const barColor=isReady?'#00e676':'#f0a500';
+      return `<div style="margin-bottom:18px">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+          <span style="width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0"></span>
+          <span style="font-family:var(--font-ui);font-size:10px;font-weight:700;color:${color};letter-spacing:1px;text-transform:uppercase">${label}</span>
+          ${isEstimate?'<span style="font-family:var(--font-ui);font-size:8px;color:var(--muted)">(estimativa)</span>':''}
+          <span style="margin-left:auto;font-family:var(--font-ui);font-size:9px;color:${isReady?'#00e676':'var(--muted)'}">${isReady?'PRONTO':'PRECISA EVOLUIR'}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:4px"><span>ATUAL</span><span style="color:${barColor}">${atualLabel}</span></div>
+        <div style="height:8px;border-radius:4px;background:rgba(255,255,255,.06);overflow:hidden;margin-bottom:10px"><div style="height:100%;width:${atualPct}%;background:${barColor};border-radius:4px"></div></div>
+        <div style="display:flex;justify-content:space-between;font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:4px"><span>NECESSARIO</span><span>${necLabel}</span></div>
+        <div style="height:8px;border-radius:4px;background:rgba(255,255,255,.06);overflow:hidden"><div style="height:100%;width:${necPct}%;background:rgba(255,255,255,0.3);border-radius:4px"></div></div>
+      </div>`;
+    }
 
     if(profile.sport==='corrida'&&profile.pace){
       const necSec=toSec(paceNecessario),atualSec=toSec(profile.pace);
       if(necSec==null||atualSec==null)return '';
-      atualVal=1000/atualSec;necVal=1000/necSec;
-      atualLabel=profile.pace+'/km';necLabel=paceNecessario;
-      tituloLabel='PACE DE CORRIDA';
-    }else if(profile.sport==='natacao'&&profile.swim){
+      const rows=barRow('Corrida','#00e676',profile.pace+'/km',1000/atualSec,paceNecessario,1000/necSec,false);
+      return wrapGauge('PACE DE CORRIDA: ATUAL VS NECESSARIO',rows,atualSec<=necSec);
+    }
+    if(profile.sport==='natacao'&&profile.swim){
       const necSec=toSec(paceNecessario),atualSec=toSec(profile.swim);
       if(necSec==null||atualSec==null)return '';
-      atualVal=1000/atualSec;necVal=1000/necSec;
-      atualLabel=profile.swim+'/100m';necLabel=paceNecessario;
-      tituloLabel='PACE DE NATACAO';
-    }else if((profile.sport==='triathlon'||profile.sport==='duathlon')&&profile.pace){
-      const necMatch=String(paceNecessario).match(/(\d+):(\d{2})/);
-      if(!necMatch)return '';
-      const necSec=parseInt(necMatch[1])*60+parseInt(necMatch[2]);
-      const atualSec=toSec(profile.pace);
-      if(atualSec==null)return '';
-      atualVal=1000/atualSec;necVal=1000/necSec;
-      atualLabel=profile.pace+'/km';necLabel=necMatch[0]+'/km';
-      tituloLabel='PACE DE CORRIDA (perna do triathlon)';
-    }else{
-      return '';
+      const rows=barRow('Natacao','#1a6cf0',profile.swim+'/100m',1000/atualSec,paceNecessario,1000/necSec,false);
+      return wrapGauge('PACE DE NATACAO: ATUAL VS NECESSARIO',rows,atualSec<=necSec);
     }
 
-    const maxV=Math.max(atualVal,necVal);
-    const atualPct=Math.max(8,Math.round((atualVal/maxV)*100));
-    const necPct=Math.max(8,Math.round((necVal/maxV)*100));
-    const isReady=atualVal>=necVal;
-    const barColor=isReady?'#00e676':'#f0a500';
+    if(profile.sport==='triathlon'||profile.sport==='duathlon'){
+      const d=RACE_KM_META[profile.raceDist];
+      let totalSec=profile.goalTimeExactSec;
+      if(!totalSec){ const parts=String(profile.goalTime||'').split(':'); if(parts.length===2) totalSec=(parseInt(parts[0])||0)*3600+(parseInt(parts[1])||0)*60; }
+      if(!d||!totalSec)return '';
+      // Splits consistentes com a estimativa de 42% pra corrida ja usada no resto do app —
+      // o restante (58%) dividido entre natacao/bike na proporcao tipica de uma prova sprint.
+      let rows='',anyReady=true,anyRow=false;
 
-    return `<div class="plan-section">
-      <div class="plan-section-title">${tituloLabel}: ATUAL VS NECESSARIO</div>
-      <div style="margin-top:10px">
-        <div style="display:flex;justify-content:space-between;font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:4px"><span>SEU RITMO ATUAL</span><span style="color:${barColor}">${atualLabel}</span></div>
-        <div style="height:10px;border-radius:5px;background:rgba(255,255,255,.06);overflow:hidden;margin-bottom:14px"><div style="height:100%;width:${atualPct}%;background:${barColor};border-radius:5px"></div></div>
-        <div style="display:flex;justify-content:space-between;font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:4px"><span>NECESSARIO PRA META</span><span>${necLabel}</span></div>
-        <div style="height:10px;border-radius:5px;background:rgba(255,255,255,.06);overflow:hidden"><div style="height:100%;width:${necPct}%;background:rgba(255,255,255,0.3);border-radius:5px"></div></div>
-      </div>
-      <div style="margin-top:12px;padding:10px 12px;border-radius:6px;background:${isReady?'rgba(0,230,118,.08)':'rgba(240,165,0,.1)'};border:1px solid ${isReady?'rgba(0,230,118,.25)':'rgba(240,165,0,.3)'}">
-        <div style="font-family:var(--font-body);font-size:12px;color:${barColor}">${isReady?'Voce ja tem o ritmo necessario pra bater a meta. Foco: resistencia e consistencia.':'Voce precisa ganhar ritmo pra bater a meta. Foco: velocidade especifica.'}</div>
-      </div>
-    </div>`;
+      if(d.s&&profile.swim){
+        const necSwimSec=(totalSec*0.12)/(d.s*10);
+        const atualSwimSec=toSec(profile.swim);
+        if(atualSwimSec!=null){
+          const necM=Math.floor(necSwimSec/60),necS=Math.round(necSwimSec%60);
+          const necLabel=`${necM}:${String(necS).padStart(2,'0')}/100m`;
+          rows+=barRow('Natacao','#1a6cf0',profile.swim+'/100m',1000/atualSwimSec,necLabel,1000/necSwimSec,true);
+          if(atualSwimSec>necSwimSec)anyReady=false;
+          anyRow=true;
+        }
+      }
+      // Bike: nao ha campo de "velocidade atual" no perfil (so FTP em watts, que nao converte
+      // direto pra km/h sem peso/aerodinamica) — usa a media mais recente sincronizada do Strava
+      // quando existir, em vez de inventar um numero.
+      if(d.b){
+        let bikeKmh=null;
+        try{
+          const hist=JSON.parse(localStorage.getItem('mytri_pace_history')||'[]');
+          const bikePts=hist.filter(h=>h.sport==='ciclismo');
+          if(bikePts.length)bikeKmh=bikePts[bikePts.length-1].kmh;
+        }catch(e){}
+        const necBikeKmh=d.b/((totalSec*0.46)/3600);
+        if(bikeKmh){
+          rows+=barRow('Ciclismo','#e05c2a',bikeKmh.toFixed(1)+'km/h',bikeKmh,necBikeKmh.toFixed(1)+'km/h',necBikeKmh,true);
+          if(bikeKmh<necBikeKmh)anyReady=false;
+          anyRow=true;
+        }else if(profile.ftp){
+          rows+=`<div style="margin-bottom:18px">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+              <span style="width:8px;height:8px;border-radius:50%;background:#e05c2a;flex-shrink:0"></span>
+              <span style="font-family:var(--font-ui);font-size:10px;font-weight:700;color:#e05c2a;letter-spacing:1px;text-transform:uppercase">Ciclismo</span>
+            </div>
+            <div style="font-family:var(--font-body);font-size:11px;color:var(--muted2)">FTP atual: ${profile.ftp}w. Meta pra essa etapa: ~${necBikeKmh.toFixed(1)}km/h. Sincronize atividades de bike no Strava pra comparar velocidade real.</div>
+          </div>`;
+        }
+      }
+      if(d.r&&profile.pace){
+        const necRunSec=(totalSec*0.42)/d.r;
+        const atualRunSec=toSec(profile.pace);
+        if(atualRunSec!=null){
+          const necM=Math.floor(necRunSec/60),necS=Math.round(necRunSec%60);
+          const necLabel=`${necM}:${String(necS).padStart(2,'0')}/km`;
+          rows+=barRow('Corrida','#00e676',profile.pace+'/km',1000/atualRunSec,necLabel,1000/necRunSec,true);
+          if(atualRunSec>necRunSec)anyReady=false;
+          anyRow=true;
+        }
+      }
+      if(!anyRow)return '';
+      return wrapGauge('COMPARATIVO POR MODALIDADE: ATUAL VS NECESSARIO PRA META',rows,anyReady);
+    }
+    return '';
   }catch(e){ return ''; }
+}
+function wrapGauge(titulo,rowsHtml,isReady){
+  return `<div class="plan-section">
+    <div class="plan-section-title">${titulo}</div>
+    <div style="margin-top:10px">${rowsHtml}</div>
+    <div style="margin-top:4px;padding:10px 12px;border-radius:6px;background:${isReady?'rgba(0,230,118,.08)':'rgba(240,165,0,.1)'};border:1px solid ${isReady?'rgba(0,230,118,.25)':'rgba(240,165,0,.3)'}">
+      <div style="font-family:var(--font-body);font-size:12px;color:${isReady?'#00e676':'#f0a500'}">${isReady?'Voce ja tem o ritmo necessario nas modalidades comparadas. Foco: resistencia e consistencia.':'Pelo menos uma modalidade precisa evoluir pra bater a meta. Foco: velocidade especifica onde estiver mais atras.'}</div>
+    </div>
+  </div>`;
 }
 
 async function showPlanSummary(profile){
@@ -11355,7 +11426,7 @@ function renderPlanSummary(el,profile,text,debugMsg){
     </div>`
     :`<div class="plan-section"><div class="plan-section-body">Não foi possível gerar o resumo detalhado do plano agora. Isso pode acontecer por instabilidade temporaria. Seu plano de treino já está ativo na Agenda.${debugMsg?`<br><br><span style="color:#e05c2a;font-size:11px">[debug: ${String(debugMsg).slice(0,250).replace(/</g,'')}]</span>`:''}<br><br><button onclick="showPlanSummary(getMytriProfile())" style="padding:12px 20px;background:var(--accent);color:#000;border:none;border-radius:4px;font-family:var(--font-ui);font-size:11px;letter-spacing:1.5px;cursor:pointer">TENTAR NOVAMENTE</button></div></div>`)}
 
-    <div style="padding:20px 20px 40px">
+    <div style="padding:20px 20px calc(40px + env(safe-area-inset-bottom))">
       <button onclick="closePlanSummary()" style="width:100%;padding:18px;background:var(--accent);color:#000;font-family:var(--font-ui);font-size:14px;font-weight:700;letter-spacing:2px;border:none;border-radius:4px;cursor:pointer">ENTRAR NO MYTRI</button>
     </div>`;
 }
@@ -11592,13 +11663,16 @@ async function maybeShowSessionAnalysis(key, sess, w, d){
 
 // Strip de numeros grandes (distancia, tempo, FC, calorias, zona) + barra planejado vs feito.
 // Fica ACIMA do texto da IA no relatorio pos-treino: os dados exatos primeiro, o texto como
-// contexto/interpretacao depois — antes só existia o texto narrando esses mesmos numeros.
+// contexto/interpretacao depois. Layout em 2 colunas (nao 3 espremidas) — inspirado em como o
+// Strava apresenta os numeros de uma atividade: poucos por linha, grandes, com respiro.
 function renderSessionStatStrip(ov, plannedDist){
   if(!ov)return '';
   const stats=[];
   if(ov.stravaDist)stats.push({label:'DISTANCIA',val:ov.stravaDist,color:'var(--accent)'});
   if(ov.stravaTime)stats.push({label:'TEMPO',val:ov.stravaTime,color:'var(--text)'});
-  if(ov.stravaHR)stats.push({label:'FC MEDIA',val:ov.stravaHR+'bpm',color:'#e05c2a'});
+  // ov.stravaHR ja vem formatado com "bpm" (ex: "148bpm") — nao concatenar de novo aqui, senao
+  // vira "148bpmbpm".
+  if(ov.stravaHR)stats.push({label:'FC MEDIA',val:ov.stravaHR,color:'#e05c2a'});
   if(ov.stravaCal)stats.push({label:'CALORIAS',val:ov.stravaCal+'kcal',color:'#f0a500'});
   if(ov.stravaZone)stats.push({label:'ZONA',val:ov.stravaZone,color:'#9b6af0'});
   if(!stats.length)return '';
@@ -11607,17 +11681,20 @@ function renderSessionStatStrip(ov, plannedDist){
   if(pKm>0&&rKm>0){
     const pct=Math.round((rKm/pKm)*100);
     const barColor=(pct>=90&&pct<=130)?'#00e676':(pct>130?'#f0a500':'#e05c2a');
-    barHtml=`<div style="margin-top:10px">
-      <div style="display:flex;justify-content:space-between;font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:1px;margin-bottom:3px"><span>PLANEJADO ${plannedDist}</span><span style="color:${barColor}">FEITO ${ov.stravaDist} (${pct}%)</span></div>
+    barHtml=`<div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+      <div style="display:flex;justify-content:space-between;font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:6px"><span>PLANEJADO ${plannedDist}</span><span style="color:${barColor}">FEITO ${ov.stravaDist} (${pct}%)</span></div>
       <div style="height:6px;border-radius:3px;background:rgba(255,255,255,.08);overflow:hidden"><div style="height:100%;width:${Math.min(100,pct)}%;background:${barColor}"></div></div>
     </div>`;
   }
-  return `<div style="display:grid;grid-template-columns:repeat(${Math.min(stats.length,3)},1fr);gap:8px;margin:14px 0">
-    ${stats.map(s=>`<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 6px;text-align:center">
-      <div style="font-family:var(--font-display);font-size:16px;color:${s.color}">${s.val}</div>
-      <div style="font-family:var(--font-ui);font-size:7px;color:var(--muted);letter-spacing:1px;margin-top:2px">${s.label}</div>
-    </div>`).join('')}
-  </div>${barHtml}`;
+  return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:18px 16px;margin:16px 0">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px 12px">
+      ${stats.map(s=>`<div>
+        <div style="font-family:var(--font-display);font-size:24px;color:${s.color};line-height:1.1">${s.val}</div>
+        <div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1.5px;margin-top:4px">${s.label}</div>
+      </div>`).join('')}
+    </div>
+    ${barHtml}
+  </div>`;
 }
 
 function renderSessionAnalysis(modal, dotColor, pillText, text, ov, plannedDist){
@@ -11631,8 +11708,108 @@ function renderSessionAnalysis(modal, dotColor, pillText, text, ov, plannedDist)
       <span class="sa-session-pill-text">${pillText}</span>
     </div>
     ${renderSessionStatStrip(ov,plannedDist)}
+    <div id="sa-stream-section"></div>
     <div class="sa-text">${text.replace(/\n\n/g,'</p><p style="margin-top:12px">').replace(/\n/g,' ')}</div>`;
   modal.classList.add('active');
+  // Zonas de FC + grafico de ritmo dentro do treino: precisa do stream segundo-a-segundo da
+  // atividade, que so a Strava tem — carrega em paralelo pra nao atrasar o resto da tela, que
+  // ja mostra os numeros resumidos e o texto da IA na hora.
+  loadStreamSection(ov);
+}
+
+// Busca o stream (heartrate/velocity/distance segundo-a-segundo) da atividade especifica no
+// Strava e monta zonas de FC + mini-grafico de ritmo, no mesmo espirito de como o Strava
+// apresenta uma atividade — coisa que o resumo (so media/total) nao mostra.
+async function loadStreamSection(ov){
+  const container=document.getElementById('sa-stream-section');
+  if(!container||!ov||!ov.stravaActivityId)return;
+  container.innerHTML=`<div style="display:flex;align-items:center;gap:10px;padding:14px 0;color:var(--muted);font-family:var(--font-ui);font-size:10px;letter-spacing:1px"><div class="sa-spinner-ring" style="width:14px;height:14px"></div>CARREGANDO DETALHES DO TREINO...</div>`;
+  try{
+    const token=await stravaGetValidToken();
+    if(!token){ container.innerHTML=''; return; }
+    const r=await fetch(`https://www.strava.com/api/v3/activities/${ov.stravaActivityId}/streams?keys=heartrate,velocity_smooth,distance&key_by_type=true`,{headers:{Authorization:'Bearer '+token}});
+    if(!r.ok){ container.innerHTML=''; return; }
+    const streams=await r.json();
+    const profile=getMytriProfile();
+    const html=renderStreamDetailsHTML(streams,profile,ov);
+    container.innerHTML=html;
+  }catch(e){ container.innerHTML=''; }
+}
+
+function renderStreamDetailsHTML(streams,profile,ov){
+  let out='';
+  const hr=streams&&streams.heartrate&&Array.isArray(streams.heartrate.data)?streams.heartrate.data:null;
+  const vel=streams&&streams.velocity_smooth&&Array.isArray(streams.velocity_smooth.data)?streams.velocity_smooth.data:null;
+  const dist=streams&&streams.distance&&Array.isArray(streams.distance.data)?streams.distance.data:null;
+
+  // ZONAS DE FC — % do tempo em cada zona, com base no %FCmax (padrao Strava/generico: Z1<60%,
+  // Z2 60-70%, Z3 70-80%, Z4 80-90%, Z5 90%+).
+  if(hr&&hr.length&&profile.fcMax){
+    const fcMax=parseFloat(profile.fcMax);
+    const counts=[0,0,0,0,0];
+    hr.forEach(bpm=>{
+      const pct=bpm/fcMax;
+      const idx=pct<0.6?0:pct<0.7?1:pct<0.8?2:pct<0.9?3:4;
+      counts[idx]++;
+    });
+    const total=hr.length;
+    const zoneColors=['#f5c9b8','#f0a07a','#e87850','#e05c2a','#c0391a'];
+    const zoneRanges=['<60%','60-70%','70-80%','80-90%','90%+'];
+    out+=`<div style="margin:16px 0">
+      <div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:2px;margin-bottom:10px">ZONAS DE FREQUENCIA CARDIACA</div>
+      ${counts.map((c,i)=>{
+        const pct=Math.round((c/total)*100);
+        return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+          <span style="font-family:var(--font-ui);font-size:10px;color:var(--muted);width:20px;flex-shrink:0">Z${i+1}</span>
+          <div style="flex:1;height:18px;border-radius:4px;background:rgba(255,255,255,.05);overflow:hidden;position:relative">
+            <div style="height:100%;width:${Math.max(pct,pct>0?3:0)}%;background:${zoneColors[i]}"></div>
+          </div>
+          <span style="font-family:var(--font-ui);font-size:10px;color:var(--text);width:34px;text-align:right;flex-shrink:0">${pct}%</span>
+          <span style="font-family:var(--font-ui);font-size:8px;color:var(--muted);width:52px;flex-shrink:0">${zoneRanges[i]}</span>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+
+  // GRAFICO DE RITMO/VELOCIDADE ao longo do treino — downsample pra uns 50 pontos, senao um
+  // treino de 30-40min tem milhares de amostras e o SVG fica pesado/ilegivel.
+  if(vel&&vel.length>5&&dist&&dist.length===vel.length){
+    const targetPts=50;
+    const step=Math.max(1,Math.floor(vel.length/targetPts));
+    const sampled=[];
+    for(let i=0;i<vel.length;i+=step){
+      let sum=0,n=0;
+      for(let j=i;j<Math.min(i+step,vel.length);j++){ sum+=vel[j]; n++; }
+      sampled.push({v:sum/n,d:dist[i]});
+    }
+    const isRunOrSwim=ov.stravaPace&&/\/km|\/100m/.test(ov.stravaPace);
+    // Velocidade (m/s) -> pace (min/km ou min/100m) pra corrida/natacao, ou km/h direto pra bike.
+    const yVals=sampled.map(p=>p.v>0.05?(isRunOrSwim?1000/(p.v):p.v*3.6):null).filter(v=>v!=null);
+    if(yVals.length>3){
+      const W=300,H=90,PAD_L=6,PAD_R=6,PAD_T=8,PAD_B=8;
+      const chartW=W-PAD_L-PAD_R,chartH=H-PAD_T-PAD_B;
+      const minY=Math.min(...yVals),maxY=Math.max(...yVals);
+      const rangeY=(maxY-minY)||1;
+      const stepX=chartW/(yVals.length-1);
+      const coords=yVals.map((y,i)=>[PAD_L+i*stepX,PAD_T+chartH-((y-minY)/rangeY)*chartH]);
+      const pathD=coords.map(([x,y],i)=>(i===0?'M':'L')+x.toFixed(1)+','+y.toFixed(1)).join(' ');
+      out+=`<div style="margin:16px 0">
+        <div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:2px;margin-bottom:8px">RITMO AO LONGO DO TREINO</div>
+        <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:${H}px;display:block">
+          <path d="${pathD}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+        </svg>
+        <div style="display:flex;justify-content:space-between;font-family:var(--font-ui);font-size:8px;color:var(--muted);margin-top:2px">
+          <span>Mais rapido: ${isRunOrSwim?formatPaceLabel(minY):minY.toFixed(1)+'km/h'}</span>
+          <span>Mais lento: ${isRunOrSwim?formatPaceLabel(maxY):maxY.toFixed(1)+'km/h'}</span>
+        </div>
+      </div>`;
+    }
+  }
+  return out;
+}
+function formatPaceLabel(secPerUnit){
+  const m=Math.floor(secPerUnit/60),s=Math.round(secPerUnit%60);
+  return `${m}:${String(s).padStart(2,'0')}`;
 }
 
 function closeSessionAnalysis(){
