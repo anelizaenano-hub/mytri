@@ -11109,22 +11109,26 @@ function renderPaceGaugeHTML(profile){
     const toSec=(s)=>{ const m=String(s).match(/(\d+):(\d{2})/); return m?parseInt(m[1])*60+parseInt(m[2]):null; };
 
     function barRow(label,color,atualLabel,atualVal,necLabel,necVal,isEstimate){
-      const maxV=Math.max(atualVal,necVal);
-      const atualPct=Math.max(8,Math.round((atualVal/maxV)*100));
-      const necPct=Math.max(8,Math.round((necVal/maxV)*100));
+      const maxV=Math.max(atualVal,necVal)*1.12;
+      const atualPct=Math.min(100,Math.round((atualVal/maxV)*100));
+      const necPct=Math.min(100,Math.round((necVal/maxV)*100));
       const isReady=atualVal>=necVal;
       const barColor=isReady?'#00e676':'#f0a500';
-      return `<div style="margin-bottom:18px">
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+      return `<div style="margin-bottom:20px">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px">
           <span style="width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0"></span>
           <span style="font-family:var(--font-ui);font-size:10px;font-weight:700;color:${color};letter-spacing:1px;text-transform:uppercase">${label}</span>
           ${isEstimate?'<span style="font-family:var(--font-ui);font-size:8px;color:var(--muted)">(estimativa)</span>':''}
           <span style="margin-left:auto;font-family:var(--font-ui);font-size:9px;color:${isReady?'#00e676':'var(--muted)'}">${isReady?'PRONTO':'PRECISA EVOLUIR'}</span>
         </div>
-        <div style="display:flex;justify-content:space-between;font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:4px"><span>ATUAL</span><span style="color:${barColor}">${atualLabel}</span></div>
-        <div style="height:8px;border-radius:4px;background:rgba(255,255,255,.06);overflow:hidden;margin-bottom:10px"><div style="height:100%;width:${atualPct}%;background:${barColor};border-radius:4px"></div></div>
-        <div style="display:flex;justify-content:space-between;font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:4px"><span>NECESSARIO</span><span>${necLabel}</span></div>
-        <div style="height:8px;border-radius:4px;background:rgba(255,255,255,.06);overflow:hidden"><div style="height:100%;width:${necPct}%;background:rgba(255,255,255,0.3);border-radius:4px"></div></div>
+        <div style="position:relative;height:22px;border-radius:6px;background:rgba(255,255,255,.06);overflow:visible">
+          <div style="position:absolute;top:0;left:0;height:100%;width:${atualPct}%;background:${barColor};border-radius:6px;transition:width .3s"></div>
+          <div style="position:absolute;top:-4px;left:${necPct}%;width:2px;height:30px;background:#fff;transform:translateX(-1px)"></div>
+          <div style="position:absolute;top:-18px;left:${necPct}%;transform:translateX(-50%);font-family:var(--font-ui);font-size:8px;color:#fff;white-space:nowrap;background:var(--bg);padding:0 4px;border-radius:3px">META ${necLabel}</div>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:6px">
+          <span style="font-family:var(--font-ui);font-size:10px;color:${barColor}">Voce esta em ${atualLabel}</span>
+        </div>
       </div>`;
     }
 
@@ -11287,8 +11291,19 @@ async function showPlanSummary(profile){
 // de timeline horizontal: numero, nome da fase, periodo (se veio entre parenteses) e objetivo.
 // Reduz 4 linhas de texto corrido a algo escaneavel em 2 segundos.
 function renderFasesTimeline(fasesText){
-  const linhas=fasesText.split('\n').map(l=>l.trim()).filter(l=>l.length>2);
-  if(!linhas.length)return '';
+  const rawLinhas=fasesText.split('\n').map(l=>l.trim()).filter(l=>l.length>2);
+  if(!rawLinhas.length)return '';
+  // A IA as vezes escreve o cabecalho da fase numa linha ("Fase 2 (semanas 3-5): ...") e a
+  // elaboracao/objetivo detalhado em linha(s) separada(s) na sequencia, mesmo o prompt pedindo
+  // "uma por linha". Tratar toda linha como um card novo criava cards fantasmas (sem numero de
+  // fase real, titulo gigante = a frase inteira de elaboracao). Aqui so abre um card NOVO quando
+  // a linha realmente parece o inicio de uma fase — senao, gruda no card anterior.
+  const isHeaderLine=l=>/^(fase\s*\d+|etapa\s*\d+|\d+[\).\s-])/i.test(l);
+  const linhas=[];
+  rawLinhas.forEach(l=>{
+    if(linhas.length===0||isHeaderLine(l)) linhas.push(l);
+    else linhas[linhas.length-1]+=' '+l;
+  });
   const fases=linhas.map(l=>{
     let linha=l.replace(/^\d+[\).\s-]+/,'').trim();
     let periodo='';
@@ -11606,8 +11621,8 @@ async function maybeShowSessionAnalysis(key, sess, w, d){
   const stravaStr = [
     ov.stravaDist ? 'Distancia: ' + ov.stravaDist : '',
     ov.stravaTime ? 'Tempo: ' + ov.stravaTime : '',
-    ov.stravaHR   ? 'FC média: ' + ov.stravaHR + 'bpm' : '',
-    ov.stravaCal  ? 'Calorias: ' + ov.stravaCal + 'kcal' : '',
+    ov.stravaHR   ? 'FC média: ' + ov.stravaHR : '',
+    ov.stravaCal  ? 'Calorias: ' + ov.stravaCal : '',
     ov.stravaZone ? 'Zona: ' + ov.stravaZone : '',
     ov.stravaData ? 'Dados extras: ' + ov.stravaData : ''
   ].filter(Boolean).join(', ');
@@ -11673,7 +11688,7 @@ function renderSessionStatStrip(ov, plannedDist){
   // ov.stravaHR ja vem formatado com "bpm" (ex: "148bpm") — nao concatenar de novo aqui, senao
   // vira "148bpmbpm".
   if(ov.stravaHR)stats.push({label:'FC MEDIA',val:ov.stravaHR,color:'#e05c2a'});
-  if(ov.stravaCal)stats.push({label:'CALORIAS',val:ov.stravaCal+'kcal',color:'#f0a500'});
+  if(ov.stravaCal)stats.push({label:'CALORIAS',val:ov.stravaCal,color:'#f0a500'});
   if(ov.stravaZone)stats.push({label:'ZONA',val:ov.stravaZone,color:'#9b6af0'});
   if(!stats.length)return '';
   let barHtml='';
@@ -11784,24 +11799,48 @@ function renderStreamDetailsHTML(streams,profile,ov){
     }
     const isRunOrSwim=ov.stravaPace&&/\/km|\/100m/.test(ov.stravaPace);
     // Velocidade (m/s) -> pace (min/km ou min/100m) pra corrida/natacao, ou km/h direto pra bike.
-    const yVals=sampled.map(p=>p.v>0.05?(isRunOrSwim?1000/(p.v):p.v*3.6):null).filter(v=>v!=null);
-    if(yVals.length>3){
-      const W=300,H=90,PAD_L=6,PAD_R=6,PAD_T=8,PAD_B=8;
+    let pts=sampled.map(p=>({y:p.v>0.05?(isRunOrSwim?1000/(p.v):p.v*3.6):null,d:p.d})).filter(p=>p.y!=null);
+    // Corta outliers (ex: primeira amostra de largada/ajuste do GPS costuma vir com um pico
+    // absurdo que distorce a escala inteira do grafico) usando percentil 5-95.
+    if(pts.length>6){
+      const sortedY=[...pts.map(p=>p.y)].sort((a,b)=>a-b);
+      const lo=sortedY[Math.floor(sortedY.length*0.05)],hi=sortedY[Math.ceil(sortedY.length*0.95)-1];
+      pts=pts.map(p=>({y:Math.max(lo,Math.min(hi,p.y)),d:p.d}));
+    }
+    if(pts.length>3){
+      const yVals=pts.map(p=>p.y);
+      const W=300,H=100,PAD_L=36,PAD_R=6,PAD_T=8,PAD_B=14;
       const chartW=W-PAD_L-PAD_R,chartH=H-PAD_T-PAD_B;
       const minY=Math.min(...yVals),maxY=Math.max(...yVals);
       const rangeY=(maxY-minY)||1;
       const stepX=chartW/(yVals.length-1);
-      const coords=yVals.map((y,i)=>[PAD_L+i*stepX,PAD_T+chartH-((y-minY)/rangeY)*chartH]);
+      const yOf=y=>PAD_T+chartH-((y-minY)/rangeY)*chartH;
+      const coords=yVals.map((y,i)=>[PAD_L+i*stepX,yOf(y)]);
       const pathD=coords.map(([x,y],i)=>(i===0?'M':'L')+x.toFixed(1)+','+y.toFixed(1)).join(' ');
+      const areaD=pathD+` L${coords[coords.length-1][0].toFixed(1)},${(PAD_T+chartH).toFixed(1)} L${coords[0][0].toFixed(1)},${(PAD_T+chartH).toFixed(1)} Z`;
+      const fmtY=v=>isRunOrSwim?formatPaceLabel(v)+(ov.stravaDist&&ov.stravaDist.includes('m')&&!ov.stravaDist.includes('km')?'/100m':'/km'):v.toFixed(1)+'km/h';
+      const gridVals=[maxY,minY+rangeY/2,minY];
+      const gridLines=gridVals.map(gv=>{
+        const gy=yOf(gv);
+        return `<line x1="${PAD_L}" y1="${gy.toFixed(1)}" x2="${W-PAD_R}" y2="${gy.toFixed(1)}" stroke="var(--border)" stroke-width="0.6" stroke-dasharray="2,2"/>
+          <text x="${PAD_L-4}" y="${(gy+2.5).toFixed(1)}" text-anchor="end" font-size="7" fill="var(--muted)">${fmtY(gv)}</text>`;
+      }).join('');
+      const dStart=(pts[0].d/1000).toFixed(2),dEnd=(pts[pts.length-1].d/1000).toFixed(2);
       out+=`<div style="margin:16px 0">
         <div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:2px;margin-bottom:8px">RITMO AO LONGO DO TREINO</div>
         <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:${H}px;display:block">
+          <defs>
+            <linearGradient id="workoutPaceGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="var(--accent)" stop-opacity="0.35"/>
+              <stop offset="100%" stop-color="var(--accent)" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          ${gridLines}
+          <path d="${areaD}" fill="url(#workoutPaceGrad)" stroke="none"/>
           <path d="${pathD}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+          <text x="${PAD_L}" y="${H-2}" text-anchor="start" font-size="7" fill="var(--muted)">${dStart}km</text>
+          <text x="${W-PAD_R}" y="${H-2}" text-anchor="end" font-size="7" fill="var(--muted)">${dEnd}km</text>
         </svg>
-        <div style="display:flex;justify-content:space-between;font-family:var(--font-ui);font-size:8px;color:var(--muted);margin-top:2px">
-          <span>Mais rapido: ${isRunOrSwim?formatPaceLabel(minY):minY.toFixed(1)+'km/h'}</span>
-          <span>Mais lento: ${isRunOrSwim?formatPaceLabel(maxY):maxY.toFixed(1)+'km/h'}</span>
-        </div>
       </div>`;
     }
   }
