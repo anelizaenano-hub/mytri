@@ -1,7 +1,32 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8"><!-- v20260617141153 -->
+<meta charset="UTF-8">
+<meta name="app-version" content="v20260724192939">
+<script>
+// Auto-atualizacao: navegadores (principalmente Safari/iOS) as vezes seguram uma versao antiga
+// em cache mesmo depois de um deploy novo no servidor, causando confusao de "mudei o codigo mas
+// nada mudou" (varias vezes nessa sessao de debug isso foi confundido com bug real). Esse check
+// roda assim que a pagina carrega: busca o proprio HTML de novo direto do servidor (sem cache),
+// compara a versao, e se for diferente, recarrega uma unica vez sozinho.
+(function(){
+  try{
+    var myVersion=document.querySelector('meta[name="app-version"]').content;
+    var flagKey='mytri_version_check_'+myVersion;
+    if(sessionStorage.getItem(flagKey))return; // ja tentou nessa sessao, nao fica em loop
+    fetch(location.pathname+'?_cachecheck='+Date.now(),{cache:'no-store'})
+      .then(function(r){return r.text();})
+      .then(function(html){
+        var m=html.match(/name="app-version" content="([^"]+)"/);
+        sessionStorage.setItem(flagKey,'1');
+        if(m&&m[1]&&m[1]!==myVersion){
+          location.reload();
+        }
+      })
+      .catch(function(){});
+  }catch(e){}
+})();
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <link rel="apple-touch-icon" href="/icon.png">
 <link rel="icon" type="image/png" href="/icon.png">
