@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="v20260724194008">
+<meta name="app-version" content="v20260724194503">
 <script>
 // Auto-atualizacao: navegadores (principalmente Safari/iOS) as vezes seguram uma versao antiga
 // em cache mesmo depois de um deploy novo no servidor, causando confusao de "mudei o codigo mas
@@ -10022,7 +10022,8 @@ function renderObProva(c){
       <div onclick="obSearchRaces()" style="margin-bottom:${searching?'6px':'14px'};padding:12px 16px;border:1.5px solid ${sportInfo.color};border-radius:8px;cursor:pointer;text-align:center;font-family:var(--font-ui);font-size:12px;color:${sportInfo.color};letter-spacing:1px;display:flex;align-items:center;justify-content:center;gap:8px">
         ${searching?'<span style="width:14px;height:14px;border:2px solid '+sportInfo.color+';border-top-color:transparent;border-radius:50%;display:inline-block;animation:spin 0.8s linear infinite"></span> '+t('ob_race_searching'):t('ob_race_search_btn')}
       </div>
-      ${searching?`<div style="font-family:var(--font-body);font-size:11px;color:var(--muted);text-align:center;margin-bottom:14px;line-height:1.5">Estamos vasculhando calendarios oficiais, circuitos regionais e plataformas de inscricao.<br>Isso pode levar ate 2-3 minutos — pode deixar a tela aberta.</div>`:''}
+      ${searching?`<div style="font-family:var(--font-body);font-size:11px;color:var(--muted);text-align:center;margin-bottom:6px;line-height:1.5">Estamos vasculhando calendarios oficiais, circuitos regionais e plataformas de inscricao.<br>Isso pode levar ate 2-3 minutos — pode deixar a tela aberta.</div>
+      <div style="font-family:var(--font-ui);font-size:9px;color:#f0a500;text-align:center;margin-bottom:14px;word-break:break-word">${obData._raceSearchDebug||''}</div>`:''}
       <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
         ${webRaces&&webRaces.length?(()=>{
           const nac=webRaces.filter(p=>p.scope!=='internacional');
@@ -10083,8 +10084,14 @@ function friendlyRaceError(raw){
   return 'Não consegui buscar provas automaticamente agora. Cadastre sua prova manualmente abaixo.';
 }
 async function obSearchRaces(){
-  if(obData._searchingRaces) return;
+  // A trava contra busca duplicada ja travou de vez: se _searchingRaces ficasse true por algum
+  // caminho que nao passou pelo reset (sair/voltar da tela, reload no meio, erro fora do try),
+  // qualquer toque no botao caía nesse return e a tela ficava com spinner PARA SEMPRE, sem nunca
+  // iniciar busca nenhuma. Agora a trava expira sozinha depois de 5min.
+  if(obData._searchingRaces && obData._searchStartedAt && (Date.now()-obData._searchStartedAt)<300000) return;
   obData._searchingRaces=true;
+  obData._searchStartedAt=Date.now();
+  obData._raceSearchDebug='iniciando...';
   renderOnboarding();
   const distLabel=(DIST_INFO[obData.raceDist]&&DIST_INFO[obData.raceDist].label)||obData.raceDist||'';
   const location=(getMytriProfile().city)||localStorage.getItem('mytri_gps_city')||'Brasil';
@@ -10095,6 +10102,8 @@ async function obSearchRaces(){
       method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({sport:obData.sport||'triathlon',raceDist:obData.raceDist||'',distLabel,location,state,monthsAhead:10})
     },10000);
+    obData._raceSearchDebug='disparo HTTP '+kickoff.status;
+    renderOnboarding();
     if(!kickoff.ok){
       let bodyTxt=''; try{ bodyTxt=(await kickoff.text()).slice(0,300); }catch(e){}
       obData._raceSearchError=friendlyRaceError(bodyTxt||('HTTP '+kickoff.status));
@@ -10103,10 +10112,8 @@ async function obSearchRaces(){
       renderOnboarding();
       return;
     }
-    // A busca de provas e de longe a mais demorada do app: ate 6 buscas web pela IA e, se a
-    // primeira rodada vier vazia, ela repete tudo de novo com criterio mais amplo. Ja confirmamos
-    // no banco que ela COMPLETA e grava o resultado certinho — o que faltava era paciencia do
-    // lado do cliente: 90s era curto demais e o app desistia antes de a busca terminar.
+    // A busca de provas e de longe a mais demorada do app: varias buscas web pela IA e, se a
+    // primeira rodada vier vazia, ela repete tudo de novo com criterio mais amplo.
     // 96 tentativas de 2.5s = 4 minutos de margem.
     const maxAttempts=96;
     let done=false;
@@ -10114,9 +10121,21 @@ async function obSearchRaces(){
     for(let attempt=0;attempt<maxAttempts;attempt++){
       await new Promise(r=>setTimeout(r,2500));
       let statusResp;
-      try{ statusResp=await fetchComTimeout('/.netlify/functions/race-search-status',{method:'GET'},8000); }catch(e){ continue; }
+      try{
+        statusResp=await fetchComTimeout('/.netlify/functions/race-search-status',{method:'GET'},8000);
+      }catch(e){
+        obData._raceSearchDebug=`tentativa ${attempt+1}: falha de rede (${e.name==='AbortError'?'timeout 8s':e.message})`;
+        if(attempt%4===0)renderOnboarding();
+        continue;
+      }
       let statusData={};
-      try{ statusData=await statusResp.json(); }catch(e){ continue; }
+      try{ statusData=await statusResp.json(); }catch(e){
+        obData._raceSearchDebug=`tentativa ${attempt+1}: HTTP ${statusResp.status}, resposta ilegivel`;
+        if(attempt%4===0)renderOnboarding();
+        continue;
+      }
+      obData._raceSearchDebug=`tentativa ${attempt+1}: HTTP ${statusResp.status} · status=${statusData.status||'(vazio)'}${statusData.error?' · '+String(statusData.error).slice(0,60):''}`;
+      if(attempt%4===0)renderOnboarding();
       if(statusData.status==='partial'){
         // Resultado parcial (provas ja conhecidas do cache) — mostra na hora pra tela nao ficar
         // vazia por minutos, mas NAO para de esperar: a busca web completa continua rodando por
@@ -10147,7 +10166,7 @@ async function obSearchRaces(){
       obData._raceSearchError=friendlyRaceError('longa demais');
       obData.webRaces=[];
     }
-  }catch(e){ obData.webRaces=[]; obData._raceSearchError=friendlyRaceError(e.message||'conexão'); }
+  }catch(e){ obData.webRaces=[]; obData._raceSearchError=friendlyRaceError(e.message||'conexão'); obData._raceSearchDebug='excecao: '+(e.message||e.name); }
   obData._searchingRaces=false;
   renderOnboarding();
 }
