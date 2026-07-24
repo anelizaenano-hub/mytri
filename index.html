@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="v20260724193537">
+<meta name="app-version" content="v20260724194008">
 <script>
 // Auto-atualizacao: navegadores (principalmente Safari/iOS) as vezes seguram uma versao antiga
 // em cache mesmo depois de um deploy novo no servidor, causando confusao de "mudei o codigo mas
@@ -10117,6 +10117,16 @@ async function obSearchRaces(){
       try{ statusResp=await fetchComTimeout('/.netlify/functions/race-search-status',{method:'GET'},8000); }catch(e){ continue; }
       let statusData={};
       try{ statusData=await statusResp.json(); }catch(e){ continue; }
+      if(statusData.status==='partial'){
+        // Resultado parcial (provas ja conhecidas do cache) — mostra na hora pra tela nao ficar
+        // vazia por minutos, mas NAO para de esperar: a busca web completa continua rodando por
+        // tras e substitui essa lista assim que terminar.
+        let races=[];
+        try{ races=JSON.parse(statusData.races_json||'[]'); }catch(e){}
+        races=(Array.isArray(races)?races:[]).filter(r=>r&&r.date&&r.date>=today);
+        if(races.length){ obData.webRaces=races; renderOnboarding(); }
+        continue;
+      }
       if(statusData.status==='done'){
         let races=[];
         try{ races=JSON.parse(statusData.races_json||'[]'); }catch(e){}
