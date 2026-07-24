@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="v20260724200342">
+<meta name="app-version" content="v20260724204421">
 <script>
 // Auto-atualizacao: navegadores (principalmente Safari/iOS) as vezes seguram uma versao antiga
 // em cache mesmo depois de um deploy novo no servidor, causando confusao de "mudei o codigo mas
@@ -2537,12 +2537,33 @@ function renderPaceEvolutionChart(){
     return parts.length===3?`${parts[2]}/${parts[1]}`:'';
   }
   let blocks='';
+  // Pace/velocidade ALVO por modalidade, derivado da meta que o atleta configurou no onboarding.
+  // Sem essa referencia o grafico era so um zigue-zague sem significado: mostrava numeros mas nao
+  // respondia a unica pergunta que importa — "estou no ritmo da minha meta ou nao?".
+  function metaAlvo(sp){
+    try{
+      const d=RACE_KM_META[prof.raceDist];
+      let totalSec=prof.goalTimeExactSec;
+      if(!totalSec){ const parts=String(prof.goalTime||'').split(':'); if(parts.length===2) totalSec=(parseInt(parts[0])||0)*3600+(parseInt(parts[1])||0)*60; }
+      if(sp==='corrida'){
+        if(prof.goalRunPaceSec) return 1000/prof.goalRunPaceSec;
+        if(prof.sport==='corrida'&&d&&d.r&&totalSec) return 1000/(totalSec/d.r);
+        return null;
+      }
+      if(sp==='natacao'&&prof.sport==='natacao'&&d&&d.s&&totalSec) return 1000/(totalSec/(d.s*10));
+      if(sp==='ciclismo'&&prof.sport==='ciclismo'&&d&&d.b&&totalSec) return d.b/(totalSec/3600);
+      return null;
+    }catch(e){ return null; }
+  }
   sportsToShow.forEach(sp=>{
     const pts=hist.filter(h=>h.sport===sp).slice(-15);
     if(pts.length<2)return;
     const meta=sportMeta[sp];
     const yVals=pts.map(p=>sp==='ciclismo'?p.kmh:(1000/p.secPerUnit));
-    const minY=Math.min(...yVals),maxY=Math.max(...yVals);
+    const alvo=metaAlvo(sp);
+    // A escala precisa englobar a linha da meta, senao ela sai fora da area desenhada.
+    const allY=alvo?yVals.concat([alvo]):yVals;
+    const minY=Math.min(...allY),maxY=Math.max(...allY);
     const rangeY=(maxY-minY)||1;
     // Espaco reservado: esquerda pros rotulos do eixo Y, embaixo pras datas do eixo X.
     const W=300,H=110,PAD_L=38,PAD_R=6,PAD_T=10,PAD_B=16;
@@ -2569,6 +2590,16 @@ function renderPaceEvolutionChart(){
       .filter((v,i,arr)=>arr.findIndex(w=>w[0]===v[0])===i)
       .map(([i,d])=>`<text x="${xOf(i).toFixed(1)}" y="${H-3}" text-anchor="${i===0?'start':i===pts.length-1?'end':'middle'}" font-size="7" fill="var(--muted)">${formatDate(d)}</text>`).join('');
     const gradId=`paceGrad_${sp}`;
+    // Linha da META atravessando o grafico + veredito em texto simples embaixo.
+    let metaLine='',veredito='';
+    if(alvo){
+      const my=yOf(alvo);
+      metaLine=`<line x1="${PAD_L}" y1="${my.toFixed(1)}" x2="${W-PAD_R}" y2="${my.toFixed(1)}" stroke="#fff" stroke-width="1.2" stroke-dasharray="4,3" opacity="0.85"/>
+        <text x="${W-PAD_R-2}" y="${(my-3).toFixed(1)}" text-anchor="end" font-size="7" fill="#fff">META ${formatY(sp,alvo)}</text>`;
+      const ultimo=yVals[yVals.length-1];
+      const noRitmo=ultimo>=alvo;
+      veredito=`<div style="font-family:var(--font-body);font-size:11px;color:${noRitmo?'#00e676':'#f0a500'};margin-top:6px">${noRitmo?`Seu ultimo treino (${formatY(sp,ultimo)}) ja esta no ritmo da meta (${formatY(sp,alvo)}).`:`Seu ultimo treino foi ${formatY(sp,ultimo)}. A meta pede ${formatY(sp,alvo)}.`}</div>`;
+    }
     blocks+=`
       <div style="margin-bottom:20px">
         <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
@@ -2587,8 +2618,10 @@ function renderPaceEvolutionChart(){
           <path d="${pathD}" fill="none" stroke="${meta.color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
           ${coords.slice(0,-1).map(([x,y])=>`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="2" fill="${meta.color}" opacity="0.6"/>`).join('')}
           <circle cx="${coords[coords.length-1][0].toFixed(1)}" cy="${coords[coords.length-1][1].toFixed(1)}" r="4" fill="var(--bg)" stroke="${meta.color}" stroke-width="2"/>
+          ${metaLine}
           ${xLabels}
         </svg>
+        ${veredito}
         <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);margin-top:2px">Ultimas ${pts.length} atividades de ${sp} sincronizadas do Strava</div>
       </div>`;
   });
@@ -10397,6 +10430,11 @@ function obGoalFromTriLeg(el,leg,d){
   // isso, o relatorio final reestimava esse número por uma regra generica de "42% do tempo
   // total", que quase nunca bate com o que a pessoa realmente digitou aqui.
   if(d.r&&runSec>0) obData.goalRunPaceSec=runSec/d.r;
+  // Guarda tambem natacao e bike — o onboarding ja coleta as 3 pernas, mas so a corrida era
+  // salva; o relatorio entao re-inventava natacao/bike por uma divisao generica do tempo total
+  // (12%/46%), que produzia metas absurdas e ignorava o que o atleta digitou.
+  if(d.s&&swimSec>0) obData.goalSwimPaceSec=swimSec/(d.s*10);
+  if(d.b&&bikeSec>0) obData.goalBikeKmh=d.b/(bikeSec/3600);
   const hr=Math.floor(totalSec/3600), min=Math.round((totalSec%3600)/60);
   obData.goalHr=hr; obData.goalMin=min;
   obData.goalTime=`${String(hr).padStart(2,'0')}:${String(min).padStart(2,'0')}`;
@@ -11023,6 +11061,8 @@ function obFinish(){
     goalTime:obData.goalTime||'',
     goalTimeExactSec:obData.goalTimeExactSec||null,
     goalRunPaceSec:obData.goalRunPaceSec||null,
+    goalSwimPaceSec:obData.goalSwimPaceSec||null,
+    goalBikeKmh:obData.goalBikeKmh||null,
     weeklyHours:obData.weeklyHours||'3-4',
     swimLevel:obData.swimLevel||'beginner',
     bikeLevel:obData.bikeLevel||'beginner',
@@ -11226,12 +11266,15 @@ function renderPaceGaugeHTML(profile){
       let rows='',anyReady=true,anyRow=false;
 
       if(d.s&&profile.swim){
-        const necSwimSec=(totalSec*0.12)/(d.s*10);
+        // Preferir SEMPRE o alvo que o atleta digitou no onboarding; a divisao percentual do
+        // tempo total e so plano B, e fica marcada como estimativa.
+        const temAlvoReal=!!profile.goalSwimPaceSec;
+        const necSwimSec=temAlvoReal?profile.goalSwimPaceSec:(totalSec*0.12)/(d.s*10);
         const atualSwimSec=toSec(profile.swim);
         if(atualSwimSec!=null){
           const necM=Math.floor(necSwimSec/60),necS=Math.round(necSwimSec%60);
           const necLabel=`${necM}:${String(necS).padStart(2,'0')}/100m`;
-          rows+=barRow('Natacao','#1a6cf0',profile.swim+'/100m',1000/atualSwimSec,necLabel,1000/necSwimSec,true);
+          rows+=barRow('Natacao','#1a6cf0',profile.swim+'/100m',1000/atualSwimSec,necLabel,1000/necSwimSec,!temAlvoReal);
           if(atualSwimSec>necSwimSec)anyReady=false;
           anyRow=true;
         }
@@ -11246,9 +11289,10 @@ function renderPaceGaugeHTML(profile){
           const bikePts=hist.filter(h=>h.sport==='ciclismo');
           if(bikePts.length)bikeKmh=bikePts[bikePts.length-1].kmh;
         }catch(e){}
-        const necBikeKmh=d.b/((totalSec*0.46)/3600);
+        const temAlvoRealBike=!!profile.goalBikeKmh;
+        const necBikeKmh=temAlvoRealBike?profile.goalBikeKmh:d.b/((totalSec*0.46)/3600);
         if(bikeKmh){
-          rows+=barRow('Ciclismo','#e05c2a',bikeKmh.toFixed(1)+'km/h',bikeKmh,necBikeKmh.toFixed(1)+'km/h',necBikeKmh,true);
+          rows+=barRow('Ciclismo','#e05c2a',bikeKmh.toFixed(1)+'km/h',bikeKmh,necBikeKmh.toFixed(1)+'km/h',necBikeKmh,!temAlvoRealBike);
           if(bikeKmh<necBikeKmh)anyReady=false;
           anyRow=true;
         }else if(profile.ftp){
@@ -11262,12 +11306,13 @@ function renderPaceGaugeHTML(profile){
         }
       }
       if(d.r&&profile.pace){
-        const necRunSec=(totalSec*0.42)/d.r;
+        const temAlvoRealRun=!!profile.goalRunPaceSec;
+        const necRunSec=temAlvoRealRun?profile.goalRunPaceSec:(totalSec*0.42)/d.r;
         const atualRunSec=toSec(profile.pace);
         if(atualRunSec!=null){
           const necM=Math.floor(necRunSec/60),necS=Math.round(necRunSec%60);
           const necLabel=`${necM}:${String(necS).padStart(2,'0')}/km`;
-          rows+=barRow('Corrida','#00e676',profile.pace+'/km',1000/atualRunSec,necLabel,1000/necRunSec,true);
+          rows+=barRow('Corrida','#00e676',profile.pace+'/km',1000/atualRunSec,necLabel,1000/necRunSec,!temAlvoRealRun);
           if(atualRunSec>necRunSec)anyReady=false;
           anyRow=true;
         }
@@ -11385,14 +11430,16 @@ function renderFasesTimeline(fasesText){
     if(sep){ titulo=sep[1].trim(); objetivo=sep[2].trim(); }
     return{titulo,periodo,objetivo};
   });
-  return `<div style="display:flex;gap:10px;overflow-x:auto;padding:12px 2px 6px;margin-top:4px">
+  return `<div style="display:flex;flex-direction:column;gap:10px;padding:12px 0 6px;margin-top:4px">
     ${fases.map((f,i)=>`
-      <div style="flex:0 0 190px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px">
-        <div style="width:24px;height:24px;border-radius:50%;background:var(--accent);color:#000;display:flex;align-items:center;justify-content:center;font-family:var(--font-ui);font-size:11px;font-weight:700;margin-bottom:10px">${i+1}</div>
-        <div style="font-family:var(--font-display);font-size:15px;color:var(--text);line-height:1.2;margin-bottom:4px">${f.titulo}</div>
-        ${f.periodo?`<div style="font-family:var(--font-ui);font-size:9px;color:var(--accent);letter-spacing:.5px;margin-bottom:8px">${f.periodo}</div>`:''}
-        <div style="font-family:var(--font-body);font-size:11px;color:var(--muted2);line-height:1.5">${f.objetivo}</div>
-      </div>${i<fases.length-1?`<div style="flex:0 0 14px;display:flex;align-items:center;justify-content:center;color:var(--border);font-size:16px">&rsaquo;</div>`:''}`).join('')}
+      <div style="background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:10px;padding:14px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+          <div style="width:22px;height:22px;flex-shrink:0;border-radius:50%;background:var(--accent);color:#000;display:flex;align-items:center;justify-content:center;font-family:var(--font-ui);font-size:11px;font-weight:700">${i+1}</div>
+          <div style="font-family:var(--font-display);font-size:15px;color:var(--text);line-height:1.2">${f.titulo}</div>
+          ${f.periodo?`<div style="margin-left:auto;font-family:var(--font-ui);font-size:9px;color:var(--accent);letter-spacing:.5px;white-space:nowrap">${f.periodo}</div>`:''}
+        </div>
+        ${f.objetivo?`<div style="font-family:var(--font-body);font-size:12px;color:var(--muted2);line-height:1.55">${f.objetivo}</div>`:''}
+      </div>`).join('')}
   </div>`;
 }
 
