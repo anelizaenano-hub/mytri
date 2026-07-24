@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="v20260724200008">
+<meta name="app-version" content="v20260724200342">
 <script>
 // Auto-atualizacao: navegadores (principalmente Safari/iOS) as vezes seguram uma versao antiga
 // em cache mesmo depois de um deploy novo no servidor, causando confusao de "mudei o codigo mas
@@ -1914,8 +1914,14 @@ function sbHeaders(extra){
 // agora manda o token de sessão do usuário logado. As functions do lado do servidor validam
 // esse token contra o Supabase antes de responder — sem isso, qualquer pessoa que descobrisse
 // a URL da function conseguia chamar direto e gastar crédito sem nem estar logada no app.
-function authedFetch(url, options){
-  const s=getSession();
+// IMPORTANTE: precisa ser async e renovar o token ANTES de cada chamada. O token do Supabase
+// expira em ~1h; antes essa funcao pegava o token cru do armazenamento e mandava mesmo vencido,
+// e ai TODA chamada de function voltava 401 "Nao autenticado". No fluxo de polling isso virava
+// spinner infinito (401 nao e 'done' nem 'error', entao ficava tentando pra sempre).
+async function authedFetch(url, options){
+  let s=null;
+  try{ s=await ensureValidSession(); }catch(e){ s=getSession(); }
+  if(!s) s=getSession();
   const headers={...(options&&options.headers||{}), 'Authorization':'Bearer '+((s&&s.access_token)||'')};
   return fetch(url, {...(options||{}), headers});
 }
@@ -10136,6 +10142,13 @@ async function obSearchRaces(){
       }
       obData._raceSearchDebug=`tentativa ${attempt+1}: HTTP ${statusResp.status} · status=${statusData.status||'(vazio)'}${statusData.error?' · '+String(statusData.error).slice(0,60):''}`;
       if(attempt%4===0)renderOnboarding();
+      if(statusResp.status===401){
+        // Sessao expirada/invalida — nao adianta continuar tentando (401 nunca vira 'done').
+        obData._raceSearchError='Sua sessao expirou. Saia e entre de novo no app, depois refaca a busca.';
+        obData.webRaces=[];
+        done=true;
+        break;
+      }
       if(statusData.status==='partial'){
         // Resultado parcial (provas ja conhecidas do cache) — mostra na hora pra tela nao ficar
         // vazia por minutos, mas NAO para de esperar: a busca web completa continua rodando por
