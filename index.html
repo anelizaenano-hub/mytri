@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="v20260724204421">
+<meta name="app-version" content="v20260724211634">
 <script>
 // Auto-atualizacao: navegadores (principalmente Safari/iOS) as vezes seguram uma versao antiga
 // em cache mesmo depois de um deploy novo no servidor, causando confusao de "mudei o codigo mas
@@ -2550,8 +2550,18 @@ function renderPaceEvolutionChart(){
         if(prof.sport==='corrida'&&d&&d.r&&totalSec) return 1000/(totalSec/d.r);
         return null;
       }
-      if(sp==='natacao'&&prof.sport==='natacao'&&d&&d.s&&totalSec) return 1000/(totalSec/(d.s*10));
-      if(sp==='ciclismo'&&prof.sport==='ciclismo'&&d&&d.b&&totalSec) return d.b/(totalSec/3600);
+      if(sp==='natacao'){
+        // Vale pra triathlon tambem, nao so pra quem so nada — antes a linha de meta so aparecia
+        // no grafico de corrida, deixando bike e natacao sem referencia nenhuma.
+        if(prof.goalSwimPaceSec) return 1000/prof.goalSwimPaceSec;
+        if(prof.sport==='natacao'&&d&&d.s&&totalSec) return 1000/(totalSec/(d.s*10));
+        return null;
+      }
+      if(sp==='ciclismo'){
+        if(prof.goalBikeKmh) return prof.goalBikeKmh;
+        if(prof.sport==='ciclismo'&&d&&d.b&&totalSec) return d.b/(totalSec/3600);
+        return null;
+      }
       return null;
     }catch(e){ return null; }
   }
@@ -2575,7 +2585,14 @@ function renderPaceEvolutionChart(){
     const pathD=coords.map(([x,y],i)=>(i===0?'M':'L')+x.toFixed(1)+','+y.toFixed(1)).join(' ');
     const areaD=pathD+` L${coords[coords.length-1][0].toFixed(1)},${(PAD_T+chartH).toFixed(1)} L${coords[0][0].toFixed(1)},${(PAD_T+chartH).toFixed(1)} Z`;
     const first=pts[0],last=pts[pts.length-1];
-    const improved=sp==='ciclismo'?last.kmh>=first.kmh:last.secPerUnit<=first.secPerUnit;
+    // Tendencia por MELHOR esforco de cada metade do periodo, nao primeiro-vs-ultimo: com treinos
+    // de intensidades diferentes misturados, comparar as pontas dizia "piorou" so porque o ultimo
+    // treino era um leve.
+    const meio=Math.ceil(yVals.length/2);
+    const melhor1=Math.max(...yVals.slice(0,meio));
+    const melhor2=Math.max(...yVals.slice(meio));
+    const improved=melhor2>=melhor1;
+    const labelTendencia=`${formatY(sp,melhor1)} &rarr; ${formatY(sp,melhor2)}`;
     // 3 linhas de grade horizontais com o valor real (nao o numero normalizado) do lado esquerdo.
     const gridVals=[maxY,minY+rangeY/2,minY];
     const gridLines=gridVals.map(gv=>{
@@ -2596,15 +2613,20 @@ function renderPaceEvolutionChart(){
       const my=yOf(alvo);
       metaLine=`<line x1="${PAD_L}" y1="${my.toFixed(1)}" x2="${W-PAD_R}" y2="${my.toFixed(1)}" stroke="#fff" stroke-width="1.2" stroke-dasharray="4,3" opacity="0.85"/>
         <text x="${W-PAD_R-2}" y="${(my-3).toFixed(1)}" text-anchor="end" font-size="7" fill="#fff">META ${formatY(sp,alvo)}</text>`;
-      const ultimo=yVals[yVals.length-1];
-      const noRitmo=ultimo>=alvo;
-      veredito=`<div style="font-family:var(--font-body);font-size:11px;color:${noRitmo?'#00e676':'#f0a500'};margin-top:6px">${noRitmo?`Seu ultimo treino (${formatY(sp,ultimo)}) ja esta no ritmo da meta (${formatY(sp,alvo)}).`:`Seu ultimo treino foi ${formatY(sp,ultimo)}. A meta pede ${formatY(sp,alvo)}.`}</div>`;
+      // Compara o MELHOR esforco do periodo com a meta, nao o ultimo treino. Julgar pelo ultimo
+      // era analise errada: um Z2 de base e pra ser lento mesmo, e o app acusava o atleta de estar
+      // longe da meta justamente quando ele executou o treino leve corretamente.
+      const melhor=Math.max(...yVals);
+      const noRitmo=melhor>=alvo;
+      veredito=`<div style="font-family:var(--font-body);font-size:11px;color:${noRitmo?'#00e676':'#f0a500'};margin-top:6px;line-height:1.5">${noRitmo
+        ?`Seu melhor ritmo no periodo (${formatY(sp,melhor)}) ja atinge a meta (${formatY(sp,alvo)}). Treinos mais lentos aqui sao os leves/de base — isso e esperado.`
+        :`Seu melhor ritmo no periodo foi ${formatY(sp,melhor)}. A meta pede ${formatY(sp,alvo)}. Os pontos mais baixos sao treinos leves, nao contam como tentativa de ritmo.`}</div>`;
     }
     blocks+=`
       <div style="margin-bottom:20px">
         <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
           <span style="font-family:var(--font-ui);font-size:10px;font-weight:700;color:${meta.color};letter-spacing:1px;text-transform:uppercase">${meta.label}</span>
-          <span style="font-family:var(--font-ui);font-size:9px;color:${improved?'#00e676':'var(--muted)'}">${first.label} &rarr; ${last.label}${improved?' &#9650;':' &#9660;'}</span>
+          <span style="font-family:var(--font-ui);font-size:9px;color:${improved?'#00e676':'var(--muted)'}">melhor: ${labelTendencia}${improved?' &#9650;':' &#9660;'}</span>
         </div>
         <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:${H}px;display:block">
           <defs>
@@ -6733,13 +6755,21 @@ async function stravaSyncActivities(){
         if(existingIdx>=0){
           const e=loadExtras();const k=extraKey(wd.w,wd.d);
           const _hasManualLabel=e[k][existingIdx].manualLabel;
-          e[k][existingIdx]={...e[k][existingIdx],dist:mainVal,note:realData,cal:actCal,stravaZone:actZone};
+          // Salva os MESMOS campos que uma sessao do plano guarda. Antes so dist/note/cal/zona
+          // eram gravados aqui, e tempo/pace/FC/id da atividade eram descartados — por isso a
+          // analise de um treino extra vinha pela metade e nunca mostrava zonas de FC nem o
+          // grafico de ritmo (que dependem do id da atividade pra buscar o detalhe no Strava).
+          e[k][existingIdx]={...e[k][existingIdx],dist:mainVal,note:realData,cal:actCal,stravaZone:actZone,
+            stravaDist:targetType===SWIM?actDistSwimFmt:actDistKmFmt,stravaTime:actTime,stravaPace:actPace,
+            stravaHR:actHR,stravaCal:actCal,stravaActivityId:act.id};
           // Preservar nome manual se o usuário editou
           if(_hasManualLabel){e[k][existingIdx].manualLabel=true;}
           saveExtras(e);
           checks[`ex_w${wd.w}_d${wd.d}_i${existingIdx}`]=true;
         }else{
-          const extras=addExtra(wd.w,wd.d,{type:targetType,text:label,dist:mainVal,note:realData,cal:actCal,stravaZone:actZone});
+          const extras=addExtra(wd.w,wd.d,{type:targetType,text:label,dist:mainVal,note:realData,cal:actCal,stravaZone:actZone,
+            stravaDist:targetType===SWIM?actDistSwimFmt:actDistKmFmt,stravaTime:actTime,stravaPace:actPace,
+            stravaHR:actHR,stravaCal:actCal,stravaActivityId:act.id});
           checks[`ex_w${wd.w}_d${wd.d}_i${extras.length-1}`]=true;
         }
         matched++;
@@ -11225,20 +11255,20 @@ function renderPaceGaugeHTML(profile){
       const necPct=Math.min(100,Math.round((necVal/maxV)*100));
       const isReady=atualVal>=necVal;
       const barColor=isReady?'#00e676':'#f0a500';
-      return `<div style="margin-bottom:20px">
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px">
+      return `<div style="margin-bottom:22px">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:22px">
           <span style="width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0"></span>
           <span style="font-family:var(--font-ui);font-size:10px;font-weight:700;color:${color};letter-spacing:1px;text-transform:uppercase">${label}</span>
           ${isEstimate?'<span style="font-family:var(--font-ui);font-size:8px;color:var(--muted)">(estimativa)</span>':''}
-          <span style="margin-left:auto;font-family:var(--font-ui);font-size:9px;color:${isReady?'#00e676':'var(--muted)'}">${isReady?'PRONTO':'PRECISA EVOLUIR'}</span>
         </div>
         <div style="position:relative;height:22px;border-radius:6px;background:rgba(255,255,255,.06);overflow:visible">
           <div style="position:absolute;top:0;left:0;height:100%;width:${atualPct}%;background:${barColor};border-radius:6px;transition:width .3s"></div>
           <div style="position:absolute;top:-4px;left:${necPct}%;width:2px;height:30px;background:#fff;transform:translateX(-1px)"></div>
           <div style="position:absolute;top:-18px;left:${necPct}%;transform:translateX(-50%);font-family:var(--font-ui);font-size:8px;color:#fff;white-space:nowrap;background:var(--bg);padding:0 4px;border-radius:3px">META ${necLabel}</div>
         </div>
-        <div style="display:flex;justify-content:space-between;margin-top:6px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:6px;gap:10px">
           <span style="font-family:var(--font-ui);font-size:10px;color:${barColor}">Voce esta em ${atualLabel}</span>
+          <span style="font-family:var(--font-ui);font-size:9px;color:${isReady?'#00e676':'var(--muted)'};white-space:nowrap">${isReady?'PRONTO':'PRECISA EVOLUIR'}</span>
         </div>
       </div>`;
     }
@@ -11693,7 +11723,19 @@ async function maybeShowSessionAnalysis(key, sess, w, d){
     if(!ov || (!ov.stravaData && !ov.manualData)) return;
   }else{
     if(!sess.dist && !sess.note && !sess.cal) return;
-    ov = {stravaDist: sess.dist||'', stravaData: sess.note||'', stravaCal: sess.cal||'', stravaZone: sess.stravaZone||''};
+    // Extras JA carregam tempo/FC/pace/id da atividade (ver loadExtras/sync do Strava), mas essa
+    // montagem so lia dist/note/cal — por isso a analise aparecia pela metade (so distancia,
+    // calorias e zona) enquanto o card do proprio treino, logo acima, mostrava tudo.
+    ov = {
+      stravaDist: sess.stravaDist||sess.dist||'',
+      stravaData: sess.note||'',
+      stravaCal: sess.stravaCal||sess.cal||'',
+      stravaZone: sess.stravaZone||'',
+      stravaTime: sess.stravaTime||'',
+      stravaHR: sess.stravaHR||'',
+      stravaPace: sess.stravaPace||'',
+      stravaActivityId: sess.stravaActivityId||null
+    };
   }
 
   const modal = document.getElementById('session-analysis-modal');
@@ -11802,6 +11844,7 @@ function renderSessionStatStrip(ov, plannedDist){
   if(!ov)return '';
   const stats=[];
   if(ov.stravaDist)stats.push({label:'DISTANCIA',val:ov.stravaDist,color:'var(--accent)'});
+  if(ov.stravaPace)stats.push({label:'PACE MEDIO',val:ov.stravaPace,color:'var(--text)'});
   if(ov.stravaTime)stats.push({label:'TEMPO',val:ov.stravaTime,color:'var(--text)'});
   // ov.stravaHR ja vem formatado com "bpm" (ex: "148bpm") — nao concatenar de novo aqui, senao
   // vira "148bpmbpm".
