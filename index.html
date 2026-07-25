@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="v20260724222641">
+<meta name="app-version" content="v20260725130914">
 <script>
 // Auto-atualizacao: navegadores (principalmente Safari/iOS) as vezes seguram uma versao antiga
 // em cache mesmo depois de um deploy novo no servidor, causando confusao de "mudei o codigo mas
@@ -6556,15 +6556,25 @@ async function stravaSyncActivities(){
         const distKm=(act.distance||0)/1000;
         const dateStr=(act.start_date_local||'').slice(0,10);
         if(!dateStr||!act.moving_time||act.moving_time<=0)return;
+        // Campos extras (distancia, tempo, FC, calorias, id) — necessarios pro comparativo
+        // "este treino vs o anterior da mesma modalidade" na analise pos-treino. Antes so o
+        // pace era guardado, o que nao permitia comparar mais nada.
+        const comuns={
+          dist:distKm,
+          movingTime:act.moving_time,
+          hr:act.average_heartrate?Math.round(act.average_heartrate):null,
+          cal:act.calories?Math.round(act.calories):(act.kilojoules?Math.round(act.kilojoules/4.184):null),
+          id:act.id||null
+        };
         if(actType.includes('run')&&distKm>0.5){
           const secPerKm=act.moving_time/distKm;
-          paceHistory.push({date:dateStr,sport:'corrida',secPerUnit:secPerKm,label:`${Math.floor(secPerKm/60)}:${String(Math.round(secPerKm%60)).padStart(2,'0')}/km`});
+          paceHistory.push({date:dateStr,sport:'corrida',secPerUnit:secPerKm,label:`${Math.floor(secPerKm/60)}:${String(Math.round(secPerKm%60)).padStart(2,'0')}/km`,...comuns});
         }else if((actType.includes('ride')||actType.includes('virtual'))&&distKm>1){
           const kmh=distKm/(act.moving_time/3600);
-          paceHistory.push({date:dateStr,sport:'ciclismo',kmh,label:`${kmh.toFixed(1)}km/h`});
+          paceHistory.push({date:dateStr,sport:'ciclismo',kmh,label:`${kmh.toFixed(1)}km/h`,...comuns});
         }else if(actType.includes('swim')&&distKm>0.05){
           const secPer100=act.moving_time/(distKm*10);
-          paceHistory.push({date:dateStr,sport:'natacao',secPerUnit:secPer100,label:`${Math.floor(secPer100/60)}:${String(Math.round(secPer100%60)).padStart(2,'0')}/100m`});
+          paceHistory.push({date:dateStr,sport:'natacao',secPerUnit:secPer100,label:`${Math.floor(secPer100/60)}:${String(Math.round(secPer100%60)).padStart(2,'0')}/100m`,...comuns});
         }
       });
       paceHistory.sort((a,b)=>a.date.localeCompare(b.date));
@@ -11726,6 +11736,19 @@ async function maybeShowSessionAnalysis(key, sess, w, d){
   if(sess._origin==='plan'){
     ov = getOverride(w, d, sess._si);
     if(!ov || (!ov.stravaData && !ov.manualData)) return;
+    // Completa com o que estiver na propria sessao: se o override foi gravado por uma versao
+    // antiga (antes de pace/tempo/FC/id existirem), ele vem incompleto e a analise aparecia so
+    // com distancia/calorias/zona. Aqui um lado preenche o buraco do outro.
+    ov = {
+      ...ov,
+      stravaDist: ov.stravaDist||sess.stravaDist||sess.dist||'',
+      stravaTime: ov.stravaTime||sess.stravaTime||'',
+      stravaPace: ov.stravaPace||sess.stravaPace||'',
+      stravaHR: ov.stravaHR||sess.stravaHR||'',
+      stravaCal: ov.stravaCal||sess.stravaCal||sess.cal||'',
+      stravaZone: ov.stravaZone||sess.stravaZone||'',
+      stravaActivityId: ov.stravaActivityId||sess.stravaActivityId||null
+    };
   }else{
     if(!sess.dist && !sess.note && !sess.cal) return;
     // Extras JA carregam tempo/FC/pace/id da atividade (ver loadExtras/sync do Strava), mas essa
@@ -11762,7 +11785,7 @@ async function maybeShowSessionAnalysis(key, sess, w, d){
   // Check cache
   const cache = loadAnalysisCache();
   if(cache[key]){
-    renderSessionAnalysis(modal, dotColor, pillText, cache[key], ov, plannedDist);
+    renderSessionAnalysis(modal, dotColor, pillText, cache[key], ov, plannedDist, sess);
     return;
   }
 
@@ -11792,6 +11815,27 @@ async function maybeShowSessionAnalysis(key, sess, w, d){
     ov.stravaData ? 'Dados extras: ' + ov.stravaData : ''
   ].filter(Boolean).join(', ');
 
+  // Treino ANTERIOR da mesma modalidade — pro texto falar de evolucao, nao so do treino de hoje
+  // isolado. Sem isso a IA nao tinha como dizer "voce melhorou X desde a ultima vez".
+  let anteriorStr='';
+  try{
+    const mapaSport={run:'corrida',bike:'ciclismo',swim:'natacao'};
+    const sport=mapaSport[sess.type];
+    if(sport){
+      const hist=JSON.parse(localStorage.getItem('mytri_pace_history')||'[]').filter(h=>h.sport===sport);
+      let idx=-1;
+      if(ov.stravaActivityId)idx=hist.findIndex(h=>String(h.id)===String(ov.stravaActivityId));
+      if(idx<0)idx=hist.length-1;
+      if(idx>=1){
+        const a=hist[idx-1];
+        const partes=[`ritmo/velocidade ${a.label}`];
+        if(a.dist!=null)partes.push(`${a.dist.toFixed(1)}km`);
+        if(a.hr!=null)partes.push(`FC media ${a.hr}bpm`);
+        anteriorStr=`TREINO ANTERIOR DE ${sport.toUpperCase()} (${a.date}): ${partes.join(', ')}.`;
+      }
+    }
+  }catch(e){}
+
   const profile = getMytriProfile();
   const {w: cw} = getCurrentWeekAndDay();
   const week2 = getWeek(w);
@@ -11820,6 +11864,7 @@ async function maybeShowSessionAnalysis(key, sess, w, d){
       body: JSON.stringify({
         session: {type: sess.type, text: sess.text, dist: sess.dist, plannedDist, volComparison},
         strava: stravaStr,
+        anterior: anteriorStr,
         profile: {name: profile.name || 'Nano', injuries: profile.lesoes||[], injuryDetail: profile.lesaoDetalhe||''},
         daysToRace,
         week: w,
@@ -11832,7 +11877,7 @@ async function maybeShowSessionAnalysis(key, sess, w, d){
       const c2 = loadAnalysisCache();
       c2[key] = text;
       saveAnalysisCache(c2);
-      renderSessionAnalysis(modal, dotColor, pillText, text, ov, plannedDist);
+      renderSessionAnalysis(modal, dotColor, pillText, text, ov, plannedDist, sess);
     } else {
       modal.classList.remove('active');
     }
@@ -11880,7 +11925,86 @@ function renderSessionStatStrip(ov, plannedDist){
   </div>`;
 }
 
-function renderSessionAnalysis(modal, dotColor, pillText, text, ov, plannedDist){
+// Comparativo com a sessao ANTERIOR da mesma modalidade. E o que transforma "numeros soltos do
+// treino de hoje" em leitura de evolucao — e algo que o Strava nao entrega mastigado assim.
+// Cada metrica sabe qual direcao e "melhor": pace menor e melhor, distancia maior e melhor,
+// FC menor pra um esforco parecido e melhor (sinal de eficiencia aerobica).
+function renderComparativoAnterior(ov, sess){
+  try{
+    const mapaSport={run:'corrida',bike:'ciclismo',swim:'natacao'};
+    const sport=mapaSport[sess.type];
+    if(!sport)return '';
+    let hist=[];
+    try{ hist=JSON.parse(localStorage.getItem('mytri_pace_history')||'[]'); }catch(e){ return ''; }
+    const doEsporte=hist.filter(h=>h.sport===sport);
+    if(doEsporte.length<2)return '';
+
+    // Localiza o treino atual no historico (pelo id da atividade quando existir) pra pegar o
+    // imediatamente anterior. Sem id, assume que o atual e o mais recente.
+    let idxAtual=-1;
+    if(ov.stravaActivityId){
+      idxAtual=doEsporte.findIndex(h=>String(h.id)===String(ov.stravaActivityId));
+    }
+    if(idxAtual<0)idxAtual=doEsporte.length-1;
+    if(idxAtual<1)return '';
+    const atual=doEsporte[idxAtual],ant=doEsporte[idxAtual-1];
+    if(!atual||!ant)return '';
+
+    const fmtTempo=s=>{const m=Math.floor(s/60);return m>=60?`${Math.floor(m/60)}h${String(m%60).padStart(2,'0')}`:`${m}min`;};
+    const fmtPace=s=>`${Math.floor(s/60)}:${String(Math.round(s%60)).padStart(2,'0')}`;
+    const linhas=[];
+
+    function addLinha(rotulo,valAnt,valAtual,fmt,menorEmelhor,unidade){
+      if(valAnt==null||valAtual==null)return;
+      const delta=valAtual-valAnt;
+      if(Math.abs(delta)<0.0001){
+        linhas.push({rotulo,ant:fmt(valAnt)+unidade,atual:fmt(valAtual)+unidade,delta:'igual',cor:'var(--muted)'});
+        return;
+      }
+      const melhorou=menorEmelhor?delta<0:delta>0;
+      const sinal=delta>0?'+':'-';
+      linhas.push({
+        rotulo,
+        ant:fmt(valAnt)+unidade,
+        atual:fmt(valAtual)+unidade,
+        delta:sinal+fmt(Math.abs(delta))+unidade,
+        cor:melhorou?'#00e676':'#f0a500'
+      });
+    }
+
+    if(sport==='ciclismo'){
+      addLinha('Velocidade media',ant.kmh,atual.kmh,v=>v.toFixed(1),false,'km/h');
+    }else{
+      addLinha(sport==='natacao'?'Ritmo /100m':'Ritmo /km',ant.secPerUnit,atual.secPerUnit,fmtPace,true,'');
+    }
+    addLinha('Distancia',ant.dist,atual.dist,v=>v.toFixed(1),false,'km');
+    addLinha('Tempo',ant.movingTime,atual.movingTime,fmtTempo,false,'');
+    if(ant.hr!=null&&atual.hr!=null)addLinha('FC media',ant.hr,atual.hr,v=>Math.round(v),true,'bpm');
+    if(ant.cal!=null&&atual.cal!=null)addLinha('Calorias',ant.cal,atual.cal,v=>Math.round(v),false,'kcal');
+    if(!linhas.length)return '';
+
+    const dataAnt=(()=>{const p=String(ant.date||'').split('-');return p.length===3?`${p[2]}/${p[1]}`:'';})();
+    const nomes={corrida:'corrida',ciclismo:'ciclismo',natacao:'natacao'};
+    return `<div style="border-top:1px solid var(--border);padding:20px 0 4px">
+      <div style="font-family:var(--font-display);font-size:17px;color:var(--text);margin-bottom:2px">Comparado ao treino anterior</div>
+      <div style="font-family:var(--font-body);font-size:11px;color:var(--muted);margin-bottom:14px">Ultimo ${nomes[sport]} registrado${dataAnt?` em ${dataAnt}`:''}.</div>
+      <div style="display:flex;font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px;padding-bottom:6px;border-bottom:1px solid var(--border);margin-bottom:8px">
+        <span style="flex:1.3"></span>
+        <span style="flex:1;text-align:right">ANTERIOR</span>
+        <span style="flex:1;text-align:right">HOJE</span>
+        <span style="flex:1;text-align:right">DIFERENCA</span>
+      </div>
+      ${linhas.map(l=>`<div style="display:flex;align-items:baseline;padding:7px 0">
+        <span style="flex:1.3;font-family:var(--font-body);font-size:12px;color:var(--muted2)">${l.rotulo}</span>
+        <span style="flex:1;text-align:right;font-family:var(--font-ui);font-size:12px;color:var(--muted)">${l.ant}</span>
+        <span style="flex:1;text-align:right;font-family:var(--font-ui);font-size:13px;color:var(--text);font-weight:700">${l.atual}</span>
+        <span style="flex:1;text-align:right;font-family:var(--font-ui);font-size:12px;color:${l.cor}">${l.delta}</span>
+      </div>`).join('')}
+    </div>`;
+  }catch(e){ return ''; }
+}
+
+function renderSessionAnalysis(modal, dotColor, pillText, text, ov, plannedDist, sess){
   modal.innerHTML = `
     <div class="sa-header">
       <span class="sa-label">Analise do Treino</span>
@@ -11901,6 +12025,7 @@ function renderSessionAnalysis(modal, dotColor, pillText, text, ov, plannedDist)
       </div>
       <div class="sa-text" style="margin:0">${text.replace(/\n\n/g,'</p><p style="margin-top:12px">').replace(/\n/g,' ')}</div>
     </div>
+    ${sess?renderComparativoAnterior(ov,sess):''}
     <div id="sa-stream-section"></div>`;
   modal.classList.add('active');
   // Parciais, graficos e zonas: precisam do stream segundo-a-segundo da atividade, que so a
