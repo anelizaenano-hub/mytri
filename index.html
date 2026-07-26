@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="v20260726131754">
+<meta name="app-version" content="v20260726171834">
 <script>
 // Auto-atualizacao: navegadores (principalmente Safari/iOS) as vezes seguram uma versao antiga
 // em cache mesmo depois de um deploy novo no servidor, causando confusao de "mudei o codigo mas
@@ -2762,6 +2762,20 @@ function renderPaceEvolutionChart(){
     const coords=yVals.map((y,i)=>[xOf(i),yOf(y)]);
     const pathD=coords.map(([x,y],i)=>(i===0?'M':'L')+x.toFixed(1)+','+y.toFixed(1)).join(' ');
     const areaD=pathD+` L${coords[coords.length-1][0].toFixed(1)},${(PAD_T+chartH).toFixed(1)} L${coords[0][0].toFixed(1)},${(PAD_T+chartH).toFixed(1)} Z`;
+    // Cada ponto e a MEDIA da atividade inteira. Numa corrida que inclui caminhada de aquecimento
+    // a media despenca, e o grafico zigueza entre dois tipos diferentes de treino em vez de
+    // mostrar evolucao. A linha de tendencia (media movel de 3) atravessa esse ruido.
+    const suav=yVals.map((_,i)=>{
+      const ini=Math.max(0,i-1),fim=Math.min(yVals.length,i+2);
+      const fatia=yVals.slice(ini,fim);
+      return fatia.reduce((a,b)=>a+b,0)/fatia.length;
+    });
+    const tendD=suav.map((y,i)=>(i===0?'M':'L')+xOf(i).toFixed(1)+','+yOf(y).toFixed(1)).join(' ');
+    // Sessoes bem mais lentas que a mediana quase sempre sao dominadas por caminhada — marcadas
+    // com circulo vazado pra nao serem lidas como piora de desempenho.
+    const ordY=[...yVals].sort((a,b)=>a-b);
+    const medY=ordY[Math.floor(ordY.length/2)];
+    const ehLento=y=>y<medY*0.82;
     const first=pts[0],last=pts[pts.length-1];
     // Tendencia por MELHOR esforco de cada metade do periodo, nao primeiro-vs-ultimo: com treinos
     // de intensidades diferentes misturados, comparar as pontas dizia "piorou" so porque o ultimo
@@ -2831,12 +2845,19 @@ function renderPaceEvolutionChart(){
           </defs>
           ${gridLines}
           <path d="${areaD}" fill="url(#${gradId})" stroke="none"/>
-          <path d="${pathD}" fill="none" stroke="${meta.color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
-          ${coords.slice(0,-1).map(([x,y])=>`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="2" fill="${meta.color}" opacity="0.6"/>`).join('')}
+          <path d="${pathD}" fill="none" stroke="${meta.color}" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round" opacity="0.45"/>
+          <path d="${tendD}" fill="none" stroke="${meta.color}" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>
+          ${coords.slice(0,-1).map(([x,y],i)=>ehLento(yVals[i])
+            ?`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="2.6" fill="var(--bg)" stroke="${meta.color}" stroke-width="1.2" opacity="0.8"/>`
+            :`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="2" fill="${meta.color}" opacity="0.6"/>`).join('')}
           <circle cx="${coords[coords.length-1][0].toFixed(1)}" cy="${coords[coords.length-1][1].toFixed(1)}" r="4" fill="var(--bg)" stroke="${meta.color}" stroke-width="2"/>
           ${metaLine}
           ${xLabels}
         </svg>
+        <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:6px;font-family:var(--font-ui);font-size:8px;color:var(--muted)">
+          <span style="display:flex;align-items:center;gap:4px"><span style="width:14px;height:2px;background:${meta.color};display:inline-block"></span>tendencia</span>
+          <span style="display:flex;align-items:center;gap:4px"><span style="width:7px;height:7px;border-radius:50%;border:1px solid ${meta.color};display:inline-block"></span>treino com caminhada/leve</span>
+        </div>
         ${veredito}
         <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:4px">
           <span style="font-family:var(--font-ui);font-size:8px;color:var(--muted)">Ultimas ${pts.length} atividades de ${sp} sincronizadas do Strava</span>
@@ -12913,16 +12934,26 @@ function renderStreamDetailsHTML(streams,profile,ov,plannedZone){
     const velR=reduzir(vel,90),distR=idxReduzidos(dist,90);
     let vals=velR.map(v=>v>0.15?(isBike?v*3.6:(isSwim?100/v:1000/v)):null).filter(v=>v!=null);
     if(vals.length>4){
-      // Corta outliers extremos (paradas, GPS perdido) que achatam o resto do grafico.
+      // Trechos de caminhada/parada (ate ~24:00/km) esticam a escala e espremem toda a faixa de
+      // corrida numa fatia fina. Limita o extremo lento a 1.6x a mediana: o dado nao muda, so a
+      // escala desenhada — senao o grafico vira uma linha reta colada no topo.
+      const ordM=[...vals].sort((a,b)=>a-b);
+      const mediana=ordM[Math.floor(ordM.length/2)];
+      const teto=isBike?Infinity:mediana*1.6;
       const ord=[...vals].sort((a,b)=>a-b);
-      const lo=ord[Math.floor(ord.length*0.03)],hi=ord[Math.ceil(ord.length*0.97)-1];
+      const lo=ord[Math.floor(ord.length*0.03)];
+      const hiBruto=ord[Math.ceil(ord.length*0.97)-1];
+      const hi=isBike?hiBruto:Math.min(hiBruto,teto);
+      const houveCorte=vals.some(v=>v>hi);
       vals=vals.map(v=>Math.max(lo,Math.min(hi,v)));
       const fmt=v=>isBike?v.toFixed(0)+'km/h':formatPaceLabel(v);
       // Linha do pace-alvo atravessando o grafico — mostra visualmente quanto do treino ficou
       // no ritmo pretendido.
       const faixaAlvoPace=alvoSec?{lo:alvoSec-3,hi:alvoSec+3,label:'alvo',cor:'#00e676'}:null;
       out+=secao('Ritmo',areaChart(vals,distR,'#5a9ee6',fmt,!isBike,faixaAlvoPace),
-        [ov.stravaPace?`Ritmo medio ${ov.stravaPace}`:'',alvoSec?`alvo ${formatPaceLabel(alvoSec)}${isSwim?'/100m':'/km'}`:''].filter(Boolean).join(' · '));
+        [ov.stravaPace?`Ritmo medio ${ov.stravaPace}`:'',
+         alvoSec?`alvo ${formatPaceLabel(alvoSec)}${isSwim?'/100m':'/km'}`:'',
+         houveCorte?`trechos de caminhada aparecem no fundo do grafico`:''].filter(Boolean).join(' · '));
     }
   }
 
