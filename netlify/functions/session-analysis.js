@@ -1,12 +1,14 @@
 // Netlify Function: session-analysis.js
 // Report pos-treino: analisa UMA sessao executada (dados reais do Strava/manual) contra o
 // que foi planejado, e devolve um comentario curto e util do coach.
-// Recebe { session:{type,text,dist,plannedDist,volComparison}, strava, profile, daysToRace, week, phase }
+// Recebe { session:{type,text,dist,plannedDist,volComparison}, strava, anterior, profile,
+//          daysToRace, week, phase }
 // Retorna { text }
 
 const https = require('https');
 
-// CLC item 3: valida o token de sessao do Supabase antes de gastar credito de API.
+// CLC item 3: essa era a UNICA function do projeto sem guarda de autenticacao — qualquer um que
+// descobrisse a URL podia chama-la direto e gastar credito da API da Anthropic sem estar logado.
 const SUPABASE_URL = 'https://dlahyvsrqouxlalqexrp.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_mVgR-2qjgAGzEBeitJ8SAg_DTFYuw-t';
 async function verifyAuth(event) {
@@ -30,7 +32,7 @@ exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') return { statusCode: 405, headers: HEADERS, body: JSON.stringify({ error: 'Method not allowed' }) };
 
   const user = await verifyAuth(event);
-  if (!user) return { statusCode: 401, headers: HEADERS, body: JSON.stringify({ error: 'Nao autenticado.' }) };
+  if (!user) return { statusCode: 401, headers: HEADERS, body: JSON.stringify({ text: '', error: 'Nao autenticado.' }) };
 
   const API_KEY = process.env.ANTHROPIC_API_KEY;
   if (!API_KEY) return { statusCode: 200, headers: HEADERS, body: JSON.stringify({ text: '', error: 'ANTHROPIC_API_KEY nao configurada' }) };
@@ -41,6 +43,9 @@ exports.handler = async (event) => {
 
   const s = body.session || {};
   const strava = (body.strava || '').toString().slice(0, 500);
+  // Treino ANTERIOR da mesma modalidade — sem isso o coach comenta cada sessao isolada e nunca
+  // consegue dizer "voce evoluiu X desde a ultima vez", que e o que da sensacao de progresso.
+  const anterior = (body.anterior || '').toString().slice(0, 300);
   const nome = ((body.profile && body.profile.name) || 'o atleta').toString().slice(0, 40);
   // Lesoes/restricoes ATUAIS (vem sempre do perfil corrente, nunca de cache) — garante que o
   // coach nunca comente sobre uma restricao antiga que o atleta ja atualizou no onboarding.
@@ -58,6 +63,7 @@ exports.handler = async (event) => {
   if (s.text) ctx.push(`Sessao planejada: ${s.text}`);
   if (s.plannedDist) ctx.push(`Distancia PLANEJADA: ${s.plannedDist}`);
   ctx.push(`Dados REAIS executados: ${strava || 'sem dados detalhados'}`);
+  if (anterior) ctx.push(anterior);
   if (s.volComparison) ctx.push(`COMPARACAO VOLUME: ${s.volComparison}`);
   if (phase) ctx.push(`Fase do plano: ${phase}`);
   if (week) ctx.push(`Semana ${week}`);
@@ -72,6 +78,8 @@ REGRAS:
 - Se o atleta fez volume ACIMA do planejado: reconheca, mas comente o impacto na recuperacao e no restante da semana (nao incentive exagero cronico).
 - Se fez ABAIXO: comente de forma construtiva, sem culpa, focando em consistencia.
 - Se fez proximo do planejado: reforce a execucao consistente.
+- Se houver "TREINO ANTERIOR" no contexto, compare com ele e comente a EVOLUCAO (ritmo, FC, distancia). Cite numeros so se estiverem no contexto.
+- CRITICO ao comparar: um treino leve/de base E PARA SER mais lento que um treino de qualidade. Nunca trate um Z2 mais lento que a sessao anterior como piora se o planejado era justamente um treino leve. Compare intensidades semelhantes.
 - Considere a fase do plano e a proximidade da prova.
 - So mencione lesao/restricao se ela estiver EXPLICITAMENTE listada no contexto como atual — nunca cite uma lesao que nao esteja la, mesmo que pareca familiar.
 - Fale com o atleta na segunda pessoa (voce).
