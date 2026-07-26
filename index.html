@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="v20260726121824">
+<meta name="app-version" content="v20260726123455">
 <script>
 // Auto-atualizacao: navegadores (principalmente Safari/iOS) as vezes seguram uma versao antiga
 // em cache mesmo depois de um deploy novo no servidor, causando confusao de "mudei o codigo mas
@@ -11690,24 +11690,61 @@ async function showPlanSummary(profile){
 // perna. A IA ja organiza o texto por modalidade — "Natacao (750m): ... Bike (20km): ..." — entao
 // da pra cortar nesses marcadores. Se o texto nao tiver esse formato, devolve o paragrafo
 // original em vez de arriscar picotar errado.
+// Mostra so o comeco de um texto longo, com "ver mais". O relatorio virava varias telas de prosa
+// corrida e ninguem le ate o fim — o conteudo continua ali, mas para de dominar a tela.
+function renderTextoRecolhivel(texto,id,limite){
+  if(!texto)return '';
+  const t=String(texto).trim();
+  if(t.length<=limite)return `<div class="plan-section-body">${t}</div>`;
+  // Corta no fim de uma frase, nao no meio de uma palavra.
+  let corte=t.lastIndexOf('. ',limite);
+  if(corte<limite*0.5)corte=t.lastIndexOf(' ',limite);
+  if(corte<0)corte=limite;
+  const inicio=t.slice(0,corte+1).trim();
+  const resto=t.slice(corte+1).trim();
+  return `<div class="plan-section-body">${inicio}
+    <span id="mais-${id}" style="display:none"> ${resto}</span>
+    <span id="btn-${id}" onclick="const r=document.getElementById('mais-${id}');const b=document.getElementById('btn-${id}');r.style.display='inline';b.style.display='none';" style="color:var(--accent);cursor:pointer;font-family:var(--font-ui);font-size:11px;letter-spacing:.5px;white-space:nowrap"> ver mais</span>
+  </div>`;
+}
+
 function renderEstrategiaPorPerna(texto){
   if(!texto)return '';
   const pernas=[
-    {re:/(nata[cç][aã]o|swim)/i,     nome:'Natacao',    cor:'#1a6cf0'},
-    {re:/(transi[cç][aã]o\s*1|t1)\b/i,nome:'Transicao 1',cor:'#8a8f9c'},
-    {re:/(bike|ciclismo|pedal)/i,    nome:'Bike',       cor:'#e05c2a'},
-    {re:/(transi[cç][aã]o\s*2|t2)\b/i,nome:'Transicao 2',cor:'#8a8f9c'},
-    {re:/(corrida|run)/i,            nome:'Corrida',    cor:'#00e676'},
-    {re:/(mentalidade|cabe[cç]a|mental)/i,nome:'Mentalidade',cor:'#9b6af0'}
+    {re:/nata[cç][aã]o|swim/i,        nome:'Natacao',    cor:'#1a6cf0'},
+    {re:/transi[cç][aã]o\s*1|\bt1\b/i,nome:'Transicao 1',cor:'#8a8f9c'},
+    {re:/bike|ciclismo|pedal/i,       nome:'Bike',       cor:'#e05c2a'},
+    {re:/transi[cç][aã]o\s*2|\bt2\b/i,nome:'Transicao 2',cor:'#8a8f9c'},
+    {re:/corrida|\brun\b/i,           nome:'Corrida',    cor:'#00e676'},
+    {re:/mentalidade|cabe[cç]a|mental/i,nome:'Mentalidade',cor:'#9b6af0'}
   ];
-  // Encontra onde cada perna comeca (primeira ocorrencia, na ordem em que aparecem no texto).
+  // Detecta por FRASE: uma perna comeca na primeira frase que cita a modalidade logo no inicio
+  // dela. Isso tolera o artigo que a IA escreve naturalmente ("A bike de 20km...") e ao mesmo
+  // tempo ignora mencao no meio de outra frase ("...comprometa a posicao na bike."), que era o
+  // que picotava os cards no lugar errado.
+  const frases=[];
+  const rxFrase=/[^.!?\n]+[.!?]?/g;
+  let mF;
+  while((mF=rxFrase.exec(texto))!==null){
+    const t=mF[0];
+    if(t.trim().length)frases.push({texto:t,pos:mF.index});
+  }
+  if(!frases.length)return `<div class="plan-section-body">${texto}</div>`;
+  const usadas=new Set();
   const marcos=[];
   pernas.forEach(p=>{
-    const m=texto.match(p.re);
-    if(m&&m.index!=null)marcos.push({pos:m.index,...p});
+    for(const f of frases){
+      if(usadas.has(f.pos))continue;
+      // "logo no inicio": nos primeiros 30 caracteres da frase.
+      const inicio=f.texto.trim().slice(0,30);
+      if(p.re.test(inicio)){
+        marcos.push({pos:f.pos,...p});
+        usadas.add(f.pos);
+        break;
+      }
+    }
   });
   marcos.sort((a,b)=>a.pos-b.pos);
-  // Precisa de pelo menos 2 pernas identificadas pra valer a pena quebrar.
   if(marcos.length<2){
     return `<div class="plan-section-body">${texto}</div>`;
   }
@@ -11716,7 +11753,7 @@ function renderEstrategiaPorPerna(texto){
     const fim=i<marcos.length-1?marcos[i+1].pos:texto.length;
     let trecho=texto.slice(ini,fim).trim();
     // Tira o rotulo repetido do inicio ("Natacao (750m):") — ele ja vira o titulo do card.
-    trecho=trecho.replace(/^[^:]{0,40}:\s*/,'').trim();
+    trecho=trecho.replace(/^[^:]{0,45}:\s*/,'').trim();
     if(trecho.length<15)return '';
     return `<div style="border-left:3px solid ${mk.cor};background:var(--surface);border-radius:0 8px 8px 0;padding:12px 14px;margin-bottom:8px">
       <div style="font-family:var(--font-ui);font-size:10px;font-weight:700;color:${mk.cor};letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px">${mk.nome}</div>
@@ -11848,11 +11885,11 @@ function renderPlanSummary(el,profile,text,debugMsg){
     ${anySection?`
     ${visao?`<div class="plan-section">
       <div class="plan-section-title">VISAO GERAL</div>
-      <div class="plan-section-body">${visao}</div>
+      ${renderTextoRecolhivel(visao,'visao',260)}
     </div>`:''}
     ${critico?`<div class="plan-section">
       <div class="plan-section-title">PONTO CRITICO</div>
-      <div class="plan-section-body">${critico}</div>
+      ${renderTextoRecolhivel(critico,'critico',260)}
     </div>`:''}
     ${fases?`<div class="plan-section">
       <div class="plan-section-title">FASES DO PLANO</div>
@@ -12353,31 +12390,39 @@ function _gravarStreamCache(id,streams){
 
 async function loadStreamSection(ov, sess, plannedZone){
   const container=document.getElementById('sa-stream-section');
-  if(!container||!ov||!ov.stravaActivityId)return;
+  if(!container)return;
   const profile=getMytriProfile();
+  const aviso=msg=>`<div style="border-top:1px solid var(--border);margin-top:8px;padding:14px 0;font-family:var(--font-body);font-size:11px;color:var(--muted);line-height:1.5">${msg}</div>`;
 
-  // Se ja temos o stream dessa atividade, renderiza na hora e nem toca no Strava.
+  if(!ov||!ov.stravaActivityId){
+    container.innerHTML=aviso('Detalhes por quilometro, graficos de ritmo e zonas de FC aparecem para treinos sincronizados do Strava. Sincronize o Strava novamente para liberar esses dados neste treino.');
+    return;
+  }
+
   const cache=_lerStreamCache(ov.stravaActivityId);
   if(cache&&cache.streams){
-    try{ container.innerHTML=renderStreamDetailsHTML(cache.streams,profile,ov,plannedZone); }catch(e){ container.innerHTML=''; }
+    try{
+      const h=renderStreamDetailsHTML(cache.streams,profile,ov,plannedZone);
+      container.innerHTML=h||aviso('Esta atividade nao tem dados detalhados (ritmo/FC segundo a segundo) registrados no Strava.');
+    }catch(e){ container.innerHTML=aviso('Nao consegui montar os detalhes deste treino.'); }
     return;
   }
 
   container.innerHTML=`<div style="display:flex;align-items:center;gap:10px;padding:14px 0;color:var(--muted);font-family:var(--font-ui);font-size:10px;letter-spacing:1px"><div class="sa-spinner-ring" style="width:14px;height:14px"></div>CARREGANDO DETALHES DO TREINO...</div>`;
   try{
     const token=await stravaGetValidToken();
-    if(!token){ container.innerHTML=''; return; }
+    if(!token){ container.innerHTML=aviso('Conecte o Strava no Perfil para ver os detalhes deste treino.'); return; }
     const r=await fetch(`https://www.strava.com/api/v3/activities/${ov.stravaActivityId}/streams?keys=heartrate,velocity_smooth,distance,time,cadence,watts,altitude&key_by_type=true`,{headers:{Authorization:'Bearer '+token}});
     if(r.status===429){
-      container.innerHTML=`<div style="font-family:var(--font-body);font-size:11px;color:var(--muted);padding:12px 0">Limite de consultas do Strava atingido no momento. Os detalhes aparecem quando o limite liberar (alguns minutos).</div>`;
+      container.innerHTML=aviso('Limite de consultas do Strava atingido no momento. Os detalhes aparecem quando o limite liberar (alguns minutos).');
       return;
     }
-    if(!r.ok){ container.innerHTML=''; return; }
+    if(!r.ok){ container.innerHTML=aviso(`Strava respondeu ${r.status} ao buscar os detalhes deste treino.`); return; }
     const streams=await r.json();
     _gravarStreamCache(ov.stravaActivityId,streams);
     const html=renderStreamDetailsHTML(streams,profile,ov,plannedZone);
-    container.innerHTML=html;
-  }catch(e){ container.innerHTML=''; }
+    container.innerHTML=html||aviso('Esta atividade nao tem dados detalhados (ritmo/FC segundo a segundo) registrados no Strava. Treinos manuais ou sem relogio costumam ficar sem esses graficos.');
+  }catch(e){ container.innerHTML=aviso('Nao consegui carregar os detalhes deste treino: '+(e.message||'erro de rede')); }
 }
 
 function renderStreamDetailsHTML(streams,profile,ov,plannedZone){
