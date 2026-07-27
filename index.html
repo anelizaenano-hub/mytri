@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="v20260727130119">
+<meta name="app-version" content="v20260727134030">
 <script>
 // Auto-atualizacao: navegadores (principalmente Safari/iOS) as vezes seguram uma versao antiga
 // em cache mesmo depois de um deploy novo no servidor, causando confusao de "mudei o codigo mas
@@ -2609,8 +2609,17 @@ function renderVolumeSemanalHTML(){
     const barras=dados.map((d,i)=>{
       const alt=(vals[i]/max)*100;
       const ehAtual=i===dados.length-1;
-      return `<div style="flex:1;height:46px;display:flex;align-items:flex-end;min-width:0">
-        <div style="width:100%;height:${Math.max(3,alt)}%;background:${cores[sp]};opacity:${ehAtual?1:0.5};border-radius:2px"></div>
+      const zero=vals[i]<=0;
+      const p=d.semana.split('-');
+      const rot=sp==='natacao'?(vals[i]>0?Math.round(vals[i]*1000)+'m':'0'):(vals[i]>0?vals[i].toFixed(1):'0');
+      return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:0">
+        <span style="font-family:var(--font-ui);font-size:8px;color:${zero?'var(--muted)':(ehAtual?'var(--text)':'var(--muted2)')}">${rot}</span>
+        <div style="width:100%;height:46px;display:flex;align-items:flex-end">
+          ${zero
+            ? `<div style="width:100%;height:2px;background:var(--border);border-radius:1px" title="sem treino nesta semana"></div>`
+            : `<div style="width:100%;height:${Math.max(6,alt)}%;background:${cores[sp]};opacity:${ehAtual?1:0.5};border-radius:2px"></div>`}
+        </div>
+        <span style="font-family:var(--font-ui);font-size:7px;color:var(--muted)">${p[2]}/${p[1]}</span>
       </div>`;
     }).join('');
     const unidade=sp==='natacao'?'m':'km';
@@ -2628,7 +2637,12 @@ function renderVolumeSemanalHTML(){
   const p=chaves[0].split('-'),pf=chaves[chaves.length-1].split('-');
   return `<div class="stats-section" style="background:var(--surface);border:1px solid var(--border);border-top:2px solid var(--accent);padding:16px;margin-bottom:8px">
     <div style="font-family:var(--font-ui);font-size:9px;font-weight:700;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:4px">VOLUME SEMANAL</div>
-    <div style="font-family:var(--font-body);font-size:10px;color:var(--muted2);margin-bottom:14px">Distancia por modalidade, ultimas ${chaves.length} semanas (${p[2]}/${p[1]} a ${pf[2]}/${pf[1]}). Barra cheia = semana atual.</div>
+    <div style="font-family:var(--font-body);font-size:10px;color:var(--muted2);margin-bottom:6px">Distancia por modalidade, ultimas ${chaves.length} semanas (${p[2]}/${p[1]} a ${pf[2]}/${pf[1]}).</div>
+    <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px;font-family:var(--font-ui);font-size:8px;color:var(--muted)">
+      <span style="display:flex;align-items:center;gap:4px"><span style="width:9px;height:9px;background:var(--accent);border-radius:2px;display:inline-block"></span>semana atual</span>
+      <span style="display:flex;align-items:center;gap:4px"><span style="width:9px;height:9px;background:var(--accent);opacity:.5;border-radius:2px;display:inline-block"></span>semanas anteriores</span>
+      <span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:2px;background:var(--border);display:inline-block"></span>sem treino nesta modalidade</span>
+    </div>
     <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:16px">
       <span style="font-family:var(--font-display);font-size:26px;color:var(--text)">${horas}h${String(mins).padStart(2,'0')}</span>
       <span style="font-family:var(--font-ui);font-size:10px;color:var(--muted)">de treino nesta semana</span>
@@ -5830,7 +5844,10 @@ function renderStats(){
     const color=isActive?'var(--accent)':isPast?'var(--muted2)':'var(--border2)';
     const wStart=new Date(PLAN_START);wStart.setDate(wStart.getDate()+(wv.w-1)*7);
     const label=`${wStart.getDate().toString().padStart(2,'0')}/${(wStart.getMonth()+1).toString().padStart(2,'0')}`;
+    // Valor em cima da barra: sem numero nao da pra saber se o formato do bloco faz sentido.
+    const valor=wv.total>0?(wv.total>=10?Math.round(wv.total):wv.total.toFixed(1)):'0';
     return`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer" onclick="hojeWeek=${wv.w};hojeDay=0;switchTabHoje()">
+      <div style="font-family:var(--font-ui);font-size:7px;color:${isActive?'var(--accent)':'var(--muted)'}">${valor}</div>
       <div style="width:100%;background:var(--bg);height:60px;display:flex;align-items:flex-end;padding:0 1px">
         <div style="width:100%;background:${color};height:${Math.max(pct,2)}%;border-radius:1px 1px 0 0;transition:height .3s"></div>
       </div>
@@ -5838,9 +5855,19 @@ function renderStats(){
     </div>`;
   }).join('');
 
-  cargaDiv.innerHTML=cargaTitle+`<div style="display:flex;gap:2px;align-items:flex-end">${barsHtml}</div>
+  // O rodape dizia "SEM 16" fixo no codigo, mesmo quando o plano tem outro numero de semanas —
+  // contradizia o proprio grafico e o texto de coaching logo abaixo.
+  const totalSemanas=weekVolumes.length;
+  cargaDiv.innerHTML=cargaTitle+
+    `<div style="font-family:var(--font-body);font-size:10px;color:var(--muted2);margin-bottom:10px">Volume total planejado por semana, em km somando as tres modalidades. Toque numa barra para abrir a semana.</div>
+    <div style="display:flex;gap:2px;align-items:flex-end">${barsHtml}</div>
     <div style="display:flex;justify-content:space-between;margin-top:8px;font-family:var(--font-ui);font-size:9px;color:var(--muted)">
-      <span>SEM 1</span><span style="color:var(--accent)">&#9679; ATUAL (SEM ${cw2})</span><span>SEM 16</span>
+      <span>SEM 1</span><span style="color:var(--accent)">&#9679; ATUAL (SEM ${cw2})</span><span>SEM ${totalSemanas}</span>
+    </div>
+    <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:8px;font-family:var(--font-ui);font-size:8px;color:var(--muted)">
+      <span style="display:flex;align-items:center;gap:4px"><span style="width:9px;height:9px;background:var(--muted2);border-radius:2px;display:inline-block"></span>semanas passadas</span>
+      <span style="display:flex;align-items:center;gap:4px"><span style="width:9px;height:9px;background:var(--accent);border-radius:2px;display:inline-block"></span>semana atual</span>
+      <span style="display:flex;align-items:center;gap:4px"><span style="width:9px;height:9px;background:var(--border2);border-radius:2px;display:inline-block"></span>semanas a cumprir</span>
     </div>`;
   container.appendChild(cargaDiv);
 
@@ -11147,7 +11174,19 @@ function dicaFTPHtml(){
     // Numa prova sprint o atleta nao anda no FTP cheio: ~85-90% e o intervalo tipico pra
     // chegar na corrida com perna.
     const vProva=estimarVelocidadeFTP(obData.ftp,obData.weight,0.87);
-    return `≈ ${v.toFixed(1)}km/h sustentados no plano · em ritmo de prova (~87% do FTP) ≈ ${vProva.toFixed(1)}km/h<br><span style="color:var(--muted)">Velocidade sustentada, sem paradas nem subidas — sua media de pedal no dia a dia costuma ser bem menor.</span>`;
+    // Media real recente do Strava ao lado: um FTP que preve velocidade muito distante do que a
+    // pessoa realmente pedala quase sempre e erro de digitacao ou valor desatualizado — e nao da
+    // pra perceber isso sem os dois numeros lado a lado.
+    let comparativo='';
+    try{
+      const hist=JSON.parse(localStorage.getItem('mytri_pace_history')||'[]').filter(h=>h.sport==='ciclismo'&&h.kmh);
+      if(hist.length){
+        const med=hist.slice(-5).reduce((a,b)=>a+b.kmh,0)/Math.min(5,hist.length);
+        const distante=Math.abs(v-med)/med>0.25;
+        comparativo=`<br><span style="color:${distante?'#f0a500':'var(--muted)'}">Suas ultimas pedaladas: ${med.toFixed(1)}km/h de media real.${distante?' Esse FTP nao parece bater com isso — confira o valor.':''}</span>`;
+      }
+    }catch(e){}
+    return `≈ ${v.toFixed(1)}km/h sustentados no plano · em ritmo de prova (~87% do FTP) ≈ ${vProva.toFixed(1)}km/h${comparativo}<br><span style="color:var(--muted)">Velocidade sustentada, sem paradas nem subidas — sua media de pedal no dia a dia costuma ser bem menor.</span>`;
   }catch(e){ return ''; }
 }
 function atualizarDicaFTP(){
