@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="v20260726171834">
+<meta name="app-version" content="v20260727130119">
 <script>
 // Auto-atualizacao: navegadores (principalmente Safari/iOS) as vezes seguram uma versao antiga
 // em cache mesmo depois de um deploy novo no servidor, causando confusao de "mudei o codigo mas
@@ -511,7 +511,10 @@ summary span:last-child{transition:transform .2s;display:inline-block}
         <div style="font-family:var(--font-ui);font-size:9px;color:var(--accent);letter-spacing:1px">COACH IA · SABE DO SEU TREINO</div>
       </div>
     </div>
-    <button onclick="closeConsult()" style="background:none;border:none;color:var(--muted2);font-size:28px;cursor:pointer;line-height:1;padding:0 4px">&times;</button>
+    <div style="display:flex;align-items:center;gap:14px">
+      <span onclick="novaConversaConsult()" title="Nova conversa" style="font-family:var(--font-ui);font-size:10px;color:var(--muted2);letter-spacing:1px;cursor:pointer;white-space:nowrap">NOVA</span>
+      <button onclick="closeConsult()" style="background:none;border:none;color:var(--muted2);font-size:28px;cursor:pointer;line-height:1;padding:0 4px">&times;</button>
+    </div>
   </div>
   <div style="padding:6px 16px;display:flex;justify-content:flex-end">
     <button onclick="clearConsultHistory()" style="background:none;border:none;color:var(--muted);font-family:var(--font-ui);font-size:10px;letter-spacing:1px;cursor:pointer;padding:2px">LIMPAR CONVERSA</button>
@@ -5032,6 +5035,20 @@ const _consultSuggestions=[
   'O que priorizar até a prova?',
   'Dicas de hidratação e nutrição'
 ];
+
+// Comeca uma conversa do zero. Deliberadamente MANUAL, nao automatico por dia: o valor de um
+// coach com IA e lembrar do que voce contou (dor, mudanca de rotina, ajuste de plano) — apagar
+// tudo toda madrugada jogaria isso fora. O botao existe pra quando o historico ficar velho e o
+// coach comecar a repetir informacao desatualizada.
+function novaConversaConsult(){
+  if(_consultHistory.length&&!confirm('Comecar uma conversa nova? O historico atual sera apagado.'))return;
+  _consultHistory=[];
+  try{ localStorage.removeItem(CONSULT_HISTORY_KEY); }catch(e){}
+  try{ sbSet('mytri_consult_history',[]).catch(()=>{}); }catch(e){}
+  const box=document.getElementById('consult-messages');
+  if(box)box.innerHTML='';
+  _renderConsultWelcome();
+}
 
 function openConsult(){
   const m=document.getElementById('consult-modal');
@@ -12611,27 +12628,46 @@ function renderComparativoAnterior(ov, sess){
 function renderSessionAnalysis(modal, dotColor, pillText, text, ov, plannedDist, sess, w, d){
   // Zona que o TREINO PEDIA. E a informacao que o Strava nao tem: ele mostra em que zona voce
   // ficou, nao se era a zona certa. Vem do proprio motor de plano (getZone).
-  // Recupera o ID da atividade quando o registro do treino nao tem (gravado por versao antiga:
-  // tem distancia/tempo/FC, mas nao o id — e a sincronizacao seguinte nem sempre reescreve). O
-  // historico ja guarda id + data + modalidade de cada atividade, entao da pra achar por ali.
+  // Recupera o ID da atividade quando o registro do treino nao tem (gravado por versao antiga).
+  // Casa pelos NUMEROS do proprio treino (distancia + tempo + FC), nao pela data: distancia e
+  // tempo juntos sao praticamente uma impressao digital da atividade, enquanto a data falha
+  // sempre que o treino foi feito em dia diferente do planejado ou o inicio do plano nao bate.
   if(ov&&!ov.stravaActivityId&&sess&&sess.type){
     try{
       const mapa={run:'corrida',bike:'ciclismo',swim:'natacao'};
       const sport=mapa[sess.type];
-      if(sport){
-        const PS=getPlanStart();
-        const dataSessao=new Date(PS);
-        dataSessao.setDate(PS.getDate()+((w-1)*7)+(d-1));
-        const iso=dataSessao.toISOString().slice(0,10);
-        const hist=JSON.parse(localStorage.getItem('mytri_pace_history')||'[]');
-        const cand=hist.filter(h=>h.sport===sport&&h.date===iso&&h.id);
-        if(cand.length===1)ov.stravaActivityId=cand[0].id;
-        else if(cand.length>1){
-          // Mais de uma atividade da mesma modalidade no dia: escolhe a de distancia mais
-          // proxima da que ficou registrada nesse treino.
-          const alvo=parseFloat(ov.stravaDist)||0;
-          cand.sort((a,b)=>Math.abs((a.dist||0)-alvo)-Math.abs((b.dist||0)-alvo));
-          ov.stravaActivityId=cand[0].id;
+      const hist=JSON.parse(localStorage.getItem('mytri_pace_history')||'[]');
+      const doEsporte=hist.filter(h=>h&&h.id&&(!sport||h.sport===sport));
+      if(doEsporte.length){
+        // Distancia registrada no treino: "5km", "1000m" (natacao) ou "20.4km".
+        const dStr=String(ov.stravaDist||'');
+        let distKm=parseFloat(dStr)||0;
+        if(/m$/i.test(dStr)&&!/km$/i.test(dStr))distKm=distKm/1000;
+        // Tempo registrado: "38min" ou "1h05min".
+        let minutos=0;
+        const mt=dStr&&String(ov.stravaTime||'').match(/(?:(\d+)h\s*)?(\d+)min/);
+        if(mt)minutos=(parseInt(mt[1]||0)*60)+parseInt(mt[2]);
+        const hrReg=parseFloat(String(ov.stravaHR||''))||0;
+
+        const pontuar=h=>{
+          let p=0;
+          if(distKm>0&&h.dist>0){
+            const dif=Math.abs(h.dist-distKm)/distKm;
+            if(dif>0.06)return null;          // distancia destoa demais: nao e essa atividade
+            p+=dif*100;
+          }
+          if(minutos>0&&h.movingTime>0){
+            const difT=Math.abs((h.movingTime/60)-minutos)/minutos;
+            if(difT>0.08)return null;
+            p+=difT*100;
+          }
+          if(hrReg>0&&h.hr>0)p+=Math.abs(h.hr-hrReg)/10;
+          return p;
+        };
+        const cand=doEsporte.map(h=>({h,p:pontuar(h)})).filter(x=>x.p!=null);
+        if(cand.length){
+          cand.sort((a,b)=>a.p-b.p);
+          ov.stravaActivityId=cand[0].h.id;
         }
       }
     }catch(e){}
@@ -12732,7 +12768,18 @@ async function loadStreamSection(ov, sess, plannedZone){
   const aviso=msg=>`<div style="border-top:1px solid var(--border);margin-top:8px;padding:14px 0;font-family:var(--font-body);font-size:11px;color:var(--muted);line-height:1.5">${msg}</div>`;
 
   if(!ov||!ov.stravaActivityId){
-    container.innerHTML=aviso('Detalhes por quilometro, graficos de ritmo e zonas de FC aparecem para treinos sincronizados do Strava. Sincronize o Strava novamente para liberar esses dados neste treino.');
+    // Diz o motivo REAL em vez de sempre culpar a sincronizacao — sem isso nao da pra saber se
+    // falta o historico, se a atividade nao esta nele, ou se o treino nem veio do Strava.
+    let motivo='Sincronize o Strava novamente para liberar esses dados neste treino.';
+    try{
+      const hist=JSON.parse(localStorage.getItem('mytri_pace_history')||'[]');
+      const comId=hist.filter(h=>h&&h.id).length;
+      if(!hist.length)motivo='Seu historico de atividades esta vazio. Sincronize o Strava para liberar parciais, graficos e zonas.';
+      else if(!comId)motivo='Seu historico foi gravado por uma versao antiga do app (sem identificador das atividades). Sincronize o Strava novamente para regrava-lo.';
+      else if(!ov||!ov.stravaDist)motivo='Este treino nao tem dados do Strava associados — foi registrado manualmente.';
+      else motivo=`Nao encontrei esta atividade entre as ${comId} sincronizadas do Strava. Se ela e antiga, pode ter saido da janela de sincronizacao.`;
+    }catch(e){}
+    container.innerHTML=aviso(`Detalhes por quilometro, graficos de ritmo e zonas de FC aparecem para treinos sincronizados do Strava. ${motivo}`);
     return;
   }
 
