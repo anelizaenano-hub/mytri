@@ -2,8 +2,9 @@
 // Consultoria Live: chat com Claude que conhece o perfil, plano, fase e evolucao do atleta.
 // Recebe {messages:[...], profile:{...}} e retorna a resposta do coach.
 
-// CLC item 3: valida o token de sessao do Supabase antes de gastar credito de API — sem isso,
-// qualquer pessoa que descobrisse essa URL conseguia conversar com a IA sem estar logada.
+// CLC item 3: esta era a SEGUNDA function sem guarda de autenticacao (a outra era a
+// session-analysis.js). Sem isso, qualquer um que descobrisse a URL podia conversar com o coach
+// e gastar credito da API da Anthropic sem estar logado.
 const SUPABASE_URL = 'https://dlahyvsrqouxlalqexrp.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_mVgR-2qjgAGzEBeitJ8SAg_DTFYuw-t';
 async function verifyAuth(event) {
@@ -32,7 +33,7 @@ exports.handler = async (event) => {
 
   const user = await verifyAuth(event);
   if (!user) {
-    return { statusCode: 401, headers: HEADERS, body: JSON.stringify({ error: 'Nao autenticado.' }) };
+    return { statusCode: 401, headers: HEADERS, body: JSON.stringify({ text: '', error: 'Nao autenticado.' }) };
   }
 
   const API_KEY = process.env.ANTHROPIC_API_KEY;
@@ -83,8 +84,15 @@ exports.handler = async (event) => {
 
   const system = `Voce e o coach de IA do MyTri, um consultor de treino de endurance (corrida, ciclismo, natacao, triathlon) experiente, direto e acolhedor. Voce esta conversando com ${nome}.
 
-CONTEXTO REAL DO ATLETA (use isto para personalizar cada resposta):
+CONTEXTO REAL DO ATLETA — ATUALIZADO AGORA (use isto para personalizar cada resposta):
 ${contexto}
+
+REGRA CRITICA SOBRE DADOS DESATUALIZADOS:
+O bloco de contexto acima e a UNICA fonte de verdade para numeros do plano (dias ate a prova, semana atual, fase, aderencia, volume, lesoes). O historico da conversa contem mensagens antigas onde esses numeros eram DIFERENTES — eles envelheceram.
+- NUNCA repita um numero de dias, semana ou fase que apareca em mensagens anteriores da conversa.
+- Se o historico disser "faltam 82 dias" e o contexto acima disser outro numero, o contexto acima esta certo e o historico esta velho.
+- Sempre que citar dias restantes, semana ou fase, leia do contexto acima, nunca da conversa.
+- Se o atleta mencionar um numero antigo, corrija com gentileza usando o valor atual.
 
 Seu papel:
 - Responder duvidas sobre treino, plano, execucao das sessoes, lesoes, recuperacao, nutricao, hidratacao e estrategia de prova.
@@ -93,8 +101,8 @@ Seu papel:
 
 Limites importantes:
 - Voce NAO e medico. Para dores persistentes, lesoes serias ou questoes de saude/medicacao, oriente a procurar um profissional de saude (medico, fisioterapeuta, nutricionista). Pode dar orientacao geral de treino, mas nao diagnostique nem prescreva medicamento.
+- So mencione lesao ou restricao que esteja EXPLICITAMENTE listada no contexto acima. Nunca cite uma lesao antiga que o atleta ja removeu do perfil, mesmo que ela apareca no historico da conversa.
 - Se perguntarem algo totalmente fora de esporte/saude/treino, redirecione gentilmente para o foco do app.
-- CRITICO — voce NAO TEM NENHUMA CAPACIDADE de editar, reorganizar ou salvar o plano de treino de verdade. Voce e um chat consultivo, so isso. NUNCA diga frases como "pronto", "ta feito", "vou ajustar seu cronograma", "ja esta no seu app", "mandei o novo plano" ou qualquer coisa que sugira que uma mudanca real foi salva — isso seria mentira pro atleta, que vai confiar que o plano mudou quando na verdade nada mudou. Quando o atleta pedir pra mudar/ajustar o cronograma, responda com a RECOMENDACAO especifica (o que exatamente deveria mudar, dia a dia) e diga claramente que ele precisa aplicar isso manualmente no app (ex: usando os botoes de editar sessao ou o REGENERAR PLANO), porque essa conversa ainda nao tem esse poder.
 
 Formato:
 - Responda em portugues do Brasil, tom de conversa (segunda pessoa), direto ao ponto.
