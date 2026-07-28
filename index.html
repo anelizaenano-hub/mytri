@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="v20260727134030">
+<meta name="app-version" content="v20260728213600">
 <script>
 // Auto-atualizacao: navegadores (principalmente Safari/iOS) as vezes seguram uma versao antiga
 // em cache mesmo depois de um deploy novo no servidor, causando confusao de "mudei o codigo mas
@@ -11975,10 +11975,20 @@ async function showPlanSummary(profile){
     // Dispara a geracao em background — recebe 202 na hora, o texto ainda nao vem aqui.
     // Teto de 10s aqui: so pra confirmar que a function aceitou o pedido, nao pra esperar o
     // resultado (isso e o polling abaixo).
+    // A foto do perfil e guardada como base64 dentro do proprio perfil. Mandar o perfil inteiro
+    // estourava o limite de tamanho da chamada e o gateway devolvia 500 antes da function rodar
+    // (sem log, porque ela nem chegava a ser executada). A IA nao usa imagem pra escrever o
+    // resumo, entao qualquer campo pesado sai daqui.
+    const perfilLeve={...profile};
+    ['photo','coverPhoto','avatar','extraPhotos','fotos'].forEach(k=>delete perfilLeve[k]);
+    Object.keys(perfilLeve).forEach(k=>{
+      const v=perfilLeve[k];
+      if(typeof v==='string'&&(v.startsWith('data:')||v.length>2000))delete perfilLeve[k];
+    });
     const kickoff=await fetchComTimeout('/.netlify/functions/plan-summary-background',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({profile:{...profile,
+      body:JSON.stringify({profile:{...perfilLeve,
         paceNecessarioMeta: calcPaceNecessarioMeta(profile),
         distanciasProva: calcDistanciasProva(profile),
         comparacaoPace: calcComparacaoPace(profile, calcPaceNecessarioMeta(profile))
