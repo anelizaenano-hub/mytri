@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="v20260729142118">
+<meta name="app-version" content="v20260729222654">
 <script>
 // Auto-atualizacao: navegadores (principalmente Safari/iOS) as vezes seguram uma versao antiga
 // em cache mesmo depois de um deploy novo no servidor, causando confusao de "mudei o codigo mas
@@ -1276,7 +1276,7 @@ function buildSession(type, fase, week, zones, paces, lesoes, level, raceDist) {
       paceAlvo: paces.Z2,
       structure: [
         { part: 'Aquecimento', dur: 10, zone: 'Z1', fc: `${zones.Z1.min}-${zones.Z1.max} bpm`, desc: 'Trote leve, ative os músculos' },
-        { part: 'Bloco Principal', dur: hasLesaoJoelho ? 20 : 30, zone: 'Z2', fc: `${zones.Z2.min}-${zones.Z2.max} bpm`, desc: hasLesaoJoelho ? 'Volume reduzido por lesao no joelho — foque na postura' : 'Ritmo confortável, nariz respirando' },
+        { part: 'Bloco Principal', dur: hasLesaoJoelho ? 20 : 30, zone: 'Z2', fc: `${zones.Z2.min}-${zones.Z2.max} bpm`, desc: hasLesaoJoelho ? 'Volume reduzido por lesão no joelho — foque na postura' : 'Ritmo confortável, nariz respirando' },
         { part: 'Desaquecimento', dur: 5, zone: 'Z1', fc: `${zones.Z1.min}-${zones.Z1.max} bpm`, desc: 'Trote muito leve, respire fundo' },
       ],
       coach: hasLesaoJoelho
@@ -1513,7 +1513,7 @@ function buildSession(type, fase, week, zones, paces, lesoes, level, raceDist) {
         { part: 'Alongamento Dinâmico', dur: 12, zone: '', fc: '', desc: 'Cadeia posterior, flexores do quadril, piriforme, tornozelo. Segure 30s cada, respire fundo' },
         { part: 'Mobilidade Articular', dur: 8, zone: '', fc: '', desc: hasLesaoOmbro ? 'Quadril e tornozelo. Ombro: rotacao suave sem carga, respeitando a lesao' : 'Quadril, tornozelo e ombro (importante para nado). Movimentos amplos e controlados' },
       ],
-      coach: 'Mobilidade e o que mantem você treinando sem parar. Recupera tecido, previne lesao e melhora amplitude. Dia leve mas essencial — não pule.',
+      coach: 'Mobilidade é o que mantém você treinando sem parar. Recupera tecido, previne lesão e melhora amplitude. Dia leve mas essencial — não pule.',
     },
   };
 
@@ -1551,8 +1551,8 @@ function sessionMetricLabel(sess){
 // provas longas = mais volume/endurance.
 function getSessionMix(sport, raceDist, fase){
   const d = raceDist || '';
-  const isShort = /5k|10k|super-sprint|sprint|criterium|swim-1500/.test(d);
-  const isLong  = /meia|maratona|half|full|olimpico|century|mtb|trail|swim-3800|swim-open/.test(d);
+  const isShort = /5k|10k|super-sprint|sprint|criterium|swim-400|swim-800|swim-1500/.test(d);
+  const isLong  = /meia|maratona|half|full|olimpico|century|mtb|trail|swim-3000|swim-3800|swim-5000|swim-10000|swim-open/.test(d);
 
   // helper: monta lista priorizada [chave, secundária(s), força, longa, easy...]
   const MIX = {
@@ -1695,7 +1695,7 @@ function generatePlan(profile) {
       'super-sprint':0.7,'sprint':0.85,'olimpico':1.1,'half':1.5,'full':2.0,
       'corrida-5k':0.7,'corrida-10k':0.9,'corrida-15k':1.05,'corrida-meia':1.3,'corrida-maratona':1.8,'corrida-trail':1.4,
       'bike-criterium':0.85,'bike-gran-fondo':1.4,'bike-mtb':1.2,'bike-century':1.9,
-      'swim-1500':0.85,'swim-3800':1.6,'swim-open':1.3,
+      'swim-400':0.5,'swim-800':0.65,'swim-1500':0.85,'swim-3000':1.3,'swim-3800':1.6,'swim-5000':1.85,'swim-10000':2.3,'swim-open':1.3,
       'du-sprint':0.85,'du-standard':1.1,
     };
     return F[d] || 1.0;
@@ -2213,6 +2213,13 @@ function enforceCacheOwnership(session){
     const token=session.access_token, refresh=session.refresh_token, user=session.user;
     localStorage.clear();
     saveSession({access_token:token,refresh_token:refresh,expires_at:Date.now()+3600*1000,user});
+    // limpar o localStorage NAO limpa variaveis que ja estavam na memoria (profile, obData,
+    // estado do club, cache da loja etc.) — trocar de conta sem sair da pagina deixava esse
+    // resto grudado da conta anterior, e a nova conta as vezes via dado de quem logou antes
+    // dela no mesmo aparelho (ex: lista de produtos da loja "travada" na conta primeira).
+    // Recarregar a pagina e a unica forma confiavel de zerar TUDO de uma vez.
+    location.reload();
+    return;
   }
   if(uid) localStorage.setItem('mytri_last_uid',uid);
 }
@@ -2724,8 +2731,26 @@ function renderCargaTreinoHTML(){
         <div style="font-family:var(--font-body);font-size:12px;color:#f0a500;line-height:1.5">Sua carga subiu ${Math.round(variacao)}% acima da media das ultimas semanas. Saltos bruscos de volume/intensidade sao o padrao que costuma preceder lesao — vale checar se a proxima semana pode ser mais leve.</div>
       </div>`;
     }else if(variacao<-40){
+      // Antes isso era condicional generico ("se for semana de recuperacao, e esperado") — mas
+      // o proprio plano ja sabe em que fase a semana atual esta (_fase/_isRecovery gravados em
+      // cada sessao na geracao do plano). Troca a suposicao por diagnostico direto.
+      let diagFase='';
+      try{
+        const {w:_cwLoad}=getCurrentWeekAndDay();
+        let _sessFase=null;
+        for(let d=0;d<7&&!_sessFase;d++){
+          const ss=getEffectiveSessions(_cwLoad,d);
+          const comFase=ss.find(s=>s._fase);
+          if(comFase)_sessFase=comFase;
+        }
+        if(_sessFase){
+          if(_sessFase._isRecovery) diagFase='Essa semana está marcada como recuperação no seu plano — a queda de carga é esperada.';
+          else if(_sessFase._fase==='taper') diagFase='Essa semana está na fase de polimento (taper) do seu plano — reduzir carga antes da prova é o objetivo.';
+          else diagFase=`Essa semana NÃO está marcada como recuperação (está em fase "${_sessFase._fase}") — vale conferir se treinos ficaram de fora sem querer.`;
+        }
+      }catch(e){}
       alerta=`<div style="margin-top:12px;padding:12px 14px;border-radius:10px;background:rgba(90,96,112,.15);border:1px solid var(--border)">
-        <div style="font-family:var(--font-body);font-size:12px;color:var(--muted2);line-height:1.5">Carga ${Math.abs(Math.round(variacao))}% abaixo da media recente. Se for semana de recuperacao ou polimento, e exatamente o esperado.</div>
+        <div style="font-family:var(--font-body);font-size:12px;color:var(--muted2);line-height:1.5">Carga ${Math.abs(Math.round(variacao))}% abaixo da média recente. ${diagFase||'Se for semana de recuperação ou polimento, é exatamente o esperado.'}</div>
       </div>`;
     }
   }
@@ -3268,7 +3293,7 @@ function openExerciseGuide(w,d,si){
       </div>
       <div style="padding:16px 18px">
         <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px">${cards}</div>
-        <div style="font-family:var(--font-body);font-size:11px;color:var(--muted2);text-align:center;margin-top:16px;line-height:1.5">Fotos de referência de execução. As imagens alternam entre inicio e fim do movimento. Execute com controle e boa postura.</div>
+        <div style="font-family:var(--font-body);font-size:11px;color:var(--muted2);text-align:center;margin-top:16px;line-height:1.5">Fotos de referência de execução. As imagens alternam entre início e fim do movimento. Execute com controle e boa postura.</div>
         <button onclick="closeExerciseGuide()" style="width:100%;margin-top:18px;padding:15px;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-family:var(--font-ui);font-size:12px;font-weight:700;letter-spacing:2px;border-radius:8px;cursor:pointer">FECHAR</button>
       </div>
     </div>`;
@@ -5095,7 +5120,7 @@ const _consultSuggestions=[
 // tudo toda madrugada jogaria isso fora. O botao existe pra quando o historico ficar velho e o
 // coach comecar a repetir informacao desatualizada.
 function novaConversaConsult(){
-  if(_consultHistory.length&&!confirm('Comecar uma conversa nova? O historico atual sera apagado.'))return;
+  if(_consultHistory.length&&!confirm('Começar uma conversa nova? O histórico atual será apagado.'))return;
   _consultHistory=[];
   try{ localStorage.removeItem(CONSULT_HISTORY_KEY); }catch(e){}
   try{ sbSet('mytri_consult_history',[]).catch(()=>{}); }catch(e){}
@@ -5290,7 +5315,9 @@ function _reportData(type){
 
 async function openReport(type){
   const m=_reportModal();
-  const titles={weekly:'REPORT SEMANAL',monthly:'REPORT MENSAL',race:'RETROSPECTIVA POS-PROVA'};
+  const _profRep=getMytriProfile&&getMytriProfile()||{};
+  const _hasRaceRep=!!(_profRep.raceName&&String(_profRep.raceName).trim()&&_profRep.raceDate);
+  const titles={weekly:'REPORT SEMANAL',monthly:'REPORT MENSAL',race:_hasRaceRep?'RETROSPECTIVA POS-PROVA':'RETROSPECTIVA POS-PLANO'};
   m.innerHTML=`
     <div style="background:var(--surface);border-top:1px solid var(--border);border-radius:16px 16px 0 0;width:100%;max-height:80vh;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 0 40px">
       <div style="position:sticky;top:0;background:var(--surface);padding:20px 22px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
@@ -5821,7 +5848,7 @@ function renderStats(){
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button onclick="openReport('weekly')" style="flex:1;min-width:90px;background:rgba(0,230,118,0.08);border:1px solid rgba(0,230,118,0.3);color:var(--accent);font-family:var(--font-ui);font-size:10px;font-weight:700;letter-spacing:1px;padding:12px 8px;border-radius:6px;cursor:pointer">SEMANAL</button>
       <button onclick="openReport('monthly')" style="flex:1;min-width:90px;background:rgba(0,230,118,0.08);border:1px solid rgba(0,230,118,0.3);color:var(--accent);font-family:var(--font-ui);font-size:10px;font-weight:700;letter-spacing:1px;padding:12px 8px;border-radius:6px;cursor:pointer">MENSAL</button>
-      <button onclick="openReport('race')" style="flex:1;min-width:90px;background:rgba(0,230,118,0.08);border:1px solid rgba(0,230,118,0.3);color:var(--accent);font-family:var(--font-ui);font-size:10px;font-weight:700;letter-spacing:1px;padding:12px 8px;border-radius:6px;cursor:pointer">POS-PROVA</button>
+      <button onclick="openReport('race')" style="flex:1;min-width:90px;background:rgba(0,230,118,0.08);border:1px solid rgba(0,230,118,0.3);color:var(--accent);font-family:var(--font-ui);font-size:10px;font-weight:700;letter-spacing:1px;padding:12px 8px;border-radius:6px;cursor:pointer">${(()=>{const _p=getMytriProfile&&getMytriProfile()||{};return (_p.raceName&&String(_p.raceName).trim()&&_p.raceDate)?'POS-PROVA':'POS-PLANO';})()}</button>
     </div>`;
   container.appendChild(repDiv);
 
@@ -6167,7 +6194,11 @@ function renderConquistas(){
   badgeSection.innerHTML='<div style="font-family:var(--font-ui);font-size:10px;color:var(--accent);letter-spacing:2px;margin-bottom:16px">CONQUISTAS</div>';
   const badgeGrid=document.createElement('div');
   badgeGrid.style.cssText='display:grid;grid-template-columns:repeat(3,1fr);gap:16px';
-  BADGES.forEach(b=>{
+  // So mostra badges relevantes pra modalidade que o atleta esta treinando agora — nao faz
+  // sentido exibir "Corredao" pra quem so nada. Badges sem "sports" definido sao universais
+  // (ex: Primeiro Treino, Madrugador) e aparecem sempre.
+  const _sportAtual=(getMytriProfile&&getMytriProfile().sport)||'triathlon';
+  BADGES.filter(b=>!b.sports||b.sports.includes(_sportAtual)).forEach(b=>{
     let unlocked=false;
     try{unlocked=b.check();}catch(e){}
     const item=document.createElement('div');
@@ -6319,7 +6350,8 @@ function renderConquistas(){
   section.appendChild(badgeTitle);
 
   const grid=document.createElement('div');grid.className='badges-grid';
-  BADGES.forEach(b=>{
+  const _sportAtual2=(getMytriProfile&&getMytriProfile().sport)||'triathlon';
+  BADGES.filter(b=>!b.sports||b.sports.includes(_sportAtual2)).forEach(b=>{
     let unlocked=false;try{unlocked=b.check();}catch(e){}
     const item=document.createElement('div');item.className='badge-item';
     item.innerHTML=`
@@ -7439,7 +7471,7 @@ Depois dessa linha, escreva todo o texto explicativo normalmente.`;
       }catch(e){ continue; }
       let statusData={};
       try{ statusData=await statusResp.json(); }catch(e){ continue; }
-      if(statusResp.status===401) throw new Error('Sua sessao expirou. Saia e entre de novo no app, depois refaca a analise.');
+      if(statusResp.status===401) throw new Error('Sua sessão expirou. Saia e entre de novo no app, depois refaça a análise.');
       if(statusData.status==='done'){ text=statusData.text_result||''; done=true; break; }
       if(statusData.status==='error'){ throw new Error(statusData.error_message||'Erro na analise'); }
     }
@@ -7832,7 +7864,15 @@ function openCreateGroupForm(){
     <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;display:block;margin-bottom:6px">NOME DO GRUPO</label>
     <input id="mb-nome" placeholder="Ex: Equipe Sub21" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:13px;border-radius:8px;margin-bottom:16px">
     <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;display:block;margin-bottom:6px">FOCO (OPCIONAL)</label>
-    <input id="mb-foco" placeholder="Ex: Corrida, Triathlon..." style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:13px;border-radius:8px;margin-bottom:16px">
+    <select id="mb-foco" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:13px;border-radius:8px;margin-bottom:16px;appearance:none;-webkit-appearance:none">
+      <option value="">Todas as modalidades</option>
+      <option value="Triathlon">Triathlon</option>
+      <option value="Corrida">Corrida</option>
+      <option value="Ciclismo">Ciclismo</option>
+      <option value="Natação">Natação</option>
+      <option value="Caminhada">Caminhada</option>
+      <option value="Duathlon">Duathlon</option>
+    </select>
     <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;display:block;margin-bottom:6px">COMO PONTUA?</label>
     <div style="display:flex;gap:8px;margin-bottom:24px" id="mb-scoring">
       ${['Número de treinos','Distancia (km)','Minutos'].map((l,i)=>`<div onclick="_mbSelectScoring(${i})" data-i="${i}" class="mb-score-opt" style="flex:1;text-align:center;padding:12px 6px;border-radius:8px;border:1px solid ${i===0?'var(--accent)':'var(--border)'};background:${i===0?'rgba(0,230,118,0.1)':'var(--surface)'};color:${i===0?'var(--accent)':'var(--muted2)'};font-family:var(--font-ui);font-size:10px;letter-spacing:.5px;cursor:pointer">${l}</div>`).join('')}
@@ -7911,10 +7951,14 @@ async function openJoinGroupForm(){
     if(!r.ok){
       const err=await r.json().catch(()=>({}));
       console.error('Erro ao entrar no grupo:',r.status,err);
-      alert(err.message&&err.message.includes('Código invalido')?'Código invalido.':'Não consegui entrar no grupo. Confere o código.');
+      alert(err.message?`Não consegui entrar no grupo: ${err.message}`:'Não consegui entrar no grupo. Confere o código.');
       return;
     }
     const groupId=await r.json().catch(()=>null);
+    if(!groupId){
+      alert('O grupo respondeu sem confirmar a entrada. Sai e entra no Club de novo pra conferir se funcionou.');
+      return;
+    }
     // A funcao join_group_by_code não aceita foto (RPC generica) — completa com um PATCH
     // separado, que a regra "members_update_self" já permite pro próprio membro.
     if(groupId&&prof.photo&&uid){
@@ -8330,7 +8374,7 @@ function renderClubMyProfile(c){
 // aceitacao dos termos — a pessoa continua no MyTri normalmente, so nao participa mais desse
 // clube ate decidir entrar de novo (o que vai pedir os termos e o perfil de novo, do zero).
 function leaveClubAzul(){
-  if(!confirm('Sair do Clube da Meia Azul? Seu perfil, curtidas e matches desse clube serao apagados. Voce pode entrar de novo quando quiser, mas vai comecar do zero.'))return;
+  if(!confirm('Sair do Clube da Meia Azul? Seu perfil, curtidas e matches desse clube serão apagados. Você pode entrar de novo quando quiser, mas vai começar do zero.'))return;
   clubState={step:'onboard',myProfile:null,currentIdx:0,liked:[],passed:[],matches:[],matchedWith:null,dragStart:null};
   saveClubState();
   localStorage.removeItem('mytri_club_terms');
@@ -8971,7 +9015,7 @@ async function openMatchChat(otherUserId){
     const profs=rProf.ok?await rProf.json():[];
     otherProfile=profs[0];
   }catch(e){}
-  if(!matchRow){ alert('Nao encontrei esse match.'); return; }
+  if(!matchRow){ alert('Não encontrei esse match.'); return; }
 
   const overlay=document.createElement('div');
   overlay.id='match-chat-overlay';
@@ -9327,7 +9371,7 @@ function renderProfile(){
            atualizar localizacao, strava/instagram) param a propagacao pra nao abrir os dois. -->
       <div style="padding:0 20px 16px;position:relative;cursor:pointer" onclick="changeCoverPhoto()">
         <div style="display:flex;align-items:flex-end;gap:14px;margin-top:-40px">
-          <div style="position:relative;flex-shrink:0" onclick="event.stopPropagation()">
+          <div style="position:relative;flex-shrink:0;padding:10px;margin:-10px" onclick="event.stopPropagation()">
             <div id="moments-ring" style="display:inline-block;border-radius:50%;padding:3px;background:var(--bg);line-height:0">
               <div onclick="(window._momentosUrls&&window._momentosUrls.length)?viewMoment(0):changeProfilePhoto()" style="cursor:pointer;border-radius:50%;line-height:0;display:inline-block">${photoEl}</div>
             </div>
@@ -9918,14 +9962,14 @@ function viewMoment(idx,source){
   render();
 }
 async function deleteMoment(momentId){
-  if(!confirm('Apagar esse Instant? Nao pode ser desfeito.'))return;
+  if(!confirm('Apagar esse Instant? Não pode ser desfeito.'))return;
   try{
     await fetch(`${SB_URL}/rest/v1/mytri_moments?id=eq.${momentId}`,{method:'DELETE',headers:sbHeaders()});
     const overlay=document.getElementById('moment-viewer');
     if(overlay)overlay.remove();
     loadProfileMomentos();
   }catch(e){
-    alert('Nao consegui apagar agora. Tenta de novo.');
+    alert('Não consegui apagar agora. Tenta de novo.');
   }
 }
 // Adiciona um Instant pessoal: foto crua, sem edicao, direto no proprio perfil — o botao
@@ -9955,7 +9999,7 @@ function openAddMoment(){
       });
       loadProfileMomentos();
     }catch(err){
-      alert('Nao consegui adicionar o Instant agora. Tenta de novo.');
+      alert('Não consegui adicionar o Instant agora. Tenta de novo.');
     }
   };
   input.click();
@@ -10027,19 +10071,125 @@ function changeCoverPhoto(){
 function handleCoverPhoto(e){
   const file=e.target.files[0];
   if(!file)return;
-  comprimirImagem(file,1400,0.72).then(b64=>{
-    const prof=getMytriProfile();
-    const anterior=prof.coverPhoto;
-    prof.coverPhoto=b64;
-    try{
-      saveMytriProfile(prof);
-    }catch(err){
-      prof.coverPhoto=anterior;
-      alert('Nao consegui salvar a foto — o armazenamento do app esta cheio. Apague alguma foto antes.');
-      return;
-    }
-    renderProfile();
-  }).catch(()=>alert('Nao consegui processar essa imagem.'));
+  e.target.value='';   // permite escolher o mesmo arquivo de novo depois de cancelar
+  const reader=new FileReader();
+  reader.onload=ev=>abrirEditorCapa(ev.target.result);
+  reader.onerror=()=>alert('Não consegui processar essa imagem.');
+  reader.readAsDataURL(file);
+}
+
+// ── EDITOR DE CAPA (zoom/recorte) ──
+// Antes a foto de capa ia direto pro fundo borrado + imagem inteira "contain" — funcionava mas
+// nao dava controle nenhum sobre o enquadramento numa foto larga. Agora abre um editor: arrasta
+// pra posicionar, desliza pra dar zoom, e o que aparece no quadro e exatamente o que vira a capa.
+let _capaEdit=null;
+function abrirEditorCapa(dataUrl){
+  const img=new Image();
+  img.onload=()=>{
+    const frameW=Math.min(420,window.innerWidth-32);
+    const frameH=frameW*9/16;
+    const baseScale=Math.max(frameW/img.width,frameH/img.height);
+    _capaEdit={img,dataUrl,frameW,frameH,baseScale,zoom:1,tx:0,ty:0,dragging:false,startX:0,startY:0,startTx:0,startTy:0};
+    const overlay=document.createElement('div');
+    overlay.id='capa-editor-overlay';
+    overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:20px';
+    overlay.innerHTML=`
+      <div style="font-family:var(--font-ui);font-size:11px;color:var(--muted2);letter-spacing:1px;text-align:center">ARRASTE PRA POSICIONAR · DESLIZE PRA DAR ZOOM</div>
+      <div id="capa-editor-frame" style="position:relative;width:${frameW}px;height:${frameH}px;overflow:hidden;border-radius:12px;border:2px solid var(--accent);touch-action:none;cursor:grab">
+        <img id="capa-editor-img" src="${dataUrl}" style="position:absolute;left:50%;top:50%;transform-origin:center center;user-select:none;-webkit-user-drag:none;pointer-events:none">
+      </div>
+      <input id="capa-editor-zoom" type="range" min="100" max="300" value="100" style="width:${frameW}px" oninput="_capaEditZoom(this.value)">
+      <div style="display:flex;gap:12px;width:${frameW}px">
+        <button onclick="fecharEditorCapa()" style="flex:1;padding:14px;background:none;border:1px solid var(--border);color:var(--text);border-radius:8px;font-family:var(--font-ui);font-size:12px;font-weight:700;letter-spacing:1px;cursor:pointer">CANCELAR</button>
+        <button onclick="salvarEditorCapa()" style="flex:1;padding:14px;background:var(--accent);border:none;color:#000;border-radius:8px;font-family:var(--font-ui);font-size:12px;font-weight:700;letter-spacing:1px;cursor:pointer">USAR ESSA FOTO</button>
+      </div>`;
+    document.body.appendChild(overlay);
+    _capaEditApplyTransform();
+    const frame=document.getElementById('capa-editor-frame');
+    frame.addEventListener('pointerdown',_capaEditPointerDown);
+    frame.addEventListener('pointermove',_capaEditPointerMove);
+    frame.addEventListener('pointerup',_capaEditPointerUp);
+    frame.addEventListener('pointercancel',_capaEditPointerUp);
+    frame.addEventListener('pointerleave',_capaEditPointerUp);
+  };
+  img.onerror=()=>alert('Não consegui processar essa imagem.');
+  img.src=dataUrl;
+}
+function _capaEditApplyTransform(){
+  const el=document.getElementById('capa-editor-img');
+  if(!el||!_capaEdit)return;
+  const s=_capaEdit.baseScale*_capaEdit.zoom;
+  el.style.width=Math.round(_capaEdit.img.width*s)+'px';
+  el.style.height=Math.round(_capaEdit.img.height*s)+'px';
+  el.style.transform=`translate(-50%,-50%) translate(${_capaEdit.tx}px, ${_capaEdit.ty}px)`;
+}
+function _capaEditClamp(){
+  const c=_capaEdit;
+  const dispW=c.img.width*c.baseScale*c.zoom, dispH=c.img.height*c.baseScale*c.zoom;
+  const maxX=Math.max(0,(dispW-c.frameW)/2), maxY=Math.max(0,(dispH-c.frameH)/2);
+  c.tx=Math.max(-maxX,Math.min(maxX,c.tx));
+  c.ty=Math.max(-maxY,Math.min(maxY,c.ty));
+}
+function _capaEditZoom(val){
+  if(!_capaEdit)return;
+  _capaEdit.zoom=Math.max(1,(parseFloat(val)||100)/100);
+  _capaEditClamp();
+  _capaEditApplyTransform();
+}
+function _capaEditPointerDown(e){
+  if(!_capaEdit)return;
+  _capaEdit.dragging=true;
+  _capaEdit.startX=e.clientX; _capaEdit.startY=e.clientY;
+  _capaEdit.startTx=_capaEdit.tx; _capaEdit.startTy=_capaEdit.ty;
+  e.currentTarget.style.cursor='grabbing';
+  e.currentTarget.setPointerCapture&&e.currentTarget.setPointerCapture(e.pointerId);
+}
+function _capaEditPointerMove(e){
+  if(!_capaEdit||!_capaEdit.dragging)return;
+  _capaEdit.tx=_capaEdit.startTx+(e.clientX-_capaEdit.startX);
+  _capaEdit.ty=_capaEdit.startTy+(e.clientY-_capaEdit.startY);
+  _capaEditClamp();
+  _capaEditApplyTransform();
+}
+function _capaEditPointerUp(e){
+  if(!_capaEdit)return;
+  _capaEdit.dragging=false;
+  if(e.currentTarget)e.currentTarget.style.cursor='grab';
+}
+function fecharEditorCapa(){
+  const overlay=document.getElementById('capa-editor-overlay');
+  if(overlay)overlay.remove();
+  _capaEdit=null;
+}
+function salvarEditorCapa(){
+  if(!_capaEdit)return;
+  const c=_capaEdit;
+  const totalScale=c.baseScale*c.zoom;
+  // Mapeia o quadro visivel de volta pra coordenadas naturais da imagem original — o mesmo
+  // calculo de um "background-size:cover" manual, so que com o pan/zoom que a pessoa escolheu.
+  const dispW=c.img.width*totalScale, dispH=c.img.height*totalScale;
+  const srcX=Math.max(0,Math.min(c.img.width, (dispW/2-c.frameW/2-c.tx)/totalScale));
+  const srcY=Math.max(0,Math.min(c.img.height,(dispH/2-c.frameH/2-c.ty)/totalScale));
+  const srcW=Math.min(c.img.width-srcX, c.frameW/totalScale);
+  const srcH=Math.min(c.img.height-srcY, c.frameH/totalScale);
+  const outW=1200, outH=675;
+  const canvas=document.createElement('canvas');
+  canvas.width=outW; canvas.height=outH;
+  const ctx=canvas.getContext('2d');
+  ctx.drawImage(c.img,srcX,srcY,srcW,srcH,0,0,outW,outH);
+  const b64=canvas.toDataURL('image/jpeg',0.78);
+  const prof=getMytriProfile();
+  const anterior=prof.coverPhoto;
+  prof.coverPhoto=b64;
+  try{
+    saveMytriProfile(prof);
+  }catch(err){
+    prof.coverPhoto=anterior;
+    alert('Não consegui salvar a foto — o armazenamento do app está cheio. Apague alguma foto antes.');
+    return;
+  }
+  fecharEditorCapa();
+  renderProfile();
 }
 
 function handleProfilePhoto(e){
@@ -10053,12 +10203,12 @@ function handleProfilePhoto(e){
       saveMytriProfile(prof);
     }catch(err){
       prof.photo=anterior;
-      alert('Nao consegui salvar a foto — o armazenamento do app esta cheio. Apague alguma foto antes.');
+      alert('Não consegui salvar a foto — o armazenamento do app está cheio. Apague alguma foto antes.');
       return;
     }
     renderProfile();
     refreshHoje();
-  }).catch(()=>alert('Nao consegui processar essa imagem.'));
+  }).catch(()=>alert('Não consegui processar essa imagem.'));
 }
 
 
@@ -10106,12 +10256,12 @@ function handleExtraPhoto(e){
       saveMytriProfile(prof);
     }catch(err){
       // Cota do armazenamento estourada: avisa em vez de falhar em silencio.
-      alert('Nao consegui salvar a foto — o armazenamento do app esta cheio. Apague alguma foto antes de adicionar outra.');
+      alert('Não consegui salvar a foto — o armazenamento do app está cheio. Apague alguma foto antes de adicionar outra.');
       prof.photos.pop();
       return;
     }
     renderProfile();
-  }).catch(()=>alert('Nao consegui processar essa imagem.'));
+  }).catch(()=>alert('Não consegui processar essa imagem.'));
 }
 
 // Remove a foto de fundo. Nao existia jeito de apagar depois de colocada — e como foto pesada
@@ -10178,11 +10328,11 @@ const BADGES=[
    check:()=>loadAllStravaData().length>0},
   {id:'primeira_natacao',
    icon:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><path d="M2 17c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><circle cx="12" cy="6" r="2"/><path d="M12 8v4"/></svg>`,
-   label:'Primeiro Nado',desc:'Primeira sessão de natação',color:'#1a6cf0',
+   label:'Primeiro Nado',desc:'Primeira sessão de natação',color:'#1a6cf0',sports:['triathlon','natacao'],
    check:()=>loadAllStravaData().some(o=>o.type===SWIM||o.type==='swim')},
   {id:'primeiro_brick',
    icon:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="7" height="5" rx="1"/><rect x="14" y="11" width="7" height="5" rx="1"/><path d="M10 13.5h4"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/><path d="M12 8V6m-3 2V5m6 3V5"/></svg>`,
-   label:'Brick Warrior',desc:'Completou um treino brick',color:'#f0a500',
+   label:'Brick Warrior',desc:'Completou um treino brick',color:'#f0a500',sports:['triathlon','duathlon'],
    check:()=>{
     const ovs=loadOverrides();
     return Object.keys(ovs).some(k=>{
@@ -10216,7 +10366,7 @@ const BADGES=[
   }},
   {id:'bike_100',
    icon:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="18.5" cy="17.5" r="3.5"/><path d="M15 6h-4l-1.5 5.5M8 17.5l2.5-6.5 2 3h5"/><circle cx="17" cy="6" r="1"/></svg>`,
-   label:'Centuriao',desc:'100km de bike acumulados',color:'#e05c2a',
+   label:'Centuriao',desc:'100km de bike acumulados',color:'#e05c2a',sports:['triathlon','ciclismo','duathlon'],
    check:()=>{
     let total=0;
     loadAllStravaData().forEach(o=>{if((o.type===BIKE||o.type==='bike')&&o.stravaDist)total+=parseFloat(o.stravaDist)||0;});
@@ -10224,7 +10374,7 @@ const BADGES=[
   }},
   {id:'run_50',
    icon:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 4a1 1 0 1 0 2 0 1 1 0 0 0-2 0"/><path d="M7.5 19l2-4.5 2.5 2 2-4.5 3 5"/><path d="M6 12l2-3 3 1 2-4"/></svg>`,
-   label:'Corredao',desc:'50km de corrida acumulados',color:'#00e676',
+   label:'Corredao',desc:'50km de corrida acumulados',color:'#00e676',sports:['triathlon','corrida','duathlon'],
    check:()=>{
     let total=0;
     loadAllStravaData().forEach(o=>{if((o.type===RUN||o.type==='run')&&o.stravaDist)total+=parseFloat(o.stravaDist)||0;});
@@ -10232,7 +10382,7 @@ const BADGES=[
   }},
   {id:'swim_10',
    icon:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><path d="M2 7c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><path d="M2 17c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/></svg>`,
-   label:'Peixao',desc:'10km de nado acumulados',color:'#1a6cf0',
+   label:'Peixao',desc:'10km de nado acumulados',color:'#1a6cf0',sports:['triathlon','natacao'],
    check:()=>{
     let total=0;
     loadAllStravaData().forEach(o=>{
@@ -10367,9 +10517,14 @@ const DIST_INFO={
   'bike-mtb':{label:'MTB',sub:'Mountain Bike off-road',color:'#8d6e63',sport:'ciclismo'},
   'bike-century':{label:'Century Ride',sub:'160km de pedalada',color:'#bf360c',sport:'ciclismo'},
   // Natação
+  'swim-400':{label:'400m',sub:'Distância de piscina',color:'#00bcd4',sport:'natacao'},
+  'swim-800':{label:'800m',sub:'Distância de piscina',color:'#00bcd4',sport:'natacao'},
   'swim-1500':{label:'1.500m',sub:'Distancia olimpica',color:'#00bcd4',sport:'natacao'},
+  'swim-3000':{label:'3.000m',sub:'Águas abertas',color:'#0097a7',sport:'natacao'},
   'swim-3800':{label:'3.800m',sub:'Ironman swim',color:'#0097a7',sport:'natacao'},
-  'swim-open':{label:'Águas Abertas',sub:'Lagos, rios e mar',color:'#006064',sport:'natacao'},
+  'swim-5000':{label:'5km',sub:'Águas abertas',color:'#006064',sport:'natacao'},
+  'swim-10000':{label:'10km',sub:'Maratona aquática',color:'#004d5c',sport:'natacao'},
+  'swim-open':{label:'Águas Abertas',sub:'Lagos, rios e mar — distância livre',color:'#006064',sport:'natacao'},
   // Duathlon
   'du-sprint':{label:'Sprint Duathlon',sub:'5km · 20km · 2.5km',color:'#f0a500',sport:'duathlon'},
   'du-standard':{label:'Duathlon Standard',sub:'10km · 40km · 5km',color:'#ff8f00',sport:'duathlon'},
@@ -10398,8 +10553,13 @@ const DIST_IMAGES_BY_SPORT={
     'bike-century':'https://images.unsplash.com/photo-1502744688674-c619d1586c9e?w=800&q=85&auto=format&fit=crop',
   },
   natacao:{
+    'swim-400':'https://images.unsplash.com/photo-1519315901367-f34ff9154487?w=800&q=85&auto=format&fit=crop',
+    'swim-800':'https://images.unsplash.com/photo-1519315901367-f34ff9154487?w=800&q=85&auto=format&fit=crop',
     'swim-1500':'https://images.unsplash.com/photo-1519315901367-f34ff9154487?w=800&q=85&auto=format&fit=crop',
+    'swim-3000':'https://images.unsplash.com/photo-1560073743-1d4b5a64e51c?w=800&q=85&auto=format&fit=crop',
     'swim-3800':'https://images.unsplash.com/photo-1560073743-1d4b5a64e51c?w=800&q=85&auto=format&fit=crop',
+    'swim-5000':'https://images.unsplash.com/photo-1560073743-1d4b5a64e51c?w=800&q=85&auto=format&fit=crop',
+    'swim-10000':'https://images.unsplash.com/photo-1560073743-1d4b5a64e51c?w=800&q=85&auto=format&fit=crop',
     'swim-open':'https://images.unsplash.com/photo-1519315901367-f34ff9154487?w=800&q=85&auto=format&fit=crop',
   },
   duathlon:{
@@ -10420,6 +10580,21 @@ async function checkOnboarding(){
       const remote=await sbGet('mytri_onboard_done');
       if(remote){
         localStorage.setItem('mytri_onboard_done','1');
+        done='1';
+      }
+    }catch(e){}
+  }
+  if(!done){
+    // A flag mytri_onboard_done e gravada em fire-and-forget (sbSet sem await, erro engolido)
+    // no fim do onboarding — se aquela escrita falhar em silencio (rede instavel bem naquele
+    // instante), o atleta cai de volta no onboarding num dispositivo/sessao nova mesmo ja tendo
+    // terminado, mesmo com o perfil real salvo. Antes de mostrar o onboarding de novo, confere
+    // se ja existe um PERFIL remoto com dado real — sinal bem mais forte que uma flag isolada.
+    try{
+      const remoteProfile=await sbGet('mytri_profile');
+      if(remoteProfile&&remoteProfile.sport){
+        localStorage.setItem('mytri_onboard_done','1');
+        sbSet('mytri_onboard_done','1').catch(()=>{});  // reconserta a flag que tinha falhado
         done='1';
       }
     }catch(e){}
@@ -10831,7 +11006,7 @@ async function obSearchRaces(){
       if(attempt%4===0)renderOnboarding();
       if(statusResp.status===401){
         // Sessao expirada/invalida — nao adianta continuar tentando (401 nunca vira 'done').
-        obData._raceSearchError='Sua sessao expirou. Saia e entre de novo no app, depois refaca a busca.';
+        obData._raceSearchError='Sua sessão expirou. Saia e entre de novo no app, depois refaça a busca.';
         obData.webRaces=[];
         done=true;
         break;
@@ -10925,7 +11100,7 @@ function estimateGoalTime(raceDist, obData){
     'half':{s:1.9,b:90,r:21.1},'full':{s:3.8,b:180,r:42.2},
     'corrida-5k':{r:5},'corrida-10k':{r:10},'corrida-15k':{r:15},'corrida-meia':{r:21.1},'corrida-maratona':{r:42.2},'corrida-trail':{r:21},
     'bike-gran-fondo':{b:100},'bike-criterium':{b:40},'bike-mtb':{b:50},'bike-century':{b:160},
-    'swim-1500':{s:1.5},'swim-3800':{s:3.8},'swim-open':{s:2},
+    'swim-400':{s:0.4},'swim-800':{s:0.8},'swim-1500':{s:1.5},'swim-3000':{s:3},'swim-3800':{s:3.8},'swim-5000':{s:5},'swim-10000':{s:10},'swim-open':{s:2},
     'du-sprint':{r:5,b:20},'du-standard':{r:10,b:40},
   };
   const d=D[raceDist]; if(!d) return {hr:1,min:30};
@@ -10982,7 +11157,7 @@ function renderObMeta(c){
           'half':{s:1.9,b:90,r:21.1},'full':{s:3.8,b:180,r:42.2},
           'corrida-5k':{r:5},'corrida-10k':{r:10},'corrida-15k':{r:15},'corrida-meia':{r:21.1},'corrida-maratona':{r:42.2},'corrida-trail':{r:21},
           'bike-gran-fondo':{b:100},'bike-criterium':{b:40},'bike-mtb':{b:50},'bike-century':{b:160},
-          'swim-1500':{s:1.5},'swim-3800':{s:3.8},'swim-open':{s:2},
+          'swim-400':{s:0.4},'swim-800':{s:0.8},'swim-1500':{s:1.5},'swim-3000':{s:3},'swim-3800':{s:3.8},'swim-5000':{s:5},'swim-10000':{s:10},'swim-open':{s:2},
           'du-sprint':{r:5,b:20},'du-standard':{r:10,b:40},
         };
         const d=D[obData.raceDist]; if(!d) return '';
@@ -10997,8 +11172,18 @@ function renderObMeta(c){
           const paceNow=fmtPace(totalSec/d.r).replace('/km','');
           chips.push(['PACE_INPUT',paceNow,'#00e676']);
         }
-        else if(soBike){ const kmh=Math.round(d.b/(totalSec/3600)*10)/10; chips.push(['VELOCIDADE ALVO',kmh+' km/h','#e05c2a']); }
-        else if(soNado){ const _t=Math.round(totalSec/(d.s*10)); const mm=Math.floor(_t/60),sc=_t%60; chips.push(['RITMO ALVO',`${mm}:${String(sc).padStart(2,'0')}/100m`,'#1a6cf0']); }
+        else if(soBike){
+          // Mesma logica do pace de corrida, mas em velocidade (km/h) — antes so dava pra ajustar
+          // via as setas de hora/minuto, sem digitar a velocidade alvo direto.
+          const kmh=Math.round(d.b/(totalSec/3600)*10)/10;
+          chips.push(['VEL_INPUT',String(kmh),'#e05c2a']);
+        }
+        else if(soNado){
+          // Mesma logica do pace de corrida, mas em ritmo por 100m — antes so dava pra ajustar
+          // via as setas de hora/minuto, sem digitar o ritmo alvo direto.
+          const _t=Math.round(totalSec/(d.s*10)); const mm=Math.floor(_t/60),sc=_t%60;
+          chips.push(['SWIM_INPUT',`${mm}:${String(sc).padStart(2,'0')}`,'#1a6cf0']);
+        }
         else {
           // Triathlon/duatlo: divisao aproximada (8% nado, 50% bike, 42% corrida) como ponto de
           // partida. Os 3 campos agora são editaveis igual ao de corrida pura — editar qualquer
@@ -11011,7 +11196,7 @@ function renderObMeta(c){
         if(!chips.length) return '';
         const _triLabels={TRI_SWIM:['PACE NADO','/100m',d.s],TRI_BIKE:['VEL. BIKE','km/h',d.b],TRI_RUN:['PACE CORRIDA','/km',d.r]};
         return `<div style="margin:0 0 8px;padding:14px 16px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
-          <div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1.5px;margin-bottom:10px">EQUIVALE A ${(soCorrida||chips.some(c=>c[0].startsWith('TRI_')))?'<span style="color:var(--accent2)">(edite pra ajustar o tempo-alvo)</span>':''}</div>
+          <div style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1.5px;margin-bottom:10px">EQUIVALE A ${(soCorrida||soBike||soNado||chips.some(c=>c[0].startsWith('TRI_')))?'<span style="color:var(--accent2)">(edite pra ajustar o tempo-alvo)</span>':''}</div>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
             ${chips.map(([l,v,c])=>{
               if(l==='PACE_INPUT')return `<div style="flex:1;min-width:120px;text-align:center;background:var(--bg);border:1px solid ${c}55;border-radius:8px;padding:8px">
@@ -11020,6 +11205,20 @@ function renderObMeta(c){
                 <span style="font-family:var(--font-display);font-size:18px;color:${c}">/km</span>
               </div>
               <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:.5px;margin-top:2px">PACE ALVO</div>
+            </div>`;
+              if(l==='VEL_INPUT')return `<div style="flex:1;min-width:120px;text-align:center;background:var(--bg);border:1px solid ${c}55;border-radius:8px;padding:8px">
+              <div style="display:flex;align-items:center;justify-content:center;gap:2px">
+                <input id="ob-vel-alvo" type="tel" inputmode="decimal" value="${v}" onfocus="_obClearPaceBox(this)" onblur="_obRestoreVelBox(this)" oninput="obGoalFromVelocidade(this,${d.b})" style="width:52px;background:none;border:none;color:${c};font-family:var(--font-display);font-size:18px;text-align:right;padding:0">
+                <span style="font-family:var(--font-display);font-size:18px;color:${c}">km/h</span>
+              </div>
+              <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:.5px;margin-top:2px">VELOCIDADE ALVO</div>
+            </div>`;
+              if(l==='SWIM_INPUT')return `<div style="flex:1;min-width:120px;text-align:center;background:var(--bg);border:1px solid ${c}55;border-radius:8px;padding:8px">
+              <div style="display:flex;align-items:center;justify-content:center;gap:2px">
+                <input id="ob-swim-alvo" type="tel" inputmode="numeric" value="${v}" onfocus="_obClearPaceBox(this)" onblur="_obRestorePaceBox(this)" oninput="obGoalFromSwimPace(this,${d.s})" style="width:52px;background:none;border:none;color:${c};font-family:var(--font-display);font-size:18px;text-align:right;padding:0">
+                <span style="font-family:var(--font-display);font-size:18px;color:${c}">/100m</span>
+              </div>
+              <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:.5px;margin-top:2px">RITMO ALVO</div>
             </div>`;
               if(_triLabels[l]){
                 const [lbl,unit]=_triLabels[l];
@@ -11130,6 +11329,43 @@ function obGoalFromPace(el,distKm){
   // Guarda o tempo EXATO (com segundos) por baixo do arredondamento — o seletor visual só
   // mostra HORAS:MINUTOS, mas sem isso o pace "necessário" calculado depois vinha sempre
   // arredondado pro minuto cheio (ex: digitou 5:35/km, virava 5:36/km no relatorio).
+  obData.goalTimeExactSec=totalSec;
+  const hrEl=document.getElementById('ob-goal-hr-display'); if(hrEl)hrEl.textContent=String(hr).padStart(2,'0');
+  const minEl=document.getElementById('ob-goal-min-display'); if(minEl)minEl.textContent=String(min).padStart(2,'0');
+}
+
+// Mesma logica do pace de corrida (obGoalFromPace), so que pra velocidade em km/h — ciclismo-so
+// so tinha as setas de hora/minuto pra ajustar a meta, sem editar a velocidade direto.
+function obGoalFromVelocidade(el,distKm){
+  const kmh=parseFloat(el.value.replace(',','.'))||0;
+  if(kmh<=0||!distKm)return;
+  const totalSec=(distKm/kmh)*3600;
+  const hr=Math.floor(totalSec/3600);
+  const min=Math.round((totalSec%3600)/60);
+  obData.goalHr=hr; obData.goalMin=min;
+  obData.goalTime=`${String(hr).padStart(2,'0')}:${String(min).padStart(2,'0')}`;
+  obData.goalTimeExactSec=totalSec;
+  const hrEl=document.getElementById('ob-goal-hr-display'); if(hrEl)hrEl.textContent=String(hr).padStart(2,'0');
+  const minEl=document.getElementById('ob-goal-min-display'); if(minEl)minEl.textContent=String(min).padStart(2,'0');
+}
+// Se sair do campo de velocidade sem digitar nada, volta pro valor anterior (mesmo espirito do
+// _obRestorePaceBox, so que sem o complemento de ":00" que so faz sentido pra pace min:seg).
+function _obRestoreVelBox(el){
+  if(!el.value && el.dataset.prev) el.value=el.dataset.prev;
+}
+
+// Mesma logica do pace de corrida (obGoalFromPace), so que pra ritmo de natacao por 100m —
+// natacao-so so tinha as setas de hora/minuto pra ajustar a meta, sem editar o ritmo direto.
+function obGoalFromSwimPace(el,distKm){
+  const formatted=obFormatPace(el);
+  const parts=formatted.split(':');
+  if(parts.length!==2||!distKm)return;
+  const paceSec=(parseInt(parts[0])||0)*60+(parseInt(parts[1])||0);
+  const totalSec=paceSec*distKm*10;   // pace e por 100m, distKm esta em km
+  const hr=Math.floor(totalSec/3600);
+  const min=Math.round((totalSec%3600)/60);
+  obData.goalHr=hr; obData.goalMin=min;
+  obData.goalTime=`${String(hr).padStart(2,'0')}:${String(min).padStart(2,'0')}`;
   obData.goalTimeExactSec=totalSec;
   const hrEl=document.getElementById('ob-goal-hr-display'); if(hrEl)hrEl.textContent=String(hr).padStart(2,'0');
   const minEl=document.getElementById('ob-goal-min-display'); if(minEl)minEl.textContent=String(min).padStart(2,'0');
@@ -11573,12 +11809,12 @@ function obToggleDia(v){
 function renderObLesoes(c){
   const lesoes=[
     {v:'nenhuma',l:'Nenhuma',d:'Sem restrições no momento'},
-    {v:'joelho',l:'Joelho',d:'Dor ou lesao no joelho'},
+    {v:'joelho',l:'Joelho',d:'Dor ou lesão no joelho'},
     {v:'iliotibial',l:'Trato Iliotibial',d:'Sindrome do trato iliotibial'},
     {v:'piriforme',l:'Piriforme',d:'Sindrome do piriforme'},
-    {v:'lombar',l:'Lombar',d:'Dor ou lesao lombar'},
+    {v:'lombar',l:'Lombar',d:'Dor ou lesão lombar'},
     {v:'tornozelo',l:'Tornozelo',d:'Entorse ou instabilidade'},
-    {v:'ombro',l:'Ombro',d:'Lesao ou dor no ombro (nado)'},
+    {v:'ombro',l:'Ombro',d:'Lesão ou dor no ombro (nado)'},
     {v:'outra',l:'Outra',d:'Especificar abaixo'},
   ];
   if(!obData.lesoes) obData.lesoes=[];
@@ -11873,7 +12109,7 @@ const RACE_KM_META={
   'half':{s:1.9,b:90,r:21.1},'full':{s:3.8,b:180,r:42.2},
   'corrida-5k':{r:5},'corrida-10k':{r:10},'corrida-meia':{r:21.097},'corrida-maratona':{r:42.195},'corrida-trail':{r:21},
   'bike-gran-fondo':{b:100},'bike-criterium':{b:40},'bike-mtb':{b:50},'bike-century':{b:160},
-  'swim-1500':{s:1.5},'swim-3800':{s:3.8},'swim-open':{s:2},
+  'swim-400':{s:0.4},'swim-800':{s:0.8},'swim-1500':{s:1.5},'swim-3000':{s:3},'swim-3800':{s:3.8},'swim-5000':{s:5},'swim-10000':{s:10},'swim-open':{s:2},
   'du-sprint':{r:5,b:20},'du-standard':{r:10,b:40},
 };
 function calcPaceNecessarioMeta(profile){
@@ -11996,7 +12232,7 @@ function renderPaceGaugeHTML(profile){
         <div style="position:relative;height:10px;border-radius:5px;background:rgba(255,255,255,.06);overflow:hidden">
           <div style="position:absolute;top:0;left:0;height:100%;width:${progresso}%;background:${barColor};border-radius:5px"></div>
         </div>
-        <div style="font-family:var(--font-body);font-size:11px;color:${barColor};margin-top:6px">${isReady?'Voce ja esta no ritmo da meta.':gapTxt}</div>
+        <div style="font-family:var(--font-body);font-size:11px;color:${barColor};margin-top:6px">${isReady?'Você já está no ritmo da meta.':gapTxt}</div>
       </div>`;
     }
 
@@ -12093,7 +12329,7 @@ function wrapGauge(titulo,rowsHtml,isReady){
     <div class="plan-section-title">${titulo}</div>
     <div style="margin-top:10px">${rowsHtml}</div>
     <div style="margin-top:4px;padding:10px 12px;border-radius:6px;background:${isReady?'rgba(0,230,118,.08)':'rgba(240,165,0,.1)'};border:1px solid ${isReady?'rgba(0,230,118,.25)':'rgba(240,165,0,.3)'}">
-      <div style="font-family:var(--font-body);font-size:12px;color:${isReady?'#00e676':'#f0a500'}">${isReady?'Voce ja tem o ritmo necessario nas modalidades comparadas. Foco: resistencia e consistencia.':'Pelo menos uma modalidade precisa evoluir pra bater a meta. Foco: velocidade especifica onde estiver mais atras.'}</div>
+      <div style="font-family:var(--font-body);font-size:12px;color:${isReady?'#00e676':'#f0a500'}">${isReady?'Você já tem o ritmo necessário nas modalidades comparadas. Foco: resistência e consistência.':'Pelo menos uma modalidade precisa evoluir pra bater a meta. Foco: velocidade específica onde estiver mais atrás.'}</div>
     </div>
   </div>`;
 }
@@ -12172,7 +12408,7 @@ async function showPlanSummary(profile){
     if(statusResp.status===401){
       // Sessao expirada: 401 nunca vira 'done', entao insistir so gasta o tempo de espera
       // sem nunca explicar o motivo real ao atleta.
-      renderPlanSummary(el,profile,'','Sua sessao expirou. Saia e entre de novo no app, depois tente gerar de novo.');
+      renderPlanSummary(el,profile,'','Sua sessão expirou. Saia e entre de novo no app, depois tente gerar de novo.');
       return;
     }
     if(statusData.status==='done'){
@@ -13212,7 +13448,10 @@ function renderStreamDetailsHTML(streams,profile,ov,plannedZone){
       // escala desenhada — senao o grafico vira uma linha reta colada no topo.
       const ordM=[...vals].sort((a,b)=>a-b);
       const mediana=ordM[Math.floor(ordM.length/2)];
-      const teto=isBike?Infinity:mediana*1.6;
+      // Nado tem uma queda de velocidade rapida a cada virada de parede — nao e descanso, e
+      // artefato do sensor. Um teto mais apertado que corrida evita que essas quedas curtas e
+      // regulares dominem a escala do grafico como se fossem pausas reais.
+      const teto=isBike?Infinity:(isSwim?mediana*1.3:mediana*1.6);
       const ord=[...vals].sort((a,b)=>a-b);
       const lo=ord[Math.floor(ord.length*0.03)];
       const hiBruto=ord[Math.ceil(ord.length*0.97)-1];
@@ -13226,7 +13465,7 @@ function renderStreamDetailsHTML(streams,profile,ov,plannedZone){
       out+=secao('Ritmo',areaChart(vals,distR,'#5a9ee6',fmt,!isBike,faixaAlvoPace),
         [ov.stravaPace?`Ritmo medio ${ov.stravaPace}`:'',
          alvoSec?`alvo ${formatPaceLabel(alvoSec)}${isSwim?'/100m':'/km'}`:'',
-         houveCorte?`trechos de caminhada aparecem no fundo do grafico`:''].filter(Boolean).join(' · '));
+         houveCorte?(isSwim?'trechos de pausa aparecem no fundo do grafico':'trechos de caminhada aparecem no fundo do grafico'):''].filter(Boolean).join(' · '));
     }
   }
 
