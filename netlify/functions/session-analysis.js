@@ -47,6 +47,10 @@ exports.handler = async (event) => {
   // consegue dizer "voce evoluiu X desde a ultima vez", que e o que da sensacao de progresso.
   const anterior = (body.anterior || '').toString().slice(0, 300);
   const nome = ((body.profile && body.profile.name) || 'o atleta').toString().slice(0, 40);
+  // Genero do atleta (M/F/NB/vazio) — usado so pra concordancia gramatical em portugues
+  // (ex: "pronto"/"pronta"), nunca pra mudar o CONTEUDO do comentario.
+  const sexoRaw = ((body.profile && body.profile.sexo) || '').toString().trim().toUpperCase();
+  const sexoLabel = { M: 'masculino', F: 'feminino', NB: 'nao binario' }[sexoRaw] || '';
   // Lesoes/restricoes ATUAIS (vem sempre do perfil corrente, nunca de cache) — garante que o
   // coach nunca comente sobre uma restricao antiga que o atleta ja atualizou no onboarding.
   const injuries = (body.profile && Array.isArray(body.profile.injuries)) ? body.profile.injuries.filter(i=>i&&i!=='nenhuma') : [];
@@ -70,6 +74,7 @@ exports.handler = async (event) => {
   if (daysToRace != null) ctx.push(`Faltam ${daysToRace} dias para a prova`);
   if (injuries.length) ctx.push(`Lesoes/restricoes ATUAIS do atleta: ${injuries.join(', ')}${injuryDetail ? ' — ' + injuryDetail : ''}`);
   else ctx.push(`Sem lesoes ou restricoes reportadas no momento.`);
+  if (sexoLabel) ctx.push(`Genero do atleta (so para concordancia gramatical): ${sexoLabel}`);
 
   const systemPrompt = `Voce e o coach do MyTri, um app brasileiro de treino para triathlon e endurance. Analise a sessao de treino que ${nome} acabou de executar e escreva um comentario CURTO e util, em portugues do Brasil, tom direto e motivador (nunca bajulador).
 
@@ -83,7 +88,8 @@ REGRAS:
 - Considere a fase do plano e a proximidade da prova.
 - So mencione lesao/restricao se ela estiver EXPLICITAMENTE listada no contexto como atual — nunca cite uma lesao que nao esteja la, mesmo que pareca familiar.
 - Fale com o atleta na segunda pessoa (voce).
-- Nunca invente dados que nao estao no contexto.`;
+- Nunca invente dados que nao estao no contexto.
+- CONCORDANCIA DE GENERO: se o contexto informar o genero do atleta, use a concordancia gramatical correta em portugues sempre que usar adjetivos/particípios que variam por genero (ex: "voce ficou cansado" para masculino, "cansada" para feminino, e para nao binario ou quando o genero NAO estiver no contexto, prefira formulacoes neutras que nao exijam flexao de genero — ex: "o treino te deixou no limite" em vez de "voce ficou cansado/cansada"). Isso e so uma questao gramatical, nunca mude o conteudo ou o tom do comentario por causa do genero.`;
 
   const userPrompt = `Contexto da sessao:\n${ctx.join('\n')}\n\nEscreva o comentario do coach sobre esta sessao.`;
 

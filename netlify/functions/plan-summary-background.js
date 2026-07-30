@@ -67,6 +67,11 @@ exports.handler = async (event) => {
   const paceNecessario = profile.paceNecessarioMeta || '';
   const distanciasProva = profile.distanciasProva || '';
   const comparacaoPace = profile.comparacaoPace || '';
+  // Genero do atleta (M/F/NB/vazio) — usado so pra concordancia gramatical em portugues no
+  // texto corrido (varios adjetivos/particípios flexionam por genero em portugues), nunca pra
+  // mudar o conteudo, tom ou nivel de exigencia do plano.
+  const sexoRaw = (profile.sexo || '').toString().trim().toUpperCase();
+  const sexoLabel = { M: 'masculino', F: 'feminino', NB: 'nao binario' }[sexoRaw] || '';
 
   let levelStr = '';
   if (sport === 'triathlon' || sport === 'duathlon') {
@@ -88,6 +93,7 @@ exports.handler = async (event) => {
   const prompt = `Voce e um coach de alto rendimento especialista em ${sportName}. Crie um resumo estrategico do plano de treino personalizado para este atleta:
 
 ATLETA: ${profile.name || 'Atleta'}, ${profile.age || '?'} anos, ${profile.weight || '?'}kg
+${sexoLabel ? `GENERO DO ATLETA (use SOMENTE para concordancia gramatical correta em portugues — ex: "dedicado" para masculino, "dedicada" para feminino; NUNCA mude o conteudo, tom ou nivel de exigencia do plano por causa disso): ${sexoLabel}` : 'GENERO DO ATLETA: nao informado — evite adjetivos/particípios que exigem flexao de genero (ex: prefira "com dedicacao" a "dedicado/dedicada"), mantendo o texto natural em portugues.'}
 ESPORTE: ${sportName}
 PROVA: ${raceName}
 ${distanciasProva ? `DISTANCIAS EXATAS DESTA PROVA (use estes numeros literalmente, NUNCA invente ou troque por outra prova): ${distanciasProva}` : ''}
@@ -110,6 +116,8 @@ CRITICO SOBRE O PACE: o campo "PACE/VELOCIDADE NECESSARIO PARA BATER A META" ja 
 - Se o pace ATUAL do atleta ja e IGUAL OU MAIS RAPIDO (numero menor de min/km, ou velocidade maior em km/h, ou pace menor por 100m) que o necessario pra meta, diga isso claramente: o atleta ja tem a capacidade de completar a prova nesse tempo, e o foco do plano deve ser manter essa capacidade com seguranca (evitar lesao, ganhar resistencia especifica pra sustentar o ritmo pela distancia toda), NAO "melhorar o pace".
 - Só fale em "precisar melhorar o pace" ou "ganhar velocidade" se o pace atual for de fato MAIS LENTO que o necessario pra meta.
 - Nunca calcule diferenca de segundos por km entre pace atual e pace necessario incorretamente — se nao tiver certeza da conta, apenas diga qual dos dois e mais rapido, sem inventar um numero de segundos.
+
+CRITICO SOBRE GENERO: use a concordancia gramatical de genero (adjetivos, particípios) informada acima em GENERO DO ATLETA de forma consistente no texto inteiro. Isso e puramente gramatical — nao influencia o conteudo, tom, exigencia ou estrategia do plano, que devem ser identicos independente do genero.
 
 Responda EXATAMENTE neste formato (sem markdown, sem asteriscos, sem ##):
 

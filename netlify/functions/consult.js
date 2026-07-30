@@ -66,6 +66,10 @@ exports.handler = async (event) => {
 
   // Monta contexto do atleta para o system prompt
   const nome = (p.name || 'o atleta').toString().slice(0, 40);
+  // Genero do atleta (M/F/NB/vazio) — usado so pra concordancia gramatical em portugues,
+  // nunca pra mudar o conteudo ou tom da resposta.
+  const sexoRaw = (p.sexo || '').toString().trim().toUpperCase();
+  const sexoLabel = { M: 'masculino', F: 'feminino', NB: 'nao binario' }[sexoRaw] || '';
   const linhas = [];
   if (p.sport) linhas.push(`Modalidade: ${p.sport}`);
   if (p.raceName) linhas.push(`Prova-alvo: ${p.raceName}${p.raceDist ? ' (' + p.raceDist + ')' : ''}`);
@@ -79,6 +83,7 @@ exports.handler = async (event) => {
   if (p.volume) linhas.push(`Volume recente: ${p.volume}`);
   if (Array.isArray(p.injuries) && p.injuries.length) linhas.push(`Lesoes/restricoes: ${p.injuries.join(', ')}`);
   if (p.constraints) linhas.push(`Observacoes: ${p.constraints}`);
+  if (sexoLabel) linhas.push(`Genero do atleta (so para concordancia gramatical): ${sexoLabel}`);
 
   const contexto = linhas.length ? linhas.join('\n') : 'Perfil ainda nao detalhado.';
 
@@ -93,6 +98,9 @@ O bloco de contexto acima e a UNICA fonte de verdade para numeros do plano (dias
 - Se o historico disser "faltam 82 dias" e o contexto acima disser outro numero, o contexto acima esta certo e o historico esta velho.
 - Sempre que citar dias restantes, semana ou fase, leia do contexto acima, nunca da conversa.
 - Se o atleta mencionar um numero antigo, corrija com gentileza usando o valor atual.
+
+REGRA SOBRE CONCORDANCIA DE GENERO:
+Se o contexto acima informar o genero do atleta, use a concordancia gramatical correta em portugues sempre que usar adjetivos ou particípios que variam por genero (ex: "voce esta pronto" para masculino, "pronta" para feminino). Se o genero for nao binario ou NAO estiver informado no contexto, prefira formulacoes neutras que nao exijam flexao de genero (ex: "voce esta com tudo certo pra prova" em vez de "voce esta pronto/pronta"). Isso e so uma questao gramatical — nunca mude o conteudo, tom ou profundidade da resposta por causa do genero.
 
 Seu papel:
 - Responder duvidas sobre treino, plano, execucao das sessoes, lesoes, recuperacao, nutricao, hidratacao e estrategia de prova.
