@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="v20260730180930">
+<meta name="app-version" content="v20260730184524">
 <!-- Auto-atualizacao: navegadores (principalmente Safari/iOS) as vezes seguram uma versao antiga
 em cache mesmo depois de um deploy novo no servidor, causando confusao de "mudei o codigo mas
 nada mudou" (varias vezes nessa sessao de debug isso foi confundido com bug real). Esse check
@@ -8051,16 +8051,20 @@ async function submitCreateGroup(){
       throw new Error((rows&&(rows.message||rows.hint||rows.details))||`HTTP ${r.status}`);
     }
     const group=rows[0];
-    // Dono entra como primeiro membro automaticamente. Upsert por (group_id,user_id) — antes era
-    // um INSERT simples, que criava uma linha duplicada se essa funcao rodasse duas vezes pro
-    // mesmo grupo (duplo toque no botao, um retry apos timeout, etc.). Precisa existir uma
-    // constraint UNIQUE(group_id,user_id) na tabela pra isso funcionar — se ainda nao existir,
-    // e o proximo passo do lado do banco.
-    await fetch(`${SB_URL}/rest/v1/mytri_group_members?on_conflict=group_id,user_id`,{
+    // Dono entra como primeiro membro automaticamente. Upsert por (group_id,user_id) — precisa da
+    // constraint UNIQUE(group_id,user_id) pra funcionar (senao o Postgres rejeita o on_conflict).
+    // Antes essa chamada nao checava erro nenhum — se falhasse (RLS, constraint faltando, etc), o
+    // grupo ficava criado com ZERO membros e ninguem sabia o motivo.
+    const rMember=await fetch(`${SB_URL}/rest/v1/mytri_group_members?on_conflict=group_id,user_id`,{
       method:'POST',
-      headers:sbHeaders({'Prefer':'resolution=merge-duplicates'}),
+      headers:sbHeaders({'Prefer':'resolution=merge-duplicates,return=representation'}),
       body:JSON.stringify({group_id:group.id,user_id:uid,nome_exibicao:prof.name||'Você',foto_url:prof.photo||null})
     });
+    if(!rMember.ok){
+      const errBody=await rMember.text().catch(()=>'');
+      console.error('Erro ao entrar como membro do proprio grupo:',rMember.status,errBody);
+      alert(`Grupo criado, mas não consegui te adicionar como membro (erro ${rMember.status}). Tenta fazer um check-in — se continuar sem aparecer no ranking, me avisa.`);
+    }
     meiaBrancaState._openGroup=group;
     renderClub();
   }catch(e){
@@ -8229,13 +8233,25 @@ async function sendGroupMessage(groupId){
   const btn=document.getElementById('group-chat-send');
   if(btn)btn.disabled=true;
   try{
-    await fetch(`${SB_URL}/rest/v1/mytri_group_messages`,{
+    const r=await fetch(`${SB_URL}/rest/v1/mytri_group_messages`,{
       method:'POST', headers:sbHeaders(),
       body:JSON.stringify({group_id:groupId,user_id:uid,nome_exibicao:prof.name||'Voce',content})
     });
+    if(!r.ok){
+      const errBody=await r.text().catch(()=>'');
+      console.error('Erro ao enviar mensagem do grupo:',r.status,errBody);
+      // Causa mais provavel: RLS da tabela de mensagens exige que voce seja MEMBRO do grupo pra
+      // postar — se a sua linha em mytri_group_members nao existir (por qualquer motivo), a
+      // mensagem e rejeitada em silencio. Antes essa chamada nao checava erro nenhum.
+      alert(r.status===401||r.status===403?'Não consegui enviar — parece que você não está registrado como membro deste grupo. Sai e entra no grupo de novo, ou fala comigo se persistir.':`Não consegui enviar a mensagem (erro ${r.status}).`);
+      input.value=content;
+      if(btn)btn.disabled=false;
+      return;
+    }
     await loadGroupMessages(groupId,true);
   }catch(e){
     alert('Nao consegui enviar a mensagem agora.');
+    input.value=content;
   }
   if(btn)btn.disabled=false;
 }
@@ -9465,22 +9481,22 @@ function renderProfile(){
     <input type="file" id="profile-cover-input" accept="image/*" style="display:none" onchange="handleCoverPhoto(event)">
 
     <div class="profile-hero" style="padding:0;text-align:left;border-bottom:1px solid var(--border)">
-      <!-- Capa: fundo borrado preenche a caixa toda, foto real fica inteira (sem cortar) por cima -->
-      <div onclick="changeCoverPhoto()" style="position:relative;height:min(38vh,240px);min-height:180px;cursor:pointer;overflow:hidden;${secondary?'':'background:linear-gradient(135deg,#12161c,#1a2530)'}">
+      <!-- Capa: fundo borrado preenche a caixa toda, foto real fica inteira (sem cortar) por cima.
+           NAO e mais clicavel como area inteira — isso brigava com o clique do avatar, que fica
+           por cima dela (a linha do avatar sobe com margin-top negativo). So o botao pequeno no
+           canto ("editar capa") muda a foto de capa agora; o resto da area e so visual. -->
+      <div style="position:relative;height:min(38vh,240px);min-height:180px;overflow:hidden;${secondary?'':'background:linear-gradient(135deg,#12161c,#1a2530)'}">
         ${secondary?`<div style="position:absolute;inset:0;background:url('${secondary}') center/cover;filter:blur(24px) brightness(0.55);transform:scale(1.15)"></div>
         <div style="position:absolute;inset:0;background:url('${secondary}') center/contain no-repeat"></div>`:''}
-        ${secondary?`<div style="position:absolute;top:10px;right:12px;display:flex;gap:6px">
-          <div style="background:rgba(0,0,0,0.55);border-radius:4px;padding:5px 10px;font-family:var(--font-ui);font-size:9px;color:#fff;letter-spacing:.5px">${t('pf_edit_cover')}</div>
-          <div onclick="event.stopPropagation();removerCapa()" style="background:rgba(0,0,0,0.55);border-radius:4px;padding:5px 9px;font-family:var(--font-ui);font-size:11px;color:#fff;line-height:1">&times;</div>
-        </div>`:`<div style="position:absolute;top:10px;right:12px;font-family:var(--font-ui);font-size:9px;color:rgba(255,255,255,0.6);letter-spacing:.5px">${t('pf_add_cover')}</div>`}
+        <div style="position:absolute;top:10px;right:12px;display:flex;gap:6px">
+          <div onclick="changeCoverPhoto()" style="cursor:pointer;background:rgba(0,0,0,0.55);border-radius:4px;padding:5px 10px;font-family:var(--font-ui);font-size:9px;color:#fff;letter-spacing:.5px">${secondary?t('pf_edit_cover'):t('pf_add_cover')}</div>
+          ${secondary?`<div onclick="removerCapa()" style="cursor:pointer;background:rgba(0,0,0,0.55);border-radius:4px;padding:5px 9px;font-family:var(--font-ui);font-size:11px;color:#fff;line-height:1">&times;</div>`:''}
+        </div>
       </div>
-      <!-- Avatar sobreposto + dados ao lado (estilo LinkedIn compacto). onclick de capa aqui
-           tambem — Nano pediu pra area inteira (nao so a faixa da foto acima) abrir o seletor
-           de foto de capa; os elementos de dentro que ja tem acao propria (avatar, instants,
-           atualizar localizacao, strava/instagram) param a propagacao pra nao abrir os dois. -->
-      <div style="padding:0 20px 16px;position:relative;cursor:pointer;z-index:3" onclick="changeCoverPhoto()">
+      <!-- Avatar sobreposto + dados ao lado (estilo LinkedIn compacto). -->
+      <div style="padding:0 20px 16px;position:relative">
         <div style="display:flex;align-items:flex-end;gap:14px;margin-top:-40px">
-          <div style="position:relative;flex-shrink:0;padding:10px;margin:-10px;z-index:4" onclick="event.stopPropagation()">
+          <div style="position:relative;flex-shrink:0">
             <div id="moments-ring" style="display:inline-block;border-radius:50%;padding:3px;background:var(--bg);line-height:0">
               <div onclick="(window._momentosUrls&&window._momentosUrls.length)?viewMoment(0):changeProfilePhoto()" style="cursor:pointer;border-radius:50%;line-height:0;display:inline-block">${photoEl}</div>
             </div>
@@ -12235,7 +12251,16 @@ function obNext(){
   renderOnboarding();
 }
 
-function obFinish(){
+async function obFinish(){
+  // O onboarding inteiro pode levar varios minutos pra preencher — tempo suficiente pro token de
+  // sessao ficar velho. submitCreateGroup ja precisou desse mesmo fix (ensureValidSession antes
+  // de escrever) por causa disso; aqui o problema era pior ainda porque as gravacoes finais sao
+  // fire-and-forget (sbSet(...).catch(()=>{})) — se o token tivesse expirado, a gravacao de
+  // mytri_profile e mytri_onboard_done falhava em silencio total, e um logout+login depois nao
+  // encontrava NADA salvo no servidor — o app nao tinha jeito de saber que o onboarding tinha
+  // sido concluido, e reiniciava do zero. Essa e a explicacao mais provavel pro onboarding
+  // "reiniciando sozinho" depois de logout/login, mesmo na mesma conta.
+  try{ await ensureValidSession(); }catch(e){}
   const prof=getMytriProfile();
   const stravaTokens=JSON.parse(localStorage.getItem('strava_tokens')||'{}');
   const athlete=stravaTokens.athlete||{};
@@ -12296,8 +12321,9 @@ function obFinish(){
   sbSet('nano_history',[]).catch(()=>{});
   // Salva localmente PRIMEIRO
   localStorage.setItem('mytri_profile',JSON.stringify(finalProfile));
-  // Força Supabase com dados novos - apaga o antigo e salva o novo
-  sbSet('mytri_profile', finalProfile).catch(()=>{});
+  // Forca Supabase com dados novos - apaga o antigo e salva o novo. Agora espera confirmar (sbSet
+  // ja tenta de novo sozinho ate 3x) — se mesmo assim falhar, avisa em vez de fingir que salvou.
+  const okProfile=await sbSet('mytri_profile', finalProfile);
   // Regenerar plano com novos dados do onboarding — grava o cache novo AGORA
   try{
     plan = generatePlan(finalProfile);
@@ -12307,8 +12333,14 @@ function obFinish(){
       profileHash: finalProfile.sport + finalProfile.raceDist + finalProfile.raceDate + finalProfile.weeklyHours
     }));
   }catch(e){ console.error('plan gen (obFinish)', e); }
-  sbSet('mytri_onboard_done','1').catch(()=>{});
+  const okDone=await sbSet('mytri_onboard_done','1');
   localStorage.setItem('mytri_onboard_done','1');
+  if(!okProfile||!okDone){
+    console.error('[obFinish] falha ao confirmar gravacao remota — profile:',okProfile,'onboard_done:',okDone);
+    // Nao bloqueia o atleta (o app continua funcionando localmente), mas avisa que a sincronizacao
+    // remota falhou — sem isso, um logout/troca de aparelho perderia o onboarding em silencio.
+    setTimeout(()=>alert('Seu plano foi criado, mas não consegui confirmar a sincronização com o servidor agora. Se trocar de aparelho ou sair da conta, pode ser necessário refazer o cadastro. Tente novamente mais tarde com uma boa conexão.'),800);
+  }
   document.getElementById('view-onboard').classList.remove('active');
   document.body.classList.remove('onboarding-active');
   // FAB da consultoria fica escondido até o atleta realmente entrar no app (closePlanSummary) —
@@ -13335,8 +13367,16 @@ function renderSessionAnalysis(modal, dotColor, pillText, text, ov, plannedDist,
     try{
       const mapa={run:'corrida',bike:'ciclismo',swim:'natacao'};
       const sport=mapa[sess.type];
+      // So tenta casar por "impressao digital" (distancia+tempo+FC) pra corrida/bike/natacao —
+      // sao os 3 esportes que tem distancia real pra comparar. Musculacao (e qualquer outro tipo
+      // fora desses 3) nao tem sinal de distancia confiavel: o "sport" ficava undefined, e o
+      // filtro `!sport||h.sport===sport` (linha abaixo) virava SEMPRE VERDADEIRO — ou seja,
+      // buscava entre TODAS as atividades (bike, corrida, nado juntas) so por tempo/FC parecidos.
+      // Foi exatamente assim que uma sessao de musculacao de 31min grudou os dados de uma
+      // pedalada de 31min com FC parecida — bug real, nao coincidencia.
+      if(sport){
       const hist=JSON.parse(localStorage.getItem('mytri_pace_history')||'[]');
-      const doEsporte=hist.filter(h=>h&&h.id&&(!sport||h.sport===sport));
+      const doEsporte=hist.filter(h=>h&&h.id&&h.sport===sport);
       if(doEsporte.length){
         // Distancia registrada no treino: "5km", "1000m" (natacao) ou "20.4km". Sessoes sem
         // distancia real (rolo sem sensor, so por tempo) guardam algo como "30min" aqui — sem
@@ -13372,6 +13412,7 @@ function renderSessionAnalysis(modal, dotColor, pillText, text, ov, plannedDist,
           cand.sort((a,b)=>a.p-b.p);
           ov.stravaActivityId=cand[0].h.id;
         }
+      }
       }
     }catch(e){}
   }
@@ -13434,7 +13475,7 @@ function renderSessionAnalysis(modal, dotColor, pillText, text, ov, plannedDist,
   document.body.classList.add('sa-open');
   // Parciais, graficos e zonas: precisam do stream segundo-a-segundo da atividade, que so a
   // Strava tem — carrega em paralelo pra nao atrasar o resto da tela.
-  loadStreamSection(ov, sess, plannedZone);
+  loadStreamSection(ov, sess, plannedZone, w, d);
 }
 
 // Busca o stream (heartrate/velocity/distance segundo-a-segundo) da atividade especifica no
@@ -13464,7 +13505,7 @@ function _gravarStreamCache(id,streams){
   }catch(e){ /* cota de localStorage cheia: cache e bonus, nao pode quebrar a analise */ }
 }
 
-async function loadStreamSection(ov, sess, plannedZone){
+async function loadStreamSection(ov, sess, plannedZone, w, d){
   const container=document.getElementById('sa-stream-section');
   if(!container)return;
   const profile=getMytriProfile();
@@ -13487,6 +13528,36 @@ async function loadStreamSection(ov, sess, plannedZone){
   }
 
   const cache=_lerStreamCache(ov.stravaActivityId);
+
+  // Atividades sincronizadas ANTES da flag "indoor/rolo" existir nao tem esse dado gravado
+  // (ov.stravaIndoor fica undefined, nao false) — sem isso, treino em bike ergometrica mostrava
+  // Altimetria como se fosse elevacao real. Busca uma vez so, direto na atividade do Strava
+  // (endpoint separado dos streams), e grava de volta no override pra nao buscar de novo.
+  if(ov.stravaIndoor===undefined){
+    try{
+      const token=await stravaGetValidToken();
+      if(token){
+        const rAct=await fetch(`https://www.strava.com/api/v3/activities/${ov.stravaActivityId}`,{headers:{Authorization:'Bearer '+token}});
+        if(rAct.ok){
+          const act=await rAct.json();
+          const isIndoorBackfill=act.trainer===true||act.sport_type==='VirtualRide'||act.sport_type==='VirtualRun';
+          ov={...ov,stravaIndoor:isIndoorBackfill};
+          try{
+            if(w!=null&&d!=null){
+              if(sess._origin==='plan'){
+                const o=loadOverrides();const ok=ovKey(w,d,sess._si);
+                if(o[ok]){ o[ok]={...o[ok],stravaIndoor:isIndoorBackfill}; saveOverrides(o); }
+              }else{
+                const e=loadExtras();const k=extraKey(w,d);
+                if(e[k]&&e[k][sess._idx]){ e[k][sess._idx]={...e[k][sess._idx],stravaIndoor:isIndoorBackfill}; saveExtras(e); }
+              }
+            }
+          }catch(e){}
+        }
+      }
+    }catch(e){}
+  }
+
   if(cache&&cache.streams){
     try{
       const h=renderStreamDetailsHTML(cache.streams,profile,ov,plannedZone,sess);
@@ -13513,6 +13584,13 @@ async function loadStreamSection(ov, sess, plannedZone){
 }
 
 function renderStreamDetailsHTML(streams,profile,ov,plannedZone,sess){
+  // Musculacao (e qualquer tipo fora corrida/bike/natacao) nunca deve mostrar parciais, ritmo,
+  // zonas de FC, altimetria ou cadencia — nenhuma dessas metricas de endurance faz sentido pra
+  // treino de forca, mesmo quando por algum motivo ha um stream associado (ex: id errado gravado
+  // antes da correcao do casamento por "impressao digital").
+  if(sess&&sess.type&&sess.type!=='run'&&sess.type!=='bike'&&sess.type!=='swim'){
+    return '';
+  }
   let out='';
   const hr=streams&&streams.heartrate&&Array.isArray(streams.heartrate.data)?streams.heartrate.data:null;
   const vel=streams&&streams.velocity_smooth&&Array.isArray(streams.velocity_smooth.data)?streams.velocity_smooth.data:null;
@@ -13654,9 +13732,26 @@ function renderStreamDetailsHTML(streams,profile,ov,plannedZone,sess){
     }
     if(splits.length){
       const maxDur=Math.max(...splits.map(s=>s.dur));
-      const melhorDur=Math.min(...splits.map(s=>s.dur));
+      const dursOrdenados=[...splits.map(s=>s.dur)].sort((a,b)=>a-b);
+      const medianaDur=dursOrdenados[Math.floor(dursOrdenados.length/2)];
+      // O stream de distancia de nado (sem GPS, so acelerometro) tem ruido forte em virada de
+      // parede — de vez em quando isso produz uma parcial fisicamente impossivel (ex: 0:50/100m,
+      // mais rapido que recorde mundial) ou uma "parcial" que na verdade e uma pausa entre series
+      // (3x mais lenta que o resto). Sem marcar isso, a parcial impossivel virava ate a "mais
+      // rapida" com estrela — o oposto de credivel.
+      const suspeito=(s)=>isSwim&&(s.dur<35||s.dur>medianaDur*1.6);
+      const splitsValidos=splits.filter(s=>!suspeito(s));
+      const melhorDur=splitsValidos.length?Math.min(...splitsValidos.map(s=>s.dur)):Math.min(...splits.map(s=>s.dur));
       const linhas=splits.map(s=>{
         const larg=Math.max(6,Math.round((maxDur?(maxDur/s.dur):1)*100*0.62));
+        if(suspeito(s)){
+          return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;opacity:.5">
+            <span style="font-family:var(--font-ui);font-size:11px;color:var(--muted);width:16px;flex-shrink:0">${s.n}</span>
+            <span style="font-family:var(--font-ui);font-size:12px;color:var(--muted);width:52px;flex-shrink:0">${formatPaceLabel(s.dur)}</span>
+            <span style="font-family:var(--font-body);font-size:10px;color:var(--muted);flex:1">dado suspeito — provavel pausa/virada, ignorado nas comparacoes</span>
+            <span style="font-family:var(--font-ui);font-size:11px;color:var(--muted);width:34px;text-align:right;flex-shrink:0">${s.fc!=null?s.fc:'-'}</span>
+          </div>`;
+        }
         // Verde quando a parcial bateu o pace-alvo; azul neutro quando nao ha alvo definido.
         const bateuAlvo=alvoSec?s.dur<=alvoSec:null;
         const corBarra=bateuAlvo===null?'#3b7dd8':(bateuAlvo?'#00e676':'#3b7dd8');
@@ -13672,11 +13767,14 @@ function renderStreamDetailsHTML(streams,profile,ov,plannedZone,sess){
       }).join('');
 
       // Negative split: terminou mais rapido do que comecou? E o padrao de prova bem executada.
+      // Usa so as parciais validas (sem a pausa/virada suspeita) — uma pausa de 3:18 no meio
+      // inflava a media daquela metade e distorcia a comparacao.
       let blocoSplit='';
-      if(splits.length>=4){
-        const meio=Math.floor(splits.length/2);
-        const m1=splits.slice(0,meio).reduce((a,b)=>a+b.dur,0)/meio;
-        const m2=splits.slice(meio).reduce((a,b)=>a+b.dur,0)/(splits.length-meio);
+      const splitsParaComparar=splitsValidos.length>=4?splitsValidos:splits;
+      if(splitsParaComparar.length>=4){
+        const meio=Math.floor(splitsParaComparar.length/2);
+        const m1=splitsParaComparar.slice(0,meio).reduce((a,b)=>a+b.dur,0)/meio;
+        const m2=splitsParaComparar.slice(meio).reduce((a,b)=>a+b.dur,0)/(splitsParaComparar.length-meio);
         const diff=m1-m2;
         const negativo=diff>3;
         const positivo=diff<-3;
