@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="v20260730131153">
+<meta name="app-version" content="v20260730144249">
 <script>
 // Auto-atualizacao: navegadores (principalmente Safari/iOS) as vezes seguram uma versao antiga
 // em cache mesmo depois de um deploy novo no servidor, causando confusao de "mudei o codigo mas
@@ -1576,14 +1576,14 @@ function getSessionMix(sport, raceDist, fase){
     },
     triathlon: {
       base:  ['swim_tech','bike_z2','run_z2','swim_z2','bike_long','strength','core','mobility'],
-      build: ['swim_intervals','bike_tempo','run_tempo','bike_brick','run_long','strength','core'],
-      peak:  ['bike_brick','swim_intervals','run_race_pace','bike_intervals','swim_z2','core'],
+      build: ['swim_intervals','bike_tempo','run_tempo','bike_intervals','run_long','strength','core'],
+      peak:  ['bike_tempo','swim_intervals','run_race_pace','bike_intervals','swim_z2','core'],
       taper: ['swim_tech','bike_z2','run_z2','swim_z2','mobility'],
     },
     duathlon: {
       base:  ['run_z2','bike_z2','run_z2','bike_long','strength','core','mobility'],
-      build: ['run_tempo','bike_tempo','bike_brick','run_long','bike_z2','strength','core'],
-      peak:  ['bike_brick','run_intervals','bike_intervals','run_race_pace','core'],
+      build: ['run_tempo','bike_tempo','bike_intervals','run_long','bike_z2','strength','core'],
+      peak:  ['bike_tempo','run_intervals','bike_intervals','run_race_pace','core'],
       taper: ['run_z2','bike_z2','run_z2','mobility'],
     },
   };
@@ -1966,27 +1966,51 @@ async function fetchComTimeout(url,options,timeoutMs){
 let _syncReady=false;
 let _syncPending=false;
 
-async function sbGet(key){
+async function sbGet(key,_retriesLeft){
+  if(_retriesLeft===undefined)_retriesLeft=2;
   try{
     const uid=currentUserId();
     if(!uid) return null; // sem sessão, sem dado — não ha mais "dado global" pra ler
     const r=await fetch(`${SB_URL}/rest/v1/nano_sync?key=eq.${encodeURIComponent(key)}&user_id=eq.${uid}&select=value`,{headers:sbHeaders()});
-    if(!r.ok)return null;
+    if(!r.ok){
+      if(_retriesLeft>0){ await new Promise(res=>setTimeout(res,400)); return sbGet(key,_retriesLeft-1); }
+      return null;
+    }
     const d=await r.json();
     return d&&d[0]?JSON.parse(d[0].value):null;
-  }catch(e){return null;}
+  }catch(e){
+    if(_retriesLeft>0){ await new Promise(res=>setTimeout(res,400)); return sbGet(key,_retriesLeft-1); }
+    return null;
+  }
 }
 
-async function sbSet(key,value){
+// Antes isso era "dispara e esquece": fetch sem checar r.ok (erro HTTP nao lanca excecao, entao
+// o catch nunca pegava) e sem retry. Uma unica falha de rede silenciosa em qualquer chamada —
+// principalmente as criticas tipo perfil e flag de onboarding concluido — causava bugs dificeis
+// de reproduzir (onboarding repetindo, dado sumindo) sem deixar rastro nenhum pro usuario ou
+// pra mim. Agora tenta de novo (2x, com pausa curta) e retorna true/false pra quem chamar poder
+// checar se realmente salvou.
+async function sbSet(key,value,_retriesLeft){
+  if(_retriesLeft===undefined)_retriesLeft=2;
   try{
     const uid=currentUserId();
-    if(!uid) return;
-    await fetch(`${SB_URL}/rest/v1/nano_sync?on_conflict=user_id,key`,{
+    if(!uid) return false;
+    const r=await fetch(`${SB_URL}/rest/v1/nano_sync?on_conflict=user_id,key`,{
       method:'POST',
       headers:sbHeaders({'Prefer':'resolution=merge-duplicates'}),
       body:JSON.stringify({key,value:JSON.stringify(value),user_id:uid,updated_at:new Date().toISOString()})
     });
-  }catch(e){}
+    if(!r.ok){
+      if(_retriesLeft>0){ await new Promise(res=>setTimeout(res,400)); return sbSet(key,value,_retriesLeft-1); }
+      console.warn(`[sbSet] falhou definitivamente pra key="${key}": HTTP ${r.status}`);
+      return false;
+    }
+    return true;
+  }catch(e){
+    if(_retriesLeft>0){ await new Promise(res=>setTimeout(res,400)); return sbSet(key,value,_retriesLeft-1); }
+    console.warn(`[sbSet] falhou definitivamente pra key="${key}":`, e.message);
+    return false;
+  }
 }
 
 // ── SUPABASE AUTH (GoTrue REST — CLC item 1) ──
@@ -3380,11 +3404,11 @@ function computeAdjustment(a, fase, lesoes){
 
   // Sem dados suficientes: não mexe
   if(a.done===0 || a.planned===0){
-    return { factor:1, reason:'Sem dados', detail:'Marque treinos como concluidos para o coach recalibrar sua próxima semana.' };
+    return { factor:1, reason:'Sem dados', detail:'Marque treinos como concluídos para o coach recalibrar sua próxima semana.' };
   }
 
   if(isTaper){
-    return { factor:1, reason:'Afunilamento', detail:'Fase de taper/pico: volume mantido de proposito para você chegar descansado.' };
+    return { factor:1, reason:'Afunilamento', detail:'Fase de taper/pico: volume mantido de propósito para você chegar descansado.' };
   }
 
   // Regras de ajuste
@@ -3392,22 +3416,22 @@ function computeAdjustment(a, fase, lesoes){
     // Completou quase tudo e achou fácil/moderado -> pode subir
     factor = hasLesao ? 1.07 : 1.12;
     reason = 'Progressao';
-    detail = `Você completou ${Math.round(a.adherence*100)}% dos treinos e a percepcao de esforco foi controlada. Subindo o volume${hasLesao?' com cautela pela sua lesao':''}.`;
+    detail = `Você completou ${Math.round(a.adherence*100)}% dos treinos e a percepção de esforço foi controlada. Subindo o volume${hasLesao?' com cautela pela sua lesão':''}.`;
   } else if(a.adherence>=0.85 && a.avgSense>=3.3){
     // Completou tudo mas achou muito forte -> segura
     factor = 1.0;
     reason = 'Consolidacao';
-    detail = `Você completou bastante, mas o esforco percebido foi alto. Mantendo o volume para consolidar antes de subir.`;
+    detail = `Você completou bastante, mas o esforço percebido foi alto. Mantendo o volume para consolidar antes de subir.`;
   } else if(a.adherence>=0.5 && a.adherence<0.85){
     // Aderencia parcial -> mantem
     factor = 0.97;
     reason = 'Ajuste leve';
-    detail = `Aderencia de ${Math.round(a.adherence*100)}%. Reduzindo levemente para você conseguir fechar a semana completa.`;
+    detail = `Aderência de ${Math.round(a.adherence*100)}%. Reduzindo levemente para você conseguir fechar a semana completa.`;
   } else if(a.adherence<0.5){
     // Aderencia baixa -> reduz para não acumular carga não cumprida
     factor = hasLesao ? 0.85 : 0.9;
     reason = 'Recuperação';
-    detail = `Aderencia de ${Math.round(a.adherence*100)}%. Reduzindo o volume para retomar de forma sustentavel, sem culpa.`;
+    detail = `Aderência de ${Math.round(a.adherence*100)}%. Reduzindo o volume para retomar de forma sustentável, sem culpa.`;
   } else {
     factor = 1.0; reason='Mantido'; detail='Volume mantido para a próxima semana.';
   }
@@ -3428,18 +3452,18 @@ function computeAdjustment(a, fase, lesoes){
       factor += bump;
       reason = 'Progressao (volume real)';
       const pct=Math.round((a.volRatio-1)*100);
-      detail = `Você executou ~${pct}% acima do volume sugerido em ${a.done} treinos, com esforco controlado. O coach acompanhou e subiu o plano${hasLesao?' com cautela pela sua lesao':''}.`;
+      detail = `Você executou ~${pct}% acima do volume sugerido em ${a.done} treinos, com esforço controlado. O coach acompanhou e subiu o plano${hasLesao?' com cautela pela sua lesão':''}.`;
     } else if(muitoAcima && senseAlta){
       // Fez mais, mas o corpo reclamou -> NÃO sobe por causa do volume; segura
       factor = Math.min(factor, 1.0);
-      reason = 'Cautela (esforco alto)';
-      detail = `Você fez volume acima do sugerido, mas a percepcao de esforco foi alta. O coach segurou o volume para proteger sua recuperação e evitar lesao.`;
+      reason = 'Cautela (esforço alto)';
+      detail = `Você fez volume acima do sugerido, mas a percepção de esforço foi alta. O coach segurou o volume para proteger sua recuperação e evitar lesão.`;
     } else if(muitoAbaixo){
       // Fez consistentemente menos que o planejado (mesmo "completando") -> não insiste em subir
       factor = Math.min(factor, hasLesao ? 0.95 : 0.98);
       reason = 'Ajuste ao real';
       const pct=Math.round((1-a.volRatio)*100);
-      detail = `Seu volume executado ficou ~${pct}% abaixo do sugerido em ${a.done} treinos. O coach aproximou o plano do que você está realmente fazendo, para ele ser sustentavel.`;
+      detail = `Seu volume executado ficou ~${pct}% abaixo do sugerido em ${a.done} treinos. O coach aproximou o plano do que você está realmente fazendo, para ele ser sustentável.`;
     }
   }
 
@@ -3797,7 +3821,7 @@ function showAddModal(w,d,opts){
       <select id="mx-note">
         <option value="">Sem zona</option>
         <option value="Z1"${preNote==='Z1'?' selected':''}>Z1 - Recuperação</option>
-        <option value="Z2"${preNote==='Z2'?' selected':''}>Z2 - Aerobico base</option>
+        <option value="Z2"${preNote==='Z2'?' selected':''}>Z2 - Aeróbico base</option>
         <option value="Z3"${preNote==='Z3'?' selected':''}>Z3 - Tempo/Limiar</option>
         <option value="Z4"${preNote==='Z4'?' selected':''}>Z4 - Intenso</option>
       </select></div>`;
@@ -4617,7 +4641,7 @@ function openCompleteSession(w,d,si,key){
   // Campos por modalidade
   const isSwim=sess.type==='swim';
   const isSupport=sess.type==='FORCE'||/Força|Força|Core|Mobilidade|Alongamento/i.test(sess.text||'');
-  const distLabel=isSwim?'Distancia (m)':'Distancia (km)';
+  const distLabel=isSwim?'Distância (m)':'Distância (km)';
   const paceLabel=sess.type==='bike'?'Velocidade média (km/h)':'Pace medio (min/km)';
 
   const zoneOpts=['Z1','Z2','Z3','Z4'].map(z=>`<button type="button" class="cmp-zone" data-zone="${z}" onclick="_cmpSelZone(this,'${z}')" style="flex:1;padding:10px 4px;background:var(--surface);border:1.5px solid var(--border);color:var(--muted2);font-family:var(--font-ui);font-size:11px;font-weight:700;border-radius:6px;cursor:pointer">${z}</button>`).join('');
@@ -5818,7 +5842,7 @@ function renderStats(){
           <div>Quantos dos treinos planejados você completou. E o que mais pesa: fazer o que foi combinado.</div>
         </div>
         <div style="margin-bottom:10px;padding-left:12px;border-left:2px solid rgba(0,230,118,0.4)">
-          <div style="color:var(--accent);font-family:var(--font-ui);font-size:10px;letter-spacing:1px;margin-bottom:2px">SEQUENCIA — 30%</div>
+          <div style="color:var(--accent);font-family:var(--font-ui);font-size:10px;letter-spacing:1px;margin-bottom:2px">SEQUÊNCIA — 30%</div>
           <div>Semanas seguidas treinando com regularidade. Premia não sumir — oito semanas seguidas chega ao máximo.</div>
         </div>
         <div style="margin-bottom:12px;padding-left:12px;border-left:2px solid rgba(0,230,118,0.4)">
@@ -6217,7 +6241,7 @@ function renderConquistas(){
 
   // Personal Records — base para ranking futuro
   let prsData;
-  try{ prsData=calcPRs(); }catch(e){ prsData={totalSessions:0,longestRun:0,longestBike:0,bestHR:999,bestPaceRun:null}; }
+  try{ prsData=calcPRs(); }catch(e){ prsData={totalSessions:0,longestRun:0,longestBike:0,longestSwim:0,bestHR:999,bestPaceRun:null,bestSpeedBike:null,bestPaceSwim:null}; }
   const prSection=document.createElement('div');
   prSection.style.cssText='padding:0 16px 20px';
   const prTags=[];
@@ -6228,6 +6252,12 @@ function renderConquistas(){
   }
   if(prsData.longestRun>0) prTags.push({label:`${prsData.longestRun.toFixed(1)}km`,sub:'CORRIDA MAIS LONGA',color:'#00e676'});
   if(prsData.longestBike>0) prTags.push({label:`${prsData.longestBike.toFixed(0)}km`,sub:'BIKE MAIS LONGO',color:'#e05c2a'});
+  if(prsData.bestSpeedBike) prTags.push({label:`${prsData.bestSpeedBike.toFixed(1)}km/h`,sub:'MELHOR VELOCIDADE BIKE',color:'#e05c2a'});
+  if(prsData.longestSwim>0) prTags.push({label:`${prsData.longestSwim.toFixed(1)}km`,sub:'NADO MAIS LONGO',color:'#1a6cf0'});
+  if(prsData.bestPaceSwim){
+    const m=Math.floor(prsData.bestPaceSwim/60),s=prsData.bestPaceSwim%60;
+    prTags.push({label:`${m}:${s.toString().padStart(2,'0')}/100m`,sub:'MELHOR PACE NADO',color:'#1a6cf0'});
+  }
   if(prsData.bestHR<999) prTags.push({label:`${prsData.bestHR}bpm`,sub:'FC MÍNIMA',color:'#9b6af0'});
 
   const prCard=(t)=>`<div style="flex:1;min-width:calc(50% - 5px);background:${t.color}12;border:1px solid ${t.color}33;border-radius:10px;padding:16px">
@@ -6243,6 +6273,59 @@ function renderConquistas(){
     :`<div style="font-family:var(--font-body);font-size:12px;color:var(--muted2);text-align:center;padding:24px 16px;background:var(--surface);border:1px dashed var(--border);border-radius:10px">Complete treinos com dados do Strava para registrar seus recordes.</div>`}
   `;
   container.appendChild(prSection);
+
+  // Painel de METRICAS TECNICAS — pedido explicito: recorde historico sozinho nao mostra onde o
+  // atleta esta AGORA. Cada linha compara o recorde com a media das ultimas 5 sessoes daquela
+  // modalidade, e mostra o volume total acumulado. So aparece o que tem dado real — sem VO2 max
+  // (o app nao tem fonte real desse numero; nao vale inventar).
+  try{
+    const linhasTecnicas=[];
+    const fmtPaceMin=p=>{const m=Math.floor(p),s=Math.round((p-m)*60);return `${m}:${s.toString().padStart(2,'0')}`;};
+    const fmtPaceSec=s=>`${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')}`;
+    if(prsData.bestPaceRun){
+      linhasTecnicas.push({modalidade:'Corrida',cor:'#00e676',
+        recorde:`${fmtPaceMin(prsData.bestPaceRun)}/km`,
+        recente:prsData.recentPaceRun?`${fmtPaceMin(prsData.recentPaceRun)}/km`:'—',
+        total:`${prsData.totalKmRun.toFixed(0)}km acumulados`});
+    }
+    if(prsData.bestSpeedBike){
+      linhasTecnicas.push({modalidade:'Bike',cor:'#e05c2a',
+        recorde:`${prsData.bestSpeedBike.toFixed(1)}km/h`,
+        recente:prsData.recentSpeedBike?`${prsData.recentSpeedBike.toFixed(1)}km/h`:'—',
+        total:`${prsData.totalKmBike.toFixed(0)}km acumulados`});
+    }
+    if(prsData.bestPaceSwim){
+      linhasTecnicas.push({modalidade:'Natação',cor:'#1a6cf0',
+        recorde:`${fmtPaceSec(prsData.bestPaceSwim)}/100m`,
+        recente:prsData.recentPaceSwim?`${fmtPaceSec(prsData.recentPaceSwim)}/100m`:'—',
+        total:`${prsData.totalKmSwim.toFixed(1)}km acumulados`});
+    }
+    if(linhasTecnicas.length){
+      const tecSection=document.createElement('div');
+      tecSection.style.cssText='padding:0 16px 20px';
+      tecSection.innerHTML=`
+        <div style="font-family:var(--font-ui);font-size:10px;color:var(--accent);letter-spacing:2px;margin-bottom:4px">MÉTRICAS TÉCNICAS</div>
+        <div style="font-family:var(--font-body);font-size:11px;color:var(--muted);margin-bottom:12px">Recorde histórico contra a média das suas últimas 5 sessões — pra ver se você está perto do seu melhor ou longe dele.</div>
+        <div style="border:1px solid var(--border);border-radius:10px;overflow:hidden">
+          <div style="display:flex;padding:9px 14px;background:var(--surface);font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1px">
+            <div style="flex:1.3">MODALIDADE</div><div style="flex:1;text-align:right">RECORDE</div><div style="flex:1;text-align:right">RECENTE</div>
+          </div>
+          ${linhasTecnicas.map(l=>`<div style="display:flex;align-items:center;padding:12px 14px;border-top:1px solid var(--border)">
+            <div style="flex:1.3;font-family:var(--font-body);font-size:13px;color:var(--text)">${l.modalidade}<div style="font-family:var(--font-body);font-size:10px;color:var(--muted);margin-top:1px">${l.total}</div></div>
+            <div style="flex:1;text-align:right;font-family:var(--font-display);font-size:15px;color:${l.cor}">${l.recorde}</div>
+            <div style="flex:1;text-align:right;font-family:var(--font-display);font-size:15px;color:var(--muted2)">${l.recente}</div>
+          </div>`).join('')}
+        </div>
+        ${(prsData.bestHR<999||prsData.bestHRMax>0||prsData.totalCal>0)?`<div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">
+          ${prsData.bestHRMax>0?`<div style="flex:1;min-width:calc(33% - 7px);background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px"><div style="font-family:var(--font-display);font-size:18px;color:var(--text)">${prsData.bestHRMax}bpm</div><div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:.5px;margin-top:3px">FC MÁXIMA REGISTRADA</div></div>`:''}
+          ${prsData.bestHR<999?`<div style="flex:1;min-width:calc(33% - 7px);background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px"><div style="font-family:var(--font-display);font-size:18px;color:var(--text)">${prsData.bestHR}bpm</div><div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:.5px;margin-top:3px">FC MÍNIMA REGISTRADA</div></div>`:''}
+          ${prsData.totalCal>0?`<div style="flex:1;min-width:calc(33% - 7px);background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px"><div style="font-family:var(--font-display);font-size:18px;color:var(--text)">${Math.round(prsData.totalCal).toLocaleString('pt-BR')}</div><div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:.5px;margin-top:3px">KCAL ACUMULADAS</div></div>`:''}
+        </div>`:''}
+        <div style="font-family:var(--font-body);font-size:10px;color:var(--muted);margin-top:10px;line-height:1.4">VO2 máx não entra aqui — o app não tem uma fonte real desse dado hoje (precisaria de outro escopo de permissão do Strava). Prefiro não mostrar um número inventado.</div>
+      `;
+      container.appendChild(tecSection);
+    }
+  }catch(e){}
 
   // Ciclo ativo
   let active,ct,vol,pct;
@@ -6683,8 +6766,6 @@ function renderCalendario(){
     {color:'#e05c2a',label:'Bike'},
     {color:'#00e676',label:'Corrida'},
     {color:'#9b6af0',label:'Musculação'},
-    {color:'#c8cad0',label:'Tenis'},
-    {color:'#f0a500',label:'Tijolo'},
   ];
   legItems.forEach(({color,label})=>{
     const li=document.createElement('div');li.className='cal-leg-item';
@@ -7804,7 +7885,22 @@ async function mbFetchMembers(groupId){
   try{
     const r=await fetch(`${SB_URL}/rest/v1/mytri_group_members?group_id=eq.${groupId}&select=*&order=pontos.desc`,{headers:sbHeaders()});
     if(!r.ok)return [];
-    return await r.json();
+    const rows=await r.json();
+    // Cinto de seguranca contra linha duplicada do mesmo user_id (ex: criacao de grupo que
+    // rodou duas vezes antes do upsert existir, ou uma corrida de escrita na entrada por
+    // codigo). Mantem a linha com mais pontos e o nome real (nao generico) quando ha empate.
+    const porUsuario={};
+    rows.forEach(m=>{
+      const existente=porUsuario[m.user_id];
+      if(!existente){ porUsuario[m.user_id]=m; return; }
+      const genericos=['você','voce','atleta',''];
+      const mTemNomeReal=m.nome_exibicao&&!genericos.includes(String(m.nome_exibicao).toLowerCase());
+      const exTemNomeReal=existente.nome_exibicao&&!genericos.includes(String(existente.nome_exibicao).toLowerCase());
+      const melhor=(m.pontos||0)>(existente.pontos||0)||(mTemNomeReal&&!exTemNomeReal)?m:existente;
+      melhor.pontos=Math.max(m.pontos||0,existente.pontos||0);
+      porUsuario[m.user_id]=melhor;
+    });
+    return Object.values(porUsuario).sort((a,b)=>(b.pontos||0)-(a.pontos||0));
   }catch(e){ return []; }
 }
 
@@ -7875,7 +7971,7 @@ function openCreateGroupForm(){
     </select>
     <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;display:block;margin-bottom:6px">COMO PONTUA?</label>
     <div style="display:flex;gap:8px;margin-bottom:24px" id="mb-scoring">
-      ${['Número de treinos','Distancia (km)','Minutos'].map((l,i)=>`<div onclick="_mbSelectScoring(${i})" data-i="${i}" class="mb-score-opt" style="flex:1;text-align:center;padding:12px 6px;border-radius:8px;border:1px solid ${i===0?'var(--accent)':'var(--border)'};background:${i===0?'rgba(0,230,118,0.1)':'var(--surface)'};color:${i===0?'var(--accent)':'var(--muted2)'};font-family:var(--font-ui);font-size:10px;letter-spacing:.5px;cursor:pointer">${l}</div>`).join('')}
+      ${['Número de treinos','Distância (km)','Minutos'].map((l,i)=>`<div onclick="_mbSelectScoring(${i})" data-i="${i}" class="mb-score-opt" style="flex:1;text-align:center;padding:12px 6px;border-radius:8px;border:1px solid ${i===0?'var(--accent)':'var(--border)'};background:${i===0?'rgba(0,230,118,0.1)':'var(--surface)'};color:${i===0?'var(--accent)':'var(--muted2)'};font-family:var(--font-ui);font-size:10px;letter-spacing:.5px;cursor:pointer">${l}</div>`).join('')}
     </div>
     <button id="mb-create-btn" onclick="submitCreateGroup()" style="width:100%;padding:16px;background:var(--text);color:#000;border:none;border-radius:8px;font-family:var(--font-ui);font-size:13px;font-weight:700;letter-spacing:1.5px;cursor:pointer">CRIAR</button>
   </div>`;
@@ -7894,7 +7990,7 @@ async function submitCreateGroup(){
   const nome=(document.getElementById('mb-nome').value||'').trim();
   if(!nome){ alert('Da um nome pro grupo primeiro.'); return; }
   const foco=(document.getElementById('mb-foco').value||'').trim();
-  const scoringLabels=['Número de treinos','Distancia (km)','Minutos'];
+  const scoringLabels=['Número de treinos','Distância (km)','Minutos'];
   const scoring=scoringLabels[window._mbScoring||0];
   const btn=document.getElementById('mb-create-btn');
   if(btn){ btn.disabled=true; btn.textContent='CRIANDO...'; }
@@ -7923,10 +8019,14 @@ async function submitCreateGroup(){
       throw new Error((rows&&(rows.message||rows.hint||rows.details))||`HTTP ${r.status}`);
     }
     const group=rows[0];
-    // Dono entra como primeiro membro automaticamente.
-    await fetch(`${SB_URL}/rest/v1/mytri_group_members`,{
+    // Dono entra como primeiro membro automaticamente. Upsert por (group_id,user_id) — antes era
+    // um INSERT simples, que criava uma linha duplicada se essa funcao rodasse duas vezes pro
+    // mesmo grupo (duplo toque no botao, um retry apos timeout, etc.). Precisa existir uma
+    // constraint UNIQUE(group_id,user_id) na tabela pra isso funcionar — se ainda nao existir,
+    // e o proximo passo do lado do banco.
+    await fetch(`${SB_URL}/rest/v1/mytri_group_members?on_conflict=group_id,user_id`,{
       method:'POST',
-      headers:sbHeaders(),
+      headers:sbHeaders({'Prefer':'resolution=merge-duplicates'}),
       body:JSON.stringify({group_id:group.id,user_id:uid,nome_exibicao:prof.name||'Você',foto_url:prof.photo||null})
     });
     meiaBrancaState._openGroup=group;
@@ -8154,7 +8254,7 @@ function _ckExtractMin(sess){
   return 0;
 }
 function _ckPointsFor(sess,scoring){
-  if(scoring==='Distancia (km)')return Math.round(_ckExtractKm(sess)*10)/10;
+  if(scoring==='Distância (km)')return Math.round(_ckExtractKm(sess)*10)/10;
   if(scoring==='Minutos')return _ckExtractMin(sess);
   return 1; // "Número de treinos"
 }
@@ -9346,9 +9446,9 @@ function renderProfile(){
            tambem — Nano pediu pra area inteira (nao so a faixa da foto acima) abrir o seletor
            de foto de capa; os elementos de dentro que ja tem acao propria (avatar, instants,
            atualizar localizacao, strava/instagram) param a propagacao pra nao abrir os dois. -->
-      <div style="padding:0 20px 16px;position:relative;cursor:pointer" onclick="changeCoverPhoto()">
+      <div style="padding:0 20px 16px;position:relative;cursor:pointer;z-index:3" onclick="changeCoverPhoto()">
         <div style="display:flex;align-items:flex-end;gap:14px;margin-top:-40px">
-          <div style="position:relative;flex-shrink:0;padding:10px;margin:-10px" onclick="event.stopPropagation()">
+          <div style="position:relative;flex-shrink:0;padding:10px;margin:-10px;z-index:4" onclick="event.stopPropagation()">
             <div id="moments-ring" style="display:inline-block;border-radius:50%;padding:3px;background:var(--bg);line-height:0">
               <div onclick="(window._momentosUrls&&window._momentosUrls.length)?viewMoment(0):changeProfilePhoto()" style="cursor:pointer;border-radius:50%;line-height:0;display:inline-block">${photoEl}</div>
             </div>
@@ -9688,7 +9788,7 @@ function renderLojaHTML(loja,produtos){
 }
 function _avisoAfiliado(){
   // Exigencia do programa de afiliados: informar que os links geram comissao.
-  return `<div style="font-family:var(--font-body);font-size:10px;color:var(--muted);line-height:1.5;padding:10px 12px;background:var(--surface);border-radius:8px">Como participante do programa de associados da Amazon, recebo comissao por compras qualificadas feitas por estes links. O preco para voce e o mesmo.</div>`;
+  return `<div style="font-family:var(--font-body);font-size:10px;color:var(--muted);line-height:1.5;padding:10px 12px;background:var(--surface);border-radius:8px">Como participante do programa de associados da Amazon, recebo comissão por compras qualificadas feitas por estes links. O preço para você é o mesmo.</div>`;
 }
 // Tela de configuracao da vitrine: ligar/desligar, tag de afiliado e produtos.
 async function abrirConfigLoja(){
@@ -9727,7 +9827,7 @@ async function abrirConfigLoja(){
     <div style="margin-bottom:8px">
       <label style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;display:block;margin-bottom:6px">SUA TAG DE AFILIADO AMAZON</label>
       <input id="loja-tag" value="${tag}" placeholder="ex: seunome-20" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:12px;border-radius:6px">
-      <div style="font-family:var(--font-body);font-size:11px;color:var(--muted);margin-top:6px;line-height:1.5">Precisa de conta aprovada no programa de associados da Amazon. Sem tag, os links funcionam mas sem comissao. Confira nas regras do programa se voce pode divulgar links por um app de terceiros.</div>
+      <div style="font-family:var(--font-body);font-size:11px;color:var(--muted);margin-top:6px;line-height:1.5">Precisa de conta aprovada no programa de associados da Amazon. Sem tag, os links funcionam mas sem comissão. Confira nas regras do programa se você pode divulgar links por um app de terceiros.</div>
     </div>
 
     <div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;margin:22px 0 10px">MEUS PRODUTOS (${produtos.length})</div>
@@ -10071,7 +10171,7 @@ function abrirEditorCapa(dataUrl,onSave){
     overlay.id='capa-editor-overlay';
     overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:20px';
     overlay.innerHTML=`
-      <div style="font-family:var(--font-ui);font-size:11px;color:var(--muted2);letter-spacing:1px;text-align:center">ARRASTE PRA POSICIONAR · DESLIZE PRA DAR ZOOM</div>
+      <div style="font-family:var(--font-ui);font-size:11px;color:var(--muted2);letter-spacing:1px;text-align:center">ARRASTE PRA POSICIONAR · PINÇA OU DESLIZE PRA DAR ZOOM</div>
       <div id="capa-editor-frame" style="position:relative;width:${frameW}px;height:${frameH}px;overflow:hidden;border-radius:12px;border:2px solid var(--accent);touch-action:none;cursor:grab">
         <img id="capa-editor-img" src="${dataUrl}" style="position:absolute;left:50%;top:50%;transform-origin:center center;user-select:none;-webkit-user-drag:none;pointer-events:none">
       </div>
@@ -10088,6 +10188,13 @@ function abrirEditorCapa(dataUrl,onSave){
     frame.addEventListener('pointerup',_capaEditPointerUp);
     frame.addEventListener('pointercancel',_capaEditPointerUp);
     frame.addEventListener('pointerleave',_capaEditPointerUp);
+    // Touque: pinca de dois dedos pra zoom (estilo Apple), um dedo pra arrastar. Eventos de
+    // pointer TAMBEM disparam pra toque, entao os handlers de pointer acima ignoram toque
+    // (so respondem a mouse) pra nao brigar com esses aqui.
+    frame.addEventListener('touchstart',_capaEditTouchStart,{passive:false});
+    frame.addEventListener('touchmove',_capaEditTouchMove,{passive:false});
+    frame.addEventListener('touchend',_capaEditTouchEnd);
+    frame.addEventListener('touchcancel',_capaEditTouchEnd);
   };
   img.onerror=()=>alert('Não consegui processar essa imagem.');
   img.src=dataUrl;
@@ -10114,7 +10221,7 @@ function _capaEditZoom(val){
   _capaEditApplyTransform();
 }
 function _capaEditPointerDown(e){
-  if(!_capaEdit)return;
+  if(!_capaEdit||e.pointerType!=='mouse')return;   // toque e tratado pelos handlers de touch abaixo
   _capaEdit.dragging=true;
   _capaEdit.startX=e.clientX; _capaEdit.startY=e.clientY;
   _capaEdit.startTx=_capaEdit.tx; _capaEdit.startTy=_capaEdit.ty;
@@ -10122,16 +10229,58 @@ function _capaEditPointerDown(e){
   e.currentTarget.setPointerCapture&&e.currentTarget.setPointerCapture(e.pointerId);
 }
 function _capaEditPointerMove(e){
-  if(!_capaEdit||!_capaEdit.dragging)return;
+  if(!_capaEdit||!_capaEdit.dragging||e.pointerType!=='mouse')return;
   _capaEdit.tx=_capaEdit.startTx+(e.clientX-_capaEdit.startX);
   _capaEdit.ty=_capaEdit.startTy+(e.clientY-_capaEdit.startY);
   _capaEditClamp();
   _capaEditApplyTransform();
 }
 function _capaEditPointerUp(e){
-  if(!_capaEdit)return;
+  if(!_capaEdit||e.pointerType!=='mouse')return;
   _capaEdit.dragging=false;
   if(e.currentTarget)e.currentTarget.style.cursor='grab';
+}
+// Toque: um dedo arrasta (mesma logica do mouse), dois dedos dao zoom pela distancia entre eles
+// (pinca estilo Apple) — pedido explicito no lugar do slider, que continua funcionando junto
+// (util pra ajuste fino ou teste em desktop).
+function _capaEditTouchStart(e){
+  if(!_capaEdit)return;
+  e.preventDefault();
+  if(e.touches.length===1){
+    _capaEdit.dragging=true;
+    _capaEdit.startX=e.touches[0].clientX; _capaEdit.startY=e.touches[0].clientY;
+    _capaEdit.startTx=_capaEdit.tx; _capaEdit.startTy=_capaEdit.ty;
+  }else if(e.touches.length===2){
+    _capaEdit.dragging=false;
+    _capaEdit.pinchStartDist=_capaEditTouchDist(e.touches);
+    _capaEdit.pinchStartZoom=_capaEdit.zoom;
+  }
+}
+function _capaEditTouchMove(e){
+  if(!_capaEdit)return;
+  e.preventDefault();
+  if(e.touches.length===1&&_capaEdit.dragging){
+    _capaEdit.tx=_capaEdit.startTx+(e.touches[0].clientX-_capaEdit.startX);
+    _capaEdit.ty=_capaEdit.startTy+(e.touches[0].clientY-_capaEdit.startY);
+    _capaEditClamp();
+    _capaEditApplyTransform();
+  }else if(e.touches.length===2&&_capaEdit.pinchStartDist){
+    const dist=_capaEditTouchDist(e.touches);
+    _capaEdit.zoom=Math.max(1,Math.min(3,_capaEdit.pinchStartZoom*(dist/_capaEdit.pinchStartDist)));
+    _capaEditClamp();
+    _capaEditApplyTransform();
+    const slider=document.getElementById('capa-editor-zoom');
+    if(slider)slider.value=Math.round(_capaEdit.zoom*100);
+  }
+}
+function _capaEditTouchEnd(e){
+  if(!_capaEdit)return;
+  if(e.touches.length<2)_capaEdit.pinchStartDist=null;
+  if(e.touches.length===0)_capaEdit.dragging=false;
+}
+function _capaEditTouchDist(touches){
+  const dx=touches[0].clientX-touches[1].clientX, dy=touches[0].clientY-touches[1].clientY;
+  return Math.sqrt(dx*dx+dy*dy);
 }
 function fecharEditorCapa(){
   const overlay=document.getElementById('capa-editor-overlay');
@@ -10264,7 +10413,7 @@ function removeProfilePhoto(idx){
   renderProfile();
 }
 
-function submitProfile(){
+async function submitProfile(){
   const prof=getMytriProfile();
   const getVal=(id)=>{const el=document.getElementById(id);return el?el.value:'';};
   const updated={
@@ -10291,13 +10440,28 @@ function submitProfile(){
     interests:getVal('pf-interests').trim(),
     busca:getVal('pf-busca'),
   };
-  saveMytriProfile(updated);
+  const btn=document.querySelector('button[onclick="submitProfile()"]');
+  if(btn){ btn.disabled=true; btn.textContent='...'; }
+  localStorage.setItem('mytri_profile',JSON.stringify(updated));
   // Bloqueia sync do Supabase por 60s para os dados não serem sobrescritos
   localStorage.setItem('mytri_ob_just_saved','1');
   setTimeout(()=>localStorage.removeItem('mytri_ob_just_saved'),60000);
-  sbSet('mytri_profile', updated).catch(()=>{});
+  if(clubState.myProfile){ clubState.myProfile={...clubState.myProfile,...updated}; saveClubState(); syncClubProfileToSupabase(); }
+  // Antes disso fechava a tela na hora, sem nenhuma confirmacao visivel — dava a impressao de
+  // que nada tinha acontecido (bug reportado: "nao existe um salvar que atualize o perfil").
+  // Agora espera a gravacao remota confirmar (ja com retry embutido no sbSet) antes de fechar,
+  // e mostra um toast rapido de sucesso ou aviso.
+  const ok=await sbSet('mytri_profile', updated);
+  _showSaveToast(ok?'Perfil salvo':'Salvo neste aparelho — vamos tentar sincronizar de novo em breve');
   closeProfile();
   refreshHoje();
+}
+function _showSaveToast(msg){
+  const el=document.createElement('div');
+  el.textContent=msg;
+  el.style.cssText='position:fixed;left:50%;bottom:100px;transform:translateX(-50%);background:var(--surface);border:1px solid var(--accent);color:var(--text);font-family:var(--font-ui);font-size:12px;letter-spacing:.5px;padding:12px 20px;border-radius:8px;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,.4)';
+  document.body.appendChild(el);
+  setTimeout(()=>{ el.style.transition='opacity .4s'; el.style.opacity='0'; setTimeout(()=>el.remove(),400); },2200);
 }
 
 
@@ -10312,18 +10476,6 @@ const BADGES=[
    icon:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><path d="M2 17c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><circle cx="12" cy="6" r="2"/><path d="M12 8v4"/></svg>`,
    label:'Primeiro Nado',desc:'Primeira sessão de natação',color:'#1a6cf0',sports:['triathlon','natacao'],
    check:()=>loadAllStravaData().some(o=>o.type===SWIM||o.type==='swim')},
-  {id:'primeiro_brick',
-   icon:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="7" height="5" rx="1"/><rect x="14" y="11" width="7" height="5" rx="1"/><path d="M10 13.5h4"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/><path d="M12 8V6m-3 2V5m6 3V5"/></svg>`,
-   label:'Brick Warrior',desc:'Completou um treino brick',color:'#f0a500',sports:['triathlon','duathlon'],
-   check:()=>{
-    const ovs=loadOverrides();
-    return Object.keys(ovs).some(k=>{
-      const parts=k.split('_');if(parts.length<3)return false;
-      const [w,d]=parts;
-      const sessions=getEffectiveSessions(parseInt(w),parseInt(d));
-      return sessions.some(s=>s.type===BRICK&&ovs[k]&&ovs[k].stravaData);
-    });
-  }},
   {id:'semana_completa',
    icon:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`,
    label:'Semana Perfeita',desc:'5 ou mais treinos numa semana',color:'#f0a500',
@@ -10411,24 +10563,38 @@ function loadAllStravaData(){
       stravaTime:e.stravaTime||(!_looksLikeDistance(e.dist)?e.dist:'')||'',
       stravaHR:e.stravaHR||'',
       stravaCal:e.stravaCal||e.cal||'',
+      stravaPace:e.stravaPace||'',
     });});
   });
   return all;
 }
 
 function calcPRs(){
-  const prs={totalSessions:0,longestRun:0,longestBike:0,bestHR:999,bestPaceRun:null,bestPaceRunDist:0};
+  const prs={totalSessions:0,longestRun:0,longestBike:0,longestSwim:0,bestHR:999,bestHRMax:0,
+    bestPaceRun:null,bestPaceRunDist:0,bestSpeedBike:null,bestPaceSwim:null,
+    totalKmRun:0,totalKmBike:0,totalKmSwim:0,totalCal:0,
+    // Media dos ultimos N pra dar sensacao de "ritmo atual", nao so o recorde historico —
+    // um PR de 3 meses atras nao diz nada sobre como voce esta agora.
+    _recentPaceRun:[],_recentSpeedBike:[],_recentPaceSwim:[]};
   const allData=loadAllStravaData();
   allData.forEach(o=>{
     prs.totalSessions++;
+    if(o.stravaCal){ const c=parseFloat(o.stravaCal)||0; prs.totalCal+=c; }
     if(o.stravaDist){
-      const dist=parseFloat(o.stravaDist)||0;
-      if(o.type==='run'&&dist>prs.longestRun)prs.longestRun=dist;
-      if(o.type==='bike'&&dist>prs.longestBike)prs.longestBike=dist;
+      const dStr=String(o.stravaDist);
+      // Nado guarda distancia em METROS (ex "1000m"), diferente de bike/corrida que ja vem em
+      // km (ex "20.4km") — sem essa conversao, parseFloat("1000m") vira 1000 e era lido como
+      // 1000KM de nado (bug real que passou na leva anterior).
+      const ehMetros=dStr.endsWith('m')&&!dStr.endsWith('km');
+      const dist=(parseFloat(dStr)||0)/(ehMetros?1000:1);
+      if(o.type==='run'){ if(dist>prs.longestRun)prs.longestRun=dist; prs.totalKmRun+=dist; }
+      if(o.type==='bike'){ if(dist>prs.longestBike)prs.longestBike=dist; prs.totalKmBike+=dist; }
+      if(o.type==='swim'){ if(dist>prs.longestSwim)prs.longestSwim=dist; prs.totalKmSwim+=dist; }
     }
     if(o.stravaHR){
       const hr=parseInt(o.stravaHR)||0;
       if(hr>0&&hr<prs.bestHR)prs.bestHR=hr;
+      if(hr>prs.bestHRMax)prs.bestHRMax=hr;
     }
     if(o.type==='run'&&o.stravaDist&&(o.stravaPace||o.stravaTime)){
       const dist=parseFloat(o.stravaDist)||0;
@@ -10449,9 +10615,40 @@ function calcPRs(){
           pace=mins/dist;
         }
       }
-      if(pace!==null&&dist>0&&(!prs.bestPaceRun||pace<prs.bestPaceRun)){prs.bestPaceRun=pace;prs.bestPaceRunDist=dist;}
+      if(pace!==null&&dist>0){
+        if(!prs.bestPaceRun||pace<prs.bestPaceRun){prs.bestPaceRun=pace;prs.bestPaceRunDist=dist;}
+        prs._recentPaceRun.push(pace);
+      }
+    }
+    // Velocidade media de bike: recorde e o MAIOR km/h (diferente de pace, onde menor e melhor).
+    if(o.type==='bike'&&o.stravaPace){
+      const pm=String(o.stravaPace).match(/([\d.]+)\s*km\/h/);
+      if(pm){
+        const kmh=parseFloat(pm[1]);
+        if(kmh>0){
+          if(!prs.bestSpeedBike||kmh>prs.bestSpeedBike)prs.bestSpeedBike=kmh;
+          prs._recentSpeedBike.push(kmh);
+        }
+      }
+    }
+    // Ritmo de nado por 100m: recorde e o MENOR tempo, igual corrida.
+    if(o.type==='swim'&&o.stravaPace){
+      const pm=String(o.stravaPace).match(/(\d+):(\d+)\/100m/);
+      if(pm){
+        const sec=parseInt(pm[1])*60+parseInt(pm[2]);
+        if(sec>0){
+          if(!prs.bestPaceSwim||sec<prs.bestPaceSwim)prs.bestPaceSwim=sec;
+          prs._recentPaceSwim.push(sec);
+        }
+      }
     }
   });
+  // "Recente" = media dos ultimos 5 registros de cada modalidade (ja vem em ordem cronologica
+  // do loadAllStravaData). Da o "ritmo atual" pra comparar com o recorde historico.
+  const media5=arr=>arr.length?arr.slice(-5).reduce((a,b)=>a+b,0)/Math.min(5,arr.length):null;
+  prs.recentPaceRun=media5(prs._recentPaceRun);
+  prs.recentSpeedBike=media5(prs._recentSpeedBike);
+  prs.recentPaceSwim=media5(prs._recentPaceSwim);
   return prs;
 }
 
@@ -11396,7 +11593,7 @@ function renderObModalidades(c){
         {key:'swimLevel',label:'NATAÇÃO',color:'#1a6cf0',levels:swimLevels,
          extra:`<input id="ob-swim-pace" type="tel" inputmode="numeric" placeholder="ex: 1:45" value="${obData.swimPace||''}" oninput="obData.swimPace=obFormatPace(this)" onblur="obData.swimPace=obFormatPaceBlur(this)" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px"><div style="font-family:var(--font-body);font-size:10px;color:var(--muted);margin-top:5px;line-height:1.4">Ex: 1:45 = 1min45s por 100m de nado</div>`},
         {key:'bikeLevel',label:'BIKE',color:'#e05c2a',levels,
-         extra:`<input id="ob-ftp" placeholder="FTP em watts (ex: 200)" value="${obData.ftp||''}" type="number" oninput="obData.ftp=this.value;obData.ftpPorTeste=false;atualizarDicaFTP()" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px"><div id="ob-ftp-hint" style="font-family:var(--font-body);font-size:11px;color:var(--accent);margin-top:6px;line-height:1.4">${dicaFTPHtml()}</div><div style="font-family:var(--font-body);font-size:10px;color:var(--muted);margin-top:5px;line-height:1.4">FTP = potencia média que você sustenta por cerca de 1h no bike</div>${ftpCalcExtraHtml()}`},
+         extra:`<input id="ob-ftp" placeholder="FTP em watts (ex: 200)" value="${obData.ftp||''}" type="number" oninput="obData.ftp=this.value;obData.ftpPorTeste=false;atualizarDicaFTP()" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px"><div id="ob-ftp-hint" style="font-family:var(--font-body);font-size:11px;color:var(--accent);margin-top:6px;line-height:1.4">${dicaFTPHtml()}</div><div style="font-family:var(--font-body);font-size:10px;color:var(--muted);margin-top:5px;line-height:1.4">FTP = potência média que você sustenta por cerca de 1h no bike</div>${ftpCalcExtraHtml()}`},
         {key:'runLevel',label:'CORRIDA',color:'#00e676',levels,
          extra:`<input id="ob-run-pace" type="tel" inputmode="numeric" placeholder="ex: 5:30" value="${obData.runPace||''}" oninput="obData.runPace=obFormatPace(this)" onblur="obData.runPace=obFormatPaceBlur(this)" style="width:100%;margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px;border-radius:4px"><div style="font-family:var(--font-body);font-size:10px;color:var(--muted);margin-top:5px;line-height:1.4">Ex: 5:30 = 5min30s por km percorrido</div>`},
       ]
@@ -11545,10 +11742,10 @@ function dicaFTPHtml(){
       if(hist.length){
         const med=hist.slice(-5).reduce((a,b)=>a+b.kmh,0)/Math.min(5,hist.length);
         const distante=Math.abs(v-med)/med>0.25;
-        comparativo=`<br><span style="color:${distante?'#f0a500':'var(--muted)'}">Suas ultimas pedaladas: ${med.toFixed(1)}km/h de media real.${distante?' Esse FTP nao parece bater com isso — confira o valor.':''}</span>`;
+        comparativo=`<br><span style="color:${distante?'#f0a500':'var(--muted)'}">Suas últimas pedaladas: ${med.toFixed(1)}km/h de média real.${distante?' Esse FTP não parece bater com isso — confira o valor.':''}</span>`;
       }
     }catch(e){}
-    const avisoTeste=obData.ftpPorTeste?'<br><span style="color:var(--muted)">FTP calculada a partir de um teste de velocidade (sem sensor de potencia) — troque por um valor medido quando tiver o sensor.</span>':'';
+    const avisoTeste=obData.ftpPorTeste?'<br><span style="color:var(--muted)">FTP calculada a partir de um teste de velocidade (sem sensor de potência) — troque por um valor medido quando tiver o sensor.</span>':'';
     return `≈ ${v.toFixed(1)}km/h sustentados no plano · em ritmo de prova (~87% do FTP) ≈ ${vProva.toFixed(1)}km/h${comparativo}<br><span style="color:var(--muted)">Velocidade sustentada, sem paradas nem subidas — sua média de pedal no dia a dia costuma ser bem menor.</span>${avisoTeste}`;
   }catch(e){ return ''; }
 }
@@ -12884,11 +13081,14 @@ async function maybeShowSessionAnalysis(key, sess, w, d){
   try{
     const mapaSport={run:'corrida',bike:'ciclismo',swim:'natacao'};
     const sport=mapaSport[sess.type];
-    if(sport){
+    if(sport && ov.stravaActivityId){
+      // So monta a comparacao quando da pra confirmar QUAL atividade do historico e a de hoje
+      // pelo ID real do Strava. Antes, sem ID batendo, o codigo assumia "a ultima do historico e
+      // hoje" — o que inventava comparacoes com atividades erradas quando a sessao era manual ou
+      // ainda nao tinha sincronizado (ex: comparar 12km pedalados hoje com um treino de 20km que
+      // nem era de hoje). Sem confirmacao, e mais seguro nao comparar do que comparar errado.
       const hist=JSON.parse(localStorage.getItem('mytri_pace_history')||'[]').filter(h=>h.sport===sport);
-      let idx=-1;
-      if(ov.stravaActivityId)idx=hist.findIndex(h=>String(h.id)===String(ov.stravaActivityId));
-      if(idx<0)idx=hist.length-1;
+      const idx=hist.findIndex(h=>String(h.id)===String(ov.stravaActivityId));
       if(idx>=1){
         const a=hist[idx-1];
         const partes=[`ritmo/velocidade ${a.label}`];
@@ -12953,17 +13153,30 @@ async function maybeShowSessionAnalysis(key, sess, w, d){
 // Fica ACIMA do texto da IA no relatorio pos-treino: os dados exatos primeiro, o texto como
 // contexto/interpretacao depois. Layout em 2 colunas (nao 3 espremidas) — inspirado em como o
 // Strava apresenta os numeros de uma atividade: poucos por linha, grandes, com respiro.
-function renderSessionStatStrip(ov, plannedDist){
+function renderSessionStatStrip(ov, plannedDist, sessType){
   if(!ov)return '';
+  const isGym=sessType==='gym';
   const stats=[];
-  if(ov.stravaDist)stats.push({label:'Distancia',val:ov.stravaDist});
+  // Quando a sessao nao tem distancia real (rolo sem sensor, treino so por tempo, ou musculacao
+  // — que nunca tem distancia de verdade), o valor guardado aqui vem como "30min" — rotular isso
+  // de "Distancia" confundia (mostrava "Distancia: 30min" ate pra musculacao).
+  if(ov.stravaDist){
+    const ehDuracao=/min|^\d+h(\d|$)/i.test(String(ov.stravaDist))&&!/km|^\d+([.,]\d+)?\s*m\b/i.test(String(ov.stravaDist));
+    stats.push({label:ehDuracao?'Duracao':'Distancia',val:ov.stravaDist});
+  }
   if(ov.stravaPace)stats.push({label:'Ritmo medio',val:ov.stravaPace});
   if(ov.stravaTime)stats.push({label:'Tempo de movimentacao',val:ov.stravaTime});
   // ov.stravaHR ja vem formatado com "bpm" (ex: "148bpm") — nao concatenar de novo aqui, senao
   // vira "148bpmbpm".
   if(ov.stravaHR)stats.push({label:'Freq. cardiaca media',val:ov.stravaHR});
   if(ov.stravaCal)stats.push({label:'Calorias',val:ov.stravaCal});
-  if(ov.stravaZone)stats.push({label:'Zona predominante',val:ov.stravaZone});
+  // "Zona predominante" nao faz sentido pra musculacao (nao e treino de zona cardiaca); no lugar,
+  // mostra as series feitas quando esse dado existe (guardado em stravaData pra sessoes de gym).
+  if(isGym){
+    if(ov.stravaData&&/^\d+$/.test(String(ov.stravaData).trim()))stats.push({label:'Séries realizadas',val:ov.stravaData+'x'});
+  }else if(ov.stravaZone){
+    stats.push({label:'Zona predominante',val:ov.stravaZone});
+  }
   if(!stats.length)return '';
   let barHtml='';
   const pKm=parseFloat(plannedDist)||0,rKm=parseFloat(ov.stravaDist||'')||0;
@@ -13002,13 +13215,13 @@ function renderComparativoAnterior(ov, sess){
     const doEsporte=hist.filter(h=>h.sport===sport);
     if(doEsporte.length<2)return '';
 
-    // Localiza o treino atual no historico (pelo id da atividade quando existir) pra pegar o
-    // imediatamente anterior. Sem id, assume que o atual e o mais recente.
-    let idxAtual=-1;
-    if(ov.stravaActivityId){
-      idxAtual=doEsporte.findIndex(h=>String(h.id)===String(ov.stravaActivityId));
-    }
-    if(idxAtual<0)idxAtual=doEsporte.length-1;
+    // Localiza o treino atual no historico pelo id real da atividade do Strava. Sem id
+    // confirmado, MELHOR NAO comparar do que chutar "o mais recente do historico e hoje" — esse
+    // chute causava comparacoes fabricadas com atividades completamente erradas (ex: sessao
+    // manual de 12km comparada contra duas atividades antigas de bike que nao eram nem de hoje
+    // nem realmente "anteriores").
+    if(!ov.stravaActivityId)return '';
+    const idxAtual=doEsporte.findIndex(h=>String(h.id)===String(ov.stravaActivityId));
     if(idxAtual<1)return '';
     const atual=doEsporte[idxAtual],ant=doEsporte[idxAtual-1];
     if(!atual||!ant)return '';
@@ -13038,7 +13251,7 @@ function renderComparativoAnterior(ov, sess){
     }
 
     if(sport==='ciclismo'){
-      addLinha('Velocidade media',ant.kmh,atual.kmh,v=>v.toFixed(1),false,'km/h');
+      addLinha('Velocidade média',ant.kmh,atual.kmh,v=>v.toFixed(1),false,'km/h');
     }else{
       addLinha(sport==='natacao'?'Ritmo /100m':'Ritmo /km',ant.secPerUnit,atual.secPerUnit,fmtPace,true,'');
     }
@@ -13083,10 +13296,14 @@ function renderSessionAnalysis(modal, dotColor, pillText, text, ov, plannedDist,
       const hist=JSON.parse(localStorage.getItem('mytri_pace_history')||'[]');
       const doEsporte=hist.filter(h=>h&&h.id&&(!sport||h.sport===sport));
       if(doEsporte.length){
-        // Distancia registrada no treino: "5km", "1000m" (natacao) ou "20.4km".
+        // Distancia registrada no treino: "5km", "1000m" (natacao) ou "20.4km". Sessoes sem
+        // distancia real (rolo sem sensor, so por tempo) guardam algo como "30min" aqui — sem
+        // essa checagem, parseFloat("30min") vira 30 e o algoritmo achava que eram 30KM,
+        // casando com a atividade errada so por coincidencia de numero.
         const dStr=String(ov.stravaDist||'');
-        let distKm=parseFloat(dStr)||0;
-        if(/m$/i.test(dStr)&&!/km$/i.test(dStr))distKm=distKm/1000;
+        const ehDistanciaReal = dStr && !/min|^\d+h(\d|$)/i.test(dStr);
+        let distKm = ehDistanciaReal ? (parseFloat(dStr)||0) : 0;
+        if(ehDistanciaReal && /m$/i.test(dStr)&&!/km$/i.test(dStr))distKm=distKm/1000;
         // Tempo registrado: "38min" ou "1h05min".
         let minutos=0;
         const mt=dStr&&String(ov.stravaTime||'').match(/(?:(\d+)h\s*)?(\d+)min/);
@@ -13158,7 +13375,7 @@ function renderSessionAnalysis(modal, dotColor, pillText, text, ov, plannedDist,
       <div style="width:9px;height:9px;border-radius:50%;background:${dotColor};flex-shrink:0"></div>
       <span style="font-family:var(--font-display);font-size:20px;color:var(--text)">${pillText}</span>
     </div>
-    ${renderSessionStatStrip(ov,plannedDist)}
+    ${renderSessionStatStrip(ov,plannedDist,sess&&sess.type)}
     <!-- Analise da IA num box destacado, no mesmo espirito do "Athlete Intelligence" do Strava -->
     <div style="border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:4px">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
@@ -13230,7 +13447,7 @@ async function loadStreamSection(ov, sess, plannedZone){
   const cache=_lerStreamCache(ov.stravaActivityId);
   if(cache&&cache.streams){
     try{
-      const h=renderStreamDetailsHTML(cache.streams,profile,ov,plannedZone);
+      const h=renderStreamDetailsHTML(cache.streams,profile,ov,plannedZone,sess);
       container.innerHTML=h||aviso('Esta atividade nao tem dados detalhados (ritmo/FC segundo a segundo) registrados no Strava.');
     }catch(e){ container.innerHTML=aviso('Nao consegui montar os detalhes deste treino.'); }
     return;
@@ -13248,21 +13465,31 @@ async function loadStreamSection(ov, sess, plannedZone){
     if(!r.ok){ container.innerHTML=aviso(`Strava respondeu ${r.status} ao buscar os detalhes deste treino.`); return; }
     const streams=await r.json();
     _gravarStreamCache(ov.stravaActivityId,streams);
-    const html=renderStreamDetailsHTML(streams,profile,ov,plannedZone);
+    const html=renderStreamDetailsHTML(streams,profile,ov,plannedZone,sess);
     container.innerHTML=html||aviso('Esta atividade nao tem dados detalhados (ritmo/FC segundo a segundo) registrados no Strava. Treinos manuais ou sem relogio costumam ficar sem esses graficos.');
   }catch(e){ container.innerHTML=aviso('Nao consegui carregar os detalhes deste treino: '+(e.message||'erro de rede')); }
 }
 
-function renderStreamDetailsHTML(streams,profile,ov,plannedZone){
+function renderStreamDetailsHTML(streams,profile,ov,plannedZone,sess){
   let out='';
   const hr=streams&&streams.heartrate&&Array.isArray(streams.heartrate.data)?streams.heartrate.data:null;
   const vel=streams&&streams.velocity_smooth&&Array.isArray(streams.velocity_smooth.data)?streams.velocity_smooth.data:null;
   const dist=streams&&streams.distance&&Array.isArray(streams.distance.data)?streams.distance.data:null;
   const tim=streams&&streams.time&&Array.isArray(streams.time.data)?streams.time.data:null;
   const cad=streams&&streams.cadence&&Array.isArray(streams.cadence.data)?streams.cadence.data:null;
-  const isSwim=ov.stravaPace&&/\/100m/.test(ov.stravaPace);
-  const isBike=!isSwim&&ov.stravaPace&&/km\/h/.test(ov.stravaPace);
+  // Antes isso detectava natacao/bike pelo TEXTO formatado do pace (procurando "/100m" ou "km/h"
+  // na string) — se ov.stravaPace vinha vazio ou sem essa formatacao exata, a sessao inteira
+  // virava "corrida" por padrao: cabecalho KM em vez de 100M, ritmo calculado por km em vez de
+  // por 100m, e pace-alvo puxando a meta de CORRIDA pra uma sessao de natacao. sess.type e a
+  // fonte confiavel — mesma que a tabela de comparacao logo acima ja usa corretamente.
+  const isSwim=sess&&sess.type==='swim';
+  const isBike=sess&&sess.type==='bike';
 
+  // Link "o que e?" pra termos tecnicos (deriva cardiaca, desacoplamento aerobico) que a maioria
+  // dos atletas nao treinados em fisiologia nao conhece de cabeca.
+  function explicador(id,texto){
+    return ` <span onclick="const e=document.getElementById('expl-${id}');e.style.display=e.style.display==='none'?'block':'none';" style="font-family:var(--font-body);font-size:10px;color:var(--accent);text-decoration:underline;cursor:pointer;font-weight:400">o que é?</span><div id="expl-${id}" style="display:none;flex-basis:100%;font-family:var(--font-body);font-size:11px;color:var(--muted2);line-height:1.5;margin-top:6px;padding:9px 11px;background:var(--surface);border-radius:6px">${texto}</div>`;
+  }
   // Cabecalho de secao no padrao Strava: divisor no topo, titulo grande, conteudo abaixo.
   function secao(titulo,conteudo,sub){
     return `<div style="border-top:1px solid var(--border);padding:20px 0 4px">
@@ -13273,7 +13500,7 @@ function renderStreamDetailsHTML(streams,profile,ov,plannedZone){
   }
   // Grafico de area com grade e eixos, no formato que o Strava usa (area preenchida clara,
   // linhas de grade horizontais, eixo X em km).
-  function areaChart(vals,dists,cor,fmtY,invertido,faixa){
+  function areaChart(vals,dists,cor,fmtY,invertido,faixa,unidadeLabel){
     if(!vals||vals.length<4)return '';
     const W=320,H=150,PAD_L=40,PAD_R=8,PAD_T=10,PAD_B=20;
     const cw=W-PAD_L-PAD_R,ch=H-PAD_T-PAD_B;
@@ -13315,12 +13542,17 @@ function renderStreamDetailsHTML(streams,profile,ov,plannedZone){
           <text x="${W-PAD_R-2}" y="${(yA+9).toFixed(1)}" text-anchor="end" font-size="8" fill="${faixa.cor}">zona ${faixa.label}</text>`;
       }
     }
+    // Legenda de unidade no canto do grafico — sem isso, um numero como "22:42" no eixo Y podia
+    // ser lido como pace de corrida quando era pace de nado (ou vice versa). So o texto embaixo
+    // do grafico explicava, e era facil passar batido.
+    const legenda=unidadeLabel?`<text x="${PAD_L}" y="8" font-size="8" fill="var(--muted)" letter-spacing="0.5">${unidadeLabel}</text>`:'';
     return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:${H}px;display:block">
       ${grid}
       ${banda}
       <path d="${areaD}" fill="${cor}" fill-opacity="0.45" stroke="none"/>
       <path d="${pathD}" fill="none" stroke="${cor}" stroke-width="1.6"/>
       ${xlab}
+      ${legenda}
     </svg>`;
   }
   // Downsample pra ~90 pontos: o stream bruto tem milhares de amostras.
@@ -13403,7 +13635,7 @@ function renderStreamDetailsHTML(streams,profile,ov,plannedZone){
         blocoSplit=`<div style="margin-top:12px;padding:11px 13px;border-radius:9px;background:${negativo?'rgba(0,230,118,.07)':'rgba(255,255,255,.03)'};border:1px solid ${negativo?'rgba(0,230,118,.25)':'var(--border)'}">
           <div style="font-family:var(--font-body);font-size:11px;color:${negativo?'#00e676':'var(--muted2)'};line-height:1.5">${
             negativo?`Negative split: a 2a metade veio ${formatPaceLabel(Math.abs(diff))} mais rapida por ${isSwim?'100m':'km'}. E o padrao de prova bem dosada — voce guardou energia e terminou forte.`
-            :positivo?`Voce desacelerou ${formatPaceLabel(Math.abs(diff))} por ${isSwim?'100m':'km'} na 2a metade. Pode ser fadiga ou largada rapida demais.`
+            :positivo?`Você desacelerou ${formatPaceLabel(Math.abs(diff))} por ${isSwim?'100m':'km'} na 2a metade. Pode ser fadiga ou largada rápida demais.`
             :`Ritmo equilibrado entre as duas metades do treino.`
           }</div>
         </div>`;
@@ -13444,7 +13676,7 @@ function renderStreamDetailsHTML(streams,profile,ov,plannedZone){
       // Linha do pace-alvo atravessando o grafico — mostra visualmente quanto do treino ficou
       // no ritmo pretendido.
       const faixaAlvoPace=alvoSec?{lo:alvoSec-3,hi:alvoSec+3,label:'alvo',cor:'#00e676'}:null;
-      out+=secao('Ritmo',areaChart(vals,distR,'#5a9ee6',fmt,!isBike,faixaAlvoPace),
+      out+=secao('Ritmo',areaChart(vals,distR,'#5a9ee6',fmt,!isBike,faixaAlvoPace,isBike?'km/h':(isSwim?'min/100m':'min/km')),
         [ov.stravaPace?`Ritmo medio ${ov.stravaPace}`:'',
          alvoSec?`alvo ${formatPaceLabel(alvoSec)}${isSwim?'/100m':'/km'}`:'',
          houveCorte?(isSwim?'trechos de pausa aparecem no fundo do grafico':'trechos de caminhada aparecem no fundo do grafico'):''].filter(Boolean).join(' · '));
@@ -13496,8 +13728,8 @@ function renderStreamDetailsHTML(streams,profile,ov,plannedZone){
           </div>
           <div style="font-family:var(--font-body);font-size:11px;color:${bom?'#00e676':'#f0a500'};margin-top:8px;line-height:1.5">${
             bom?`Boa execucao: a maior parte do treino ficou na zona pedida.`
-              :(pAcima>pAbaixo?`Voce passou ${pAcima}% do tempo acima da zona pedida. Em treino de base isso acelera a fadiga sem ganho extra.`
-                              :`Voce passou ${pAbaixo}% do tempo abaixo da zona pedida — o estimulo pretendido pode nao ter sido atingido.`)
+              :(pAcima>pAbaixo?`Você passou ${pAcima}% do tempo acima da zona pedida. Em treino de base isso acelera a fadiga sem ganho extra.`
+                              :`Você passou ${pAbaixo}% do tempo abaixo da zona pedida — o estímulo pretendido pode não ter sido atingido.`)
           }</div>
         </div>`;
       }
@@ -13512,7 +13744,7 @@ function renderStreamDetailsHTML(streams,profile,ov,plannedZone){
         const deltaPct=((m2-m1)/m1)*100;
         const estavel=Math.abs(deltaPct)<5;
         blocoDeriva=`<div style="margin-top:12px;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
-          <span style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1.5px">DERIVA CARDÍACA</span>
+          <span style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1.5px">DERIVA CARDÍACA</span>${explicador('deriva','É o quanto sua FC subiu (ou caiu) da primeira pra segunda metade do treino, no MESMO ritmo. Se você mantém o ritmo mas o coração vai batendo cada vez mais rápido pra sustentar, isso é fadiga acumulando — comum em calor, desidratação ou esforço acima do que seu corpo aguenta sustentar. Uma FC estável indica boa base aeróbica.')}
           <span style="font-family:var(--font-display);font-size:18px;color:${estavel?'#00e676':'#f0a500'}">${deltaPct>0?'+':''}${deltaPct.toFixed(1)}%</span>
           <span style="font-family:var(--font-body);font-size:11px;color:var(--muted2);flex:1;min-width:180px">${
             estavel?'FC estavel entre a 1a e a 2a metade — sinal de base aerobica solida.'
@@ -13522,7 +13754,7 @@ function renderStreamDetailsHTML(streams,profile,ov,plannedZone){
         </div>`;
       }
 
-      const grafico=areaChart(hrR,distR,'#e8736a',v=>Math.round(v)+'',false,faixaAlvo);
+      const grafico=areaChart(hrR,distR,'#e8736a',v=>Math.round(v)+'',false,faixaAlvo,'bpm');
 
       // Carga desta sessao (mesma unidade do grafico semanal no Stats), comparada com a media
       // das sessoes recentes — um numero solto ("carga 84") nao diz nada sem referencia.
@@ -13610,7 +13842,7 @@ function renderStreamDetailsHTML(streams,profile,ov,plannedZone){
 
       // Zonas de potencia no padrao Coggan, derivadas do FTP.
       const limites=[0.55,0.75,0.90,1.05,1.20,1.50];
-      const nomesZ=['Recuperacao','Base aerobica','Tempo','Limiar','VO2 max','Anaerobico','Neuromuscular'];
+      const nomesZ=['Recuperação','Base aeróbica','Tempo','Limiar','VO2 max','Anaeróbico','Neuromuscular'];
       const coresZ=['#d9cff0','#c0aee8','#a689df','#8d64d6','#7440cd','#5b26b0','#42188a'];
       const contagem=[0,0,0,0,0,0,0];
       validos.forEach(w=>{
@@ -13645,8 +13877,8 @@ function renderStreamDetailsHTML(streams,profile,ov,plannedZone){
         <span style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1.5px">INTENSIDADE</span>
         <span style="font-family:var(--font-display);font-size:18px;color:var(--text)">${intensidade}% do FTP</span>
         <span style="font-family:var(--font-body);font-size:11px;color:var(--muted2);flex:1;min-width:170px">${
-          intensidade<56?'Pedal de recuperacao.'
-          :intensidade<76?'Zona de base aerobica — constroi motor sem desgastar.'
+          intensidade<56?'Pedal de recuperação.'
+          :intensidade<76?'Zona de base aeróbica — constrói motor sem desgastar.'
           :intensidade<91?'Ritmo tempo, exigente mas sustentavel.'
           :intensidade<106?'Perto do limiar: treino duro.'
           :'Acima do limiar — bloco de alta intensidade.'
@@ -13654,10 +13886,10 @@ function renderStreamDetailsHTML(streams,profile,ov,plannedZone){
       </div>`;
 
       out+=secao('Potência',
-        areaChart(wR,distR,'#a689df',v=>Math.round(v)+'W',false)+blocoInt,
-        `Media ${mediaW} W · maxima ${maxW} W${estimado?' · estimada pela velocidade (sem medidor de potencia)':''}`);
+        areaChart(wR,distR,'#a689df',v=>Math.round(v)+'W',false,null,'watts')+blocoInt,
+        `Média ${mediaW} W · máxima ${maxW} W${estimado?' · estimada pela velocidade (sem medidor de potência)':''}`);
       out+=secao('Zonas de potência',linhasZ,
-        `Calculadas sobre o SEU FTP de ${Math.round(ftp)} W${estimado?' — potencia estimada, use como referencia.':(profile.ftpPorTeste?' — FTP calculada por teste de velocidade, sem sensor de potencia.':'.')}`);
+        `Calculadas sobre o SEU FTP de ${Math.round(ftp)} W${estimado?' — potência estimada, use como referência.':(profile.ftpPorTeste?' — FTP calculada por teste de velocidade, sem sensor de potência.':'.')}`);
     }
   }
 
@@ -13672,7 +13904,7 @@ function renderStreamDetailsHTML(streams,profile,ov,plannedZone){
       let ganho=0;
       for(let i=1;i<alt.length;i++){ const d=alt[i]-alt[i-1]; if(d>0)ganho+=d; }
       out+=secao('Altimetria',
-        areaChart(altR,distR,'#8a8f9c',v=>Math.round(v)+'m',false),
+        areaChart(altR,distR,'#8a8f9c',v=>Math.round(v)+'m',false,null,'altitude (m)'),
         `Ganho acumulado ${Math.round(ganho)} m · variacao ${Math.round(variacao)} m`);
     }
   }
@@ -13698,7 +13930,7 @@ function renderStreamDetailsHTML(streams,profile,ov,plannedZone){
       const manteve=quedaPct>-6;
       const serie=reduzir(pares.map(p=>p.dps),90);
       out+=secao('Eficiência de nado',
-        areaChart(serie,null,'#1a6cf0',v=>v.toFixed(2)+'m',false)+
+        areaChart(serie,null,'#1a6cf0',v=>v.toFixed(2)+'m',false,null,'m/braçada')+
         `<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:14px">
           <div><div style="font-family:var(--font-body);font-size:11px;color:var(--muted);margin-bottom:3px">Distância por braçada</div>
           <div style="font-family:var(--font-display);font-size:22px;color:var(--text)">${dpsMedia.toFixed(2)}m</div></div>
@@ -13732,7 +13964,7 @@ function renderStreamDetailsHTML(streams,profile,ov,plannedZone){
     if(r1&&r2){
       const desac=((r1-r2)/r1)*100;   // positivo = perdeu eficiencia na 2a metade
       const bom=desac<5;
-      out+=secao('Desacoplamento aeróbico',
+      out+=secao(`Desacoplamento aeróbico${explicador('desacop','Compara a razão ritmo/FC da primeira metade do treino com a segunda. É parecido com a deriva cardíaca, mas mais confiável: a deriva se engana se você desacelerar de propósito (a FC cai, parece bom, mas só porque você foi mais devagar). O desacoplamento neutraliza isso — mede se você precisou de MAIS batimento pra manter o MESMO ritmo, que é o sinal real de perda de eficiência com o cansaço.')}`,
         `<div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
           <span style="font-family:var(--font-display);font-size:30px;color:${bom?'#00e676':'#f0a500'}">${desac>0?'+':''}${desac.toFixed(1)}%</span>
           <span style="font-family:var(--font-body);font-size:12px;color:var(--muted2);flex:1;min-width:200px;line-height:1.5">${
@@ -13752,7 +13984,7 @@ function renderStreamDetailsHTML(streams,profile,ov,plannedZone){
       const media=Math.round(cadR.reduce((a,b)=>a+b,0)/cadR.length);
       const fator=isBike?1:2; // corrida: Strava reporta passos por perna, dobra pra ppm total
       out+=secao('Cadência',
-        areaChart(cadR.map(c=>c*fator),distR,'#d98fd9',v=>Math.round(v)+'',false),
+        areaChart(cadR.map(c=>c*fator),distR,'#d98fd9',v=>Math.round(v)+'',false,null,isBike?'rpm':'ppm'),
         `Cadência média ${media*fator} ${isBike?'rpm':'ppm'}`);
     }
   }
