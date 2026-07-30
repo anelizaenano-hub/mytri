@@ -2,13 +2,13 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="v20260730144249">
+<meta name="app-version" content="v20260730180930">
+<!-- Auto-atualizacao: navegadores (principalmente Safari/iOS) as vezes seguram uma versao antiga
+em cache mesmo depois de um deploy novo no servidor, causando confusao de "mudei o codigo mas
+nada mudou" (varias vezes nessa sessao de debug isso foi confundido com bug real). Esse check
+roda assim que a pagina carrega: busca o proprio HTML de novo direto do servidor (sem cache),
+compara a versao, e se for diferente, recarrega. -->
 <script>
-// Auto-atualizacao: navegadores (principalmente Safari/iOS) as vezes seguram uma versao antiga
-// em cache mesmo depois de um deploy novo no servidor, causando confusao de "mudei o codigo mas
-// nada mudou" (varias vezes nessa sessao de debug isso foi confundido com bug real). Esse check
-// roda assim que a pagina carrega: busca o proprio HTML de novo direto do servidor (sem cache),
-// compara a versao, e se for diferente, recarrega uma unica vez sozinho.
 (function(){
   try{
     var myVersion=document.querySelector('meta[name="app-version"]').content;
@@ -18,9 +18,17 @@
       .then(function(r){return r.text();})
       .then(function(html){
         var m=html.match(/name="app-version" content="([^"]+)"/);
-        sessionStorage.setItem(flagKey,'1');
         if(m&&m[1]&&m[1]!==myVersion){
-          location.reload();
+          // location.reload() sozinho as vezes ainda serve do cache do proprio navegador (Safari
+          // iOS e especialmente teimoso nisso, principalmente com a aba/PWA aberta ha um tempo).
+          // Marca o flag ANTES de navegar com a versao NOVA (nao a antiga) — assim, se essa
+          // navegacao por algum motivo ainda cair na versao velha, na proxima carga o myVersion
+          // sera o antigo de novo e o flagKey sera diferente, permitindo tentar de novo em vez de
+          // ficar preso pra sempre na mesma versao stale dentro da mesma sessao do navegador.
+          sessionStorage.setItem('mytri_version_check_'+m[1],'1');
+          location.href=location.pathname+'?_v='+encodeURIComponent(m[1])+'&_t='+Date.now();
+        }else{
+          sessionStorage.setItem(flagKey,'1');
         }
       })
       .catch(function(){});
@@ -5325,10 +5333,15 @@ function _reportData(type){
     return {...base,...st,week:curW,totalWeeks:totalW};
   }
   if(type==='monthly'){
-    const st=windowStats(curW-3,curW);
+    const wStartClamped=curW-3;
+    const st=windowStats(wStartClamped,curW);
     const trend=[];
     for(let w=Math.max(1,curW-3);w<=curW;w++){ trend.push(windowStats(w,w).pct); }
-    return {...base,...st,weeklyTrend:trend};
+    // Se o plano ainda nao tem 4 semanas de historico, a janela "mensal" fica igual a semanal —
+    // sem essa sinalizacao, os dois reports saiam com os MESMOS numeros sem explicar por que,
+    // parecendo redundancia/bug em vez de "ainda nao ha mes de dado pra mostrar".
+    const historicoLimitado = wStartClamped<1;
+    return {...base,...st,weeklyTrend:trend,historicoLimitado};
   }
   if(type==='race'){
     const st=windowStats(1,totalW);
@@ -5338,6 +5351,13 @@ function _reportData(type){
 }
 
 async function openReport(type){
+  if(type==='race'){
+    const _pGuard=getMytriProfile&&getMytriProfile()||{};
+    if(_pGuard.raceName&&String(_pGuard.raceName).trim()&&_pGuard.raceDate&&new Date(_pGuard.raceDate+'T23:59:59')>new Date()){
+      alert('A retrospectiva pós-prova libera no dia seguinte à sua prova — ela ainda não aconteceu.');
+      return;
+    }
+  }
   const m=_reportModal();
   const _profRep=getMytriProfile&&getMytriProfile()||{};
   const _hasRaceRep=!!(_profRep.raceName&&String(_profRep.raceName).trim()&&_profRep.raceDate);
@@ -5391,7 +5411,7 @@ async function openReport(type){
             <div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:2px">KM TOTAL</div>
           </div>
         </div>
-        <div style="font-family:var(--font-body);font-size:14px;color:var(--text);line-height:1.6">${text.replace(/\n\n/g,'</p><p style="margin-top:12px">').replace(/\n/g,' ')}</div>`;
+        <div style="font-family:var(--font-body);font-size:14px;color:var(--text);line-height:1.6">${data.historicoLimitado?`<div style="font-family:var(--font-body);font-size:11px;color:var(--muted);margin-bottom:12px;padding:9px 11px;background:var(--bg);border-radius:6px">Seu plano ainda não tem 4 semanas de histórico — este report mensal está usando a(s) semana(s) disponível(is) até agora, por isso os números podem coincidir com o report semanal.</div>`:''}${text.replace(/\n\n/g,'</p><p style="margin-top:12px">').replace(/\n/g,' ')}</div>`;
     }else{
       body.innerHTML=`<div style="font-family:var(--font-body);font-size:13px;color:var(--muted2);text-align:center;padding:20px">Não foi possível gerar o report agora. Tente novamente em instantes.</div>`;
     }
@@ -5872,7 +5892,20 @@ function renderStats(){
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button onclick="openReport('weekly')" style="flex:1;min-width:90px;background:rgba(0,230,118,0.08);border:1px solid rgba(0,230,118,0.3);color:var(--accent);font-family:var(--font-ui);font-size:10px;font-weight:700;letter-spacing:1px;padding:12px 8px;border-radius:6px;cursor:pointer">SEMANAL</button>
       <button onclick="openReport('monthly')" style="flex:1;min-width:90px;background:rgba(0,230,118,0.08);border:1px solid rgba(0,230,118,0.3);color:var(--accent);font-family:var(--font-ui);font-size:10px;font-weight:700;letter-spacing:1px;padding:12px 8px;border-radius:6px;cursor:pointer">MENSAL</button>
-      <button onclick="openReport('race')" style="flex:1;min-width:90px;background:rgba(0,230,118,0.08);border:1px solid rgba(0,230,118,0.3);color:var(--accent);font-family:var(--font-ui);font-size:10px;font-weight:700;letter-spacing:1px;padding:12px 8px;border-radius:6px;cursor:pointer">${(()=>{const _p=getMytriProfile&&getMytriProfile()||{};return (_p.raceName&&String(_p.raceName).trim()&&_p.raceDate)?'POS-PROVA':'POS-PLANO';})()}</button>
+      ${(()=>{
+        const _p=getMytriProfile&&getMytriProfile()||{};
+        const _hasRaceBtn=!!(_p.raceName&&String(_p.raceName).trim()&&_p.raceDate);
+        // So libera a retrospectiva pos-prova a partir do DIA SEGUINTE a data da prova — antes
+        // disso a IA nao tem o que analisar (a prova nem aconteceu) e o report saia com dado
+        // fabricado/generico, o que quebra totalmente o senso de personalizacao do app.
+        const _raceLocked = _hasRaceBtn && new Date(_p.raceDate+'T23:59:59') > new Date();
+        if(_raceLocked){
+          const _dRace=new Date(_p.raceDate+'T12:00:00');
+          const _diasFalta=Math.max(1,Math.round((_dRace-new Date())/(1000*60*60*24)));
+          return `<button disabled title="Libera no dia seguinte à prova" style="flex:1;min-width:90px;background:rgba(255,255,255,0.03);border:1px solid var(--border);color:var(--muted);font-family:var(--font-ui);font-size:10px;font-weight:700;letter-spacing:1px;padding:12px 8px;border-radius:6px;cursor:not-allowed">PÓS-PROVA (em ${_diasFalta}d)</button>`;
+        }
+        return `<button onclick="openReport('race')" style="flex:1;min-width:90px;background:rgba(0,230,118,0.08);border:1px solid rgba(0,230,118,0.3);color:var(--accent);font-family:var(--font-ui);font-size:10px;font-weight:700;letter-spacing:1px;padding:12px 8px;border-radius:6px;cursor:pointer">${_hasRaceBtn?'PÓS-PROVA':'PÓS-PLANO'}</button>`;
+      })()}
     </div>`;
   container.appendChild(repDiv);
 
@@ -6253,7 +6286,7 @@ function renderConquistas(){
   if(prsData.longestRun>0) prTags.push({label:`${prsData.longestRun.toFixed(1)}km`,sub:'CORRIDA MAIS LONGA',color:'#00e676'});
   if(prsData.longestBike>0) prTags.push({label:`${prsData.longestBike.toFixed(0)}km`,sub:'BIKE MAIS LONGO',color:'#e05c2a'});
   if(prsData.bestSpeedBike) prTags.push({label:`${prsData.bestSpeedBike.toFixed(1)}km/h`,sub:'MELHOR VELOCIDADE BIKE',color:'#e05c2a'});
-  if(prsData.longestSwim>0) prTags.push({label:`${prsData.longestSwim.toFixed(1)}km`,sub:'NADO MAIS LONGO',color:'#1a6cf0'});
+  if(prsData.longestSwim>0) prTags.push({label:`${Math.round(prsData.longestSwim*1000)}m`,sub:'NADO MAIS LONGO',color:'#1a6cf0'});
   if(prsData.bestPaceSwim){
     const m=Math.floor(prsData.bestPaceSwim/60),s=prsData.bestPaceSwim%60;
     prTags.push({label:`${m}:${s.toString().padStart(2,'0')}/100m`,sub:'MELHOR PACE NADO',color:'#1a6cf0'});
@@ -6321,7 +6354,6 @@ function renderConquistas(){
           ${prsData.bestHR<999?`<div style="flex:1;min-width:calc(33% - 7px);background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px"><div style="font-family:var(--font-display);font-size:18px;color:var(--text)">${prsData.bestHR}bpm</div><div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:.5px;margin-top:3px">FC MÍNIMA REGISTRADA</div></div>`:''}
           ${prsData.totalCal>0?`<div style="flex:1;min-width:calc(33% - 7px);background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px"><div style="font-family:var(--font-display);font-size:18px;color:var(--text)">${Math.round(prsData.totalCal).toLocaleString('pt-BR')}</div><div style="font-family:var(--font-ui);font-size:8px;color:var(--muted);letter-spacing:.5px;margin-top:3px">KCAL ACUMULADAS</div></div>`:''}
         </div>`:''}
-        <div style="font-family:var(--font-body);font-size:10px;color:var(--muted);margin-top:10px;line-height:1.4">VO2 máx não entra aqui — o app não tem uma fonte real desse dado hoje (precisaria de outro escopo de permissão do Strava). Prefiro não mostrar um número inventado.</div>
       `;
       container.appendChild(tecSection);
     }
@@ -7187,7 +7219,7 @@ async function stravaSyncActivities(){
           const ok=_ovK;
           const existing=o[ok]||{};
           // Sempre sobrescreve dados do Strava com os mais recentes
-          o[ok]={...existing,type:sess.type,stravaData:realData,stravaDist:targetType===SWIM?actDistSwimFmt:actDistKmFmt,stravaTime:actTime,stravaPace:actPace,stravaHR:actHR,stravaCal:actCal,stravaZone:actZone,stravaActivityId:act.id};
+          o[ok]={...existing,type:sess.type,stravaData:realData,stravaDist:targetType===SWIM?actDistSwimFmt:actDistKmFmt,stravaTime:actTime,stravaPace:actPace,stravaHR:actHR,stravaCal:actCal,stravaZone:actZone,stravaActivityId:act.id,stravaIndoor:isIndoor};
           saveOverrides(o);
         }
         matched++;      // conta sempre que casa e salva dados (não só quando marca novo)
@@ -7211,7 +7243,7 @@ async function stravaSyncActivities(){
           // grafico de ritmo (que dependem do id da atividade pra buscar o detalhe no Strava).
           e[k][existingIdx]={...e[k][existingIdx],dist:mainVal,note:realData,cal:actCal,stravaZone:actZone,
             stravaDist:targetType===SWIM?actDistSwimFmt:actDistKmFmt,stravaTime:actTime,stravaPace:actPace,
-            stravaHR:actHR,stravaCal:actCal,stravaActivityId:act.id};
+            stravaHR:actHR,stravaCal:actCal,stravaActivityId:act.id,stravaIndoor:isIndoor};
           // Preservar nome manual se o usuário editou
           if(_hasManualLabel){e[k][existingIdx].manualLabel=true;}
           saveExtras(e);
@@ -7219,7 +7251,7 @@ async function stravaSyncActivities(){
         }else{
           const extras=addExtra(wd.w,wd.d,{type:targetType,text:label,dist:mainVal,note:realData,cal:actCal,stravaZone:actZone,
             stravaDist:targetType===SWIM?actDistSwimFmt:actDistKmFmt,stravaTime:actTime,stravaPace:actPace,
-            stravaHR:actHR,stravaCal:actCal,stravaActivityId:act.id});
+            stravaHR:actHR,stravaCal:actCal,stravaActivityId:act.id,stravaIndoor:isIndoor});
           checks[`ex_w${wd.w}_d${wd.d}_i${extras.length-1}`]=true;
         }
         matched++;
@@ -9369,7 +9401,7 @@ function getMytriProfile(){
   const stravaCity=athlete.city&&!badCities.some(b=>athlete.city===b||athlete.city.startsWith('Centro'))&&athlete.city.length>3?athlete.city:'';
   return {
     ...saved, // todos os campos do obFinish
-    name:saved.name||(athlete.firstname&&athlete.lastname?`${athlete.firstname} ${athlete.lastname}`:''),
+    name:(athlete.firstname&&athlete.lastname?`${athlete.firstname} ${athlete.lastname}`:'')||saved.name||'',
     city:savedCity||gpsCity||stravaCity||'',
     photo:saved.photo||athlete.profile||athlete.profile_medium||'',
     weight:saved.weight||String(athlete.weight||'')||'',
@@ -9661,7 +9693,7 @@ function renderProfile(){
     </div>
     <div class="profile-section" style="margin-top:8px">
       <div class="profile-section-title" style="color:var(--accent)">${t('pf_plan_title')}</div>
-      <button onclick="closeProfile();showPlanSummary(getMytriProfile())" style="width:100%;padding:14px;background:rgba(0,230,118,.08);border:1px solid var(--accent);color:var(--accent);font-family:var(--font-ui);font-size:11px;letter-spacing:1.5px;border-radius:4px;cursor:pointer;margin-bottom:16px">${t('pf_view_plan_summary')}</button>
+      <button onclick="submitProfile().then(()=>showPlanSummary(getMytriProfile()))" style="width:100%;padding:14px;background:rgba(0,230,118,.08);border:1px solid var(--accent);color:var(--accent);font-family:var(--font-ui);font-size:11px;letter-spacing:1.5px;border-radius:4px;cursor:pointer;margin-bottom:16px">${t('pf_view_plan_summary')}</button>
     </div>
     <div class="profile-section" style="margin-top:8px">
       <div class="profile-section-title" style="color:var(--muted)">${t('pf_moments_title')}</div>
@@ -10972,7 +11004,7 @@ function renderObEsporte(c){
       </div>
     </div>
     <div style="padding:24px">
-      <button class="ob-btn" onclick="obNext()">${t('btn_continuar')}</button>
+      <button class="ob-btn" onclick="if(!obData.sport){alert('Escolha uma modalidade pra continuar.');return;}obNext()">${t('btn_continuar')}</button>
     </div>`;
 }
 
@@ -11786,6 +11818,12 @@ function renderObFitness(c){
       <div class="ob-title">${t('ob_fitness_title').replace(/\n/g,'<br>')}</div>
       <div class="ob-sub">${t('ob_fitness_sub')}</div>
 
+      <div style="margin-bottom:16px">
+        <div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;margin-bottom:6px">SEU NOME</div>
+        <input id="ob-nome" placeholder="Como quer ser chamado" value="${obData.name||''}" oninput="obData.name=this.value" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:12px;border-radius:4px">
+        <div style="font-family:var(--font-body);font-size:10px;color:var(--muted);margin-top:5px;line-height:1.4">Se você conectar o Strava, o nome de lá tem prioridade — isso aqui é o nome usado enquanto não conectar.</div>
+      </div>
+
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px">
         <div><div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;margin-bottom:6px">IDADE</div>
           <input id="ob-idade" type="number" placeholder="ex: 41" value="${obData.age||''}" oninput="obData.age=this.value" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:15px;padding:12px;border-radius:4px"></div>
@@ -12203,7 +12241,7 @@ function obFinish(){
   const athlete=stravaTokens.athlete||{};
   const finalProfile={
     ...prof,
-    name:obData.name||prof.name||(athlete.firstname?`${athlete.firstname} ${athlete.lastname||''}`.trim():''),
+    name:(athlete.firstname?`${athlete.firstname} ${athlete.lastname||''}`.trim():'')||obData.name||prof.name||'',
     age:obData.age||prof.age||'',
     weight:obData.weight||prof.weight||athlete.weight||'',
     altura:obData.altura||prof.altura||'',
@@ -12418,13 +12456,15 @@ function renderPaceGaugeHTML(profile){
     if(profile.sport==='corrida'&&profile.pace){
       const necSec=toSec(paceNecessario),atualSec=toSec(profile.pace);
       if(necSec==null||atualSec==null)return '';
-      const rows=barRow('Corrida','#00e676',profile.pace+'/km',1000/atualSec,paceNecessario,1000/necSec,false);
+      const gapRunSolo=Math.max(0,Math.round(atualSec-necSec));
+      const rows=barRow('Corrida','#00e676',profile.pace+'/km',1000/atualSec,paceNecessario,1000/necSec,false,`Faltam ${gapRunSolo}s por km pra chegar na meta.`);
       return wrapGauge('PACE DE CORRIDA: ATUAL VS NECESSARIO',rows,atualSec<=necSec);
     }
     if(profile.sport==='natacao'&&profile.swim){
       const necSec=toSec(paceNecessario),atualSec=toSec(profile.swim);
       if(necSec==null||atualSec==null)return '';
-      const rows=barRow('Natacao','#1a6cf0',profile.swim+'/100m',1000/atualSec,paceNecessario,1000/necSec,false);
+      const gapSwimSolo=Math.max(0,Math.round(atualSec-necSec));
+      const rows=barRow('Natacao','#1a6cf0',profile.swim+'/100m',1000/atualSec,paceNecessario,1000/necSec,false,`Faltam ${gapSwimSolo}s por 100m pra chegar na meta.`);
       return wrapGauge('PACE DE NATACAO: ATUAL VS NECESSARIO',rows,atualSec<=necSec);
     }
 
@@ -13021,7 +13061,8 @@ async function maybeShowSessionAnalysis(key, sess, w, d){
       stravaTime: sess.stravaTime||'',
       stravaHR: sess.stravaHR||'',
       stravaPace: sess.stravaPace||'',
-      stravaActivityId: sess.stravaActivityId||null
+      stravaActivityId: sess.stravaActivityId||null,
+      stravaIndoor: sess.stravaIndoor||false
     };
   }
 
@@ -13255,7 +13296,8 @@ function renderComparativoAnterior(ov, sess){
     }else{
       addLinha(sport==='natacao'?'Ritmo /100m':'Ritmo /km',ant.secPerUnit,atual.secPerUnit,fmtPace,true,'');
     }
-    addLinha('Distancia',ant.dist,atual.dist,v=>v.toFixed(1),false,'km');
+    if(sport==='natacao')addLinha('Distância',ant.dist*1000,atual.dist*1000,v=>Math.round(v)+'',false,'m');
+    else addLinha('Distância',ant.dist,atual.dist,v=>v.toFixed(1),false,'km');
     addLinha('Tempo',ant.movingTime,atual.movingTime,fmtTempo,false,'');
     if(ant.hr!=null&&atual.hr!=null)addLinha('FC media',ant.hr,atual.hr,v=>Math.round(v),true,'bpm');
     if(ant.cal!=null&&atual.cal!=null)addLinha('Calorias',ant.cal,atual.cal,v=>Math.round(v),false,'kcal');
@@ -13486,9 +13528,15 @@ function renderStreamDetailsHTML(streams,profile,ov,plannedZone,sess){
   const isBike=sess&&sess.type==='bike';
 
   // Link "o que e?" pra termos tecnicos (deriva cardiaca, desacoplamento aerobico) que a maioria
-  // dos atletas nao treinados em fisiologia nao conhece de cabeca.
-  function explicador(id,texto){
-    return ` <span onclick="const e=document.getElementById('expl-${id}');e.style.display=e.style.display==='none'?'block':'none';" style="font-family:var(--font-body);font-size:10px;color:var(--accent);text-decoration:underline;cursor:pointer;font-weight:400">o que é?</span><div id="expl-${id}" style="display:none;flex-basis:100%;font-family:var(--font-body);font-size:11px;color:var(--muted2);line-height:1.5;margin-top:6px;padding:9px 11px;background:var(--surface);border-radius:6px">${texto}</div>`;
+  // dos atletas nao treinados em fisiologia nao conhece de cabeca. Separado em duas pecas porque
+  // a caixa de explicacao (flex-basis:100%) tem que ficar FORA da linha flex do titulo — quando
+  // ela ficava dentro, ao abrir empurrava os spans seguintes (o valor, a descricao) pra baixo,
+  // quebrando a ordem visual da linha inteira.
+  function explicadorLink(id){
+    return ` <span onclick="const e=document.getElementById('expl-${id}');e.style.display=e.style.display==='none'?'block':'none';" style="font-family:var(--font-body);font-size:10px;color:var(--accent);text-decoration:underline;cursor:pointer;font-weight:400">o que é?</span>`;
+  }
+  function explicadorBox(id,texto){
+    return `<div id="expl-${id}" style="display:none;font-family:var(--font-body);font-size:11px;color:var(--muted2);line-height:1.5;margin-top:8px;padding:9px 11px;background:var(--surface);border-radius:6px">${texto}</div>`;
   }
   // Cabecalho de secao no padrao Strava: divisor no topo, titulo grande, conteudo abaixo.
   function secao(titulo,conteudo,sub){
@@ -13677,9 +13725,10 @@ function renderStreamDetailsHTML(streams,profile,ov,plannedZone,sess){
       // no ritmo pretendido.
       const faixaAlvoPace=alvoSec?{lo:alvoSec-3,hi:alvoSec+3,label:'alvo',cor:'#00e676'}:null;
       out+=secao('Ritmo',areaChart(vals,distR,'#5a9ee6',fmt,!isBike,faixaAlvoPace,isBike?'km/h':(isSwim?'min/100m':'min/km')),
-        [ov.stravaPace?`Ritmo medio ${ov.stravaPace}`:'',
+        [ov.stravaIndoor?'treino indoor — velocidade do sensor pode ter ruido/vales que nao refletem esforco real':'',
+         ov.stravaPace?`Ritmo medio ${ov.stravaPace}`:'',
          alvoSec?`alvo ${formatPaceLabel(alvoSec)}${isSwim?'/100m':'/km'}`:'',
-         houveCorte?(isSwim?'trechos de pausa aparecem no fundo do grafico':'trechos de caminhada aparecem no fundo do grafico'):''].filter(Boolean).join(' · '));
+         houveCorte?(isSwim?'trechos de pausa aparecem no fundo do grafico':(isBike?'trechos parados/muito lentos aparecem no fundo do grafico':'trechos de caminhada aparecem no fundo do grafico')):''].filter(Boolean).join(' · '));
     }
   }
 
@@ -13743,14 +13792,17 @@ function renderStreamDetailsHTML(streams,profile,ov,plannedZone,sess){
         const m2=hr.slice(meio).reduce((a,b)=>a+b,0)/(hr.length-meio);
         const deltaPct=((m2-m1)/m1)*100;
         const estavel=Math.abs(deltaPct)<5;
-        blocoDeriva=`<div style="margin-top:12px;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
-          <span style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1.5px">DERIVA CARDÍACA</span>${explicador('deriva','É o quanto sua FC subiu (ou caiu) da primeira pra segunda metade do treino, no MESMO ritmo. Se você mantém o ritmo mas o coração vai batendo cada vez mais rápido pra sustentar, isso é fadiga acumulando — comum em calor, desidratação ou esforço acima do que seu corpo aguenta sustentar. Uma FC estável indica boa base aeróbica.')}
+        blocoDeriva=`<div style="margin-top:12px">
+        <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
+          <span style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1.5px">DERIVA CARDÍACA</span>${explicadorLink('deriva')}
           <span style="font-family:var(--font-display);font-size:18px;color:${estavel?'#00e676':'#f0a500'}">${deltaPct>0?'+':''}${deltaPct.toFixed(1)}%</span>
           <span style="font-family:var(--font-body);font-size:11px;color:var(--muted2);flex:1;min-width:180px">${
             estavel?'FC estavel entre a 1a e a 2a metade — sinal de base aerobica solida.'
                    :(deltaPct>0?'FC subiu na 2a metade. Comum em calor, desidratacao ou esforco acima do sustentavel.'
                                :'FC caiu na 2a metade — normal se voce reduziu o ritmo ou aqueceu forte demais no inicio.')
           }</span>
+        </div>
+        ${explicadorBox('deriva','É o quanto sua FC subiu (ou caiu) da primeira pra segunda metade do treino, no MESMO ritmo. Se você mantém o ritmo mas o coração vai batendo cada vez mais rápido pra sustentar, isso é fadiga acumulando — comum em calor, desidratação ou esforço acima do que seu corpo aguenta sustentar. Uma FC estável indica boa base aeróbica.')}
         </div>`;
       }
 
@@ -13887,7 +13939,7 @@ function renderStreamDetailsHTML(streams,profile,ov,plannedZone,sess){
 
       out+=secao('Potência',
         areaChart(wR,distR,'#a689df',v=>Math.round(v)+'W',false,null,'watts')+blocoInt,
-        `Média ${mediaW} W · máxima ${maxW} W${estimado?' · estimada pela velocidade (sem medidor de potência)':''}`);
+        `Média ${mediaW} W · máxima ${maxW} W${estimado?' · estimada pela velocidade (sem medidor de potência)':''}${(estimado&&ov.stravaIndoor)?' · treino indoor, essa estimativa por velocidade tende a ser menos confiável':''}`);
       out+=secao('Zonas de potência',linhasZ,
         `Calculadas sobre o SEU FTP de ${Math.round(ftp)} W${estimado?' — potência estimada, use como referência.':(profile.ftpPorTeste?' — FTP calculada por teste de velocidade, sem sensor de potência.':'.')}`);
     }
@@ -13895,8 +13947,10 @@ function renderStreamDetailsHTML(streams,profile,ov,plannedZone,sess){
 
   // ---- ALTIMETRIA ----
   // Contexto que o grafico de ritmo sozinho nao da: um km lento numa subida de 40m nao e o mesmo
-  // que um km lento no plano.
-  if(streams&&streams.altitude&&Array.isArray(streams.altitude.data)&&streams.altitude.data.length>5&&!isSwim){
+  // que um km lento no plano. So mostra em treino OUTDOOR — indoor/rolo/ergometrica nao tem
+  // elevacao real; qualquer variacao de altitude ali e ruido de barometro/GPS, nao dado de
+  // verdade, e mostrar como se fosse "ganho de 160m" numa bike ergometrica e enganoso.
+  if(!ov.stravaIndoor&&streams&&streams.altitude&&Array.isArray(streams.altitude.data)&&streams.altitude.data.length>5&&!isSwim){
     const alt=streams.altitude.data;
     const altR=reduzir(alt,90),distR=dist&&dist.length===alt.length?idxReduzidos(dist,90):null;
     const variacao=Math.max(...alt)-Math.min(...alt);
@@ -13964,7 +14018,8 @@ function renderStreamDetailsHTML(streams,profile,ov,plannedZone,sess){
     if(r1&&r2){
       const desac=((r1-r2)/r1)*100;   // positivo = perdeu eficiencia na 2a metade
       const bom=desac<5;
-      out+=secao(`Desacoplamento aeróbico${explicador('desacop','Compara a razão ritmo/FC da primeira metade do treino com a segunda. É parecido com a deriva cardíaca, mas mais confiável: a deriva se engana se você desacelerar de propósito (a FC cai, parece bom, mas só porque você foi mais devagar). O desacoplamento neutraliza isso — mede se você precisou de MAIS batimento pra manter o MESMO ritmo, que é o sinal real de perda de eficiência com o cansaço.')}`,
+      out+=secao(`Desacoplamento aeróbico${explicadorLink('desacop')}`,
+        explicadorBox('desacop','Compara a razão ritmo/FC da primeira metade do treino com a segunda. É parecido com a deriva cardíaca, mas mais confiável: a deriva se engana se você desacelerar de propósito (a FC cai, parece bom, mas só porque você foi mais devagar). O desacoplamento neutraliza isso — mede se você precisou de MAIS batimento pra manter o MESMO ritmo, que é o sinal real de perda de eficiência com o cansaço.')+
         `<div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
           <span style="font-family:var(--font-display);font-size:30px;color:${bom?'#00e676':'#f0a500'}">${desac>0?'+':''}${desac.toFixed(1)}%</span>
           <span style="font-family:var(--font-body);font-size:12px;color:var(--muted2);flex:1;min-width:200px;line-height:1.5">${
