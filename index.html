@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="v20260731210400">
+<meta name="app-version" content="v20260731214555">
 <!-- Auto-atualizacao: navegadores (principalmente Safari/iOS) as vezes seguram uma versao antiga
 em cache mesmo depois de um deploy novo no servidor, causando confusao de "mudei o codigo mas
 nada mudou" (varias vezes nessa sessao de debug isso foi confundido com bug real). Esse check
@@ -13129,8 +13129,7 @@ async function maybeShowSessionAnalysis(key, sess, w, d){
       stravaHR: sess.stravaHR||'',
       stravaPace: sess.stravaPace||'',
       stravaActivityId: sess.stravaActivityId||null,
-      stravaIndoor: sess.stravaIndoor||false,
-      stravaIndoorManual: sess.stravaIndoorManual
+      stravaIndoor: sess.stravaIndoor||false
     };
   }
 
@@ -13424,7 +13423,11 @@ function renderSessionAnalysis(modal, dotColor, pillText, text, ov, plannedDist,
         if(ehDistanciaReal && /m$/i.test(dStr)&&!/km$/i.test(dStr))distKm=distKm/1000;
         // Tempo registrado: "38min" ou "1h05min".
         let minutos=0;
-        const mt=dStr&&String(ov.stravaTime||'').match(/(?:(\d+)h\s*)?(\d+)min/);
+        // A duracao pode estar em stravaTime OU no proprio campo de distancia quando a sessao foi
+        // registrada por tempo (ex: "30min" em stravaDist). Antes so olhava stravaTime, entao
+        // esses treinos ficavam sem nenhum sinal pra comparar e caiam no vinculo aleatorio.
+        const tempoBruto=String(ov.stravaTime||'')||(ehDistanciaReal?'':dStr);
+        const mt=String(tempoBruto).match(/(?:(\d+)\s*h\s*)?(\d+)\s*min/i);
         if(mt)minutos=(parseInt(mt[1]||0)*60)+parseInt(mt[2]);
         const hrReg=parseFloat(String(ov.stravaHR||''))||0;
 
@@ -13443,10 +13446,20 @@ function renderSessionAnalysis(modal, dotColor, pillText, text, ov, plannedDist,
           if(hrReg>0&&h.hr>0)p+=Math.abs(h.hr-hrReg)/10;
           return p;
         };
-        const cand=doEsporte.map(h=>({h,p:pontuar(h)})).filter(x=>x.p!=null);
-        if(cand.length){
-          cand.sort((a,b)=>a.p-b.p);
-          ov.stravaActivityId=cand[0].h.id;
+        // Sem NENHUM sinal forte (nem distancia, nem duracao) pra comparar, a funcao de pontuacao
+        // devolve 0 pra todas as atividades e o "melhor candidato" acaba sendo simplesmente a
+        // primeira da lista — ou seja, um vinculo aleatorio. Foi assim que um treino de bike de
+        // 33min sem distancia acabou exibindo os graficos de um pedal de 20km completamente
+        // diferente (FC, zonas, potencia e altimetria todos de outra atividade). Melhor ficar sem
+        // grafico do que vincular no chute.
+        if(!distKm&&!minutos){
+          // deixa ov.stravaActivityId como esta (vazio) — a tela explica que falta vinculo
+        }else{
+          const cand=doEsporte.map(h=>({h,p:pontuar(h)})).filter(x=>x.p!=null);
+          if(cand.length){
+            cand.sort((a,b)=>a.p-b.p);
+            ov.stravaActivityId=cand[0].h.id;
+          }
         }
       }
       }
@@ -13552,31 +13565,6 @@ function _gravarStreamCache(id,streams){
   }catch(e){ /* cota de localStorage cheia: cache e bonus, nao pode quebrar a analise */ }
 }
 
-// Alterna manualmente entre "treino indoor" e "ao ar livre" na analise aberta. A escolha do
-// atleta e gravada junto da sessao e passa a valer sobre qualquer deteccao automatica.
-async function _toggleIndoorTreino(){
-  const ctx=window._streamCtx;
-  if(!ctx||!ctx.ov)return;
-  const atual=(ctx.ov.stravaIndoorManual!==undefined&&ctx.ov.stravaIndoorManual!==null)
-    ? !!ctx.ov.stravaIndoorManual
-    : !!ctx.ov.stravaIndoor;
-  const novo=!atual;
-  ctx.ov.stravaIndoorManual=novo;
-  try{
-    const {sess,w,d}=ctx;
-    if(w!=null&&d!=null&&sess){
-      if(sess._origin==='plan'){
-        const o=loadOverrides(); const ok=ovKey(w,d,sess._si);
-        if(o[ok]){ o[ok]={...o[ok],stravaIndoorManual:novo}; saveOverrides(o); }
-      }else{
-        const e=loadExtras(); const k=extraKey(w,d);
-        if(e[k]&&e[k][sess._idx]){ e[k][sess._idx]={...e[k][sess._idx],stravaIndoorManual:novo}; saveExtras(e); }
-      }
-    }
-  }catch(e){}
-  loadStreamSection(ctx.ov,ctx.sess,ctx.plannedZone,ctx.w,ctx.d);
-}
-
 async function loadStreamSection(ov, sess, plannedZone, w, d){
   // Guarda o contexto do render atual pra que o botao "foi no rolo/esteira?" consiga redesenhar
   // os graficos sem precisar regerar o texto da IA (que custaria uma chamada nova a API).
@@ -13634,6 +13622,10 @@ async function loadStreamSection(ov, sess, plannedZone, w, d){
   }
 
   if(cache&&cache.streams){
+    if(!_streamPertenceASessao(cache.streams,ov)){
+      container.innerHTML=aviso('Os dados detalhados que estavam vinculados a este treino pertencem a outra atividade do Strava (a distância não bate), então não vou desenhar gráficos aqui pra não te mostrar números errados. Sincronize o Strava novamente para revincular corretamente.');
+      return;
+    }
     try{
       const h=renderStreamDetailsHTML(cache.streams,profile,ov,plannedZone,sess);
       container.innerHTML=h||aviso('Esta atividade nao tem dados detalhados (ritmo/FC segundo a segundo) registrados no Strava.');
@@ -13653,6 +13645,23 @@ async function loadStreamSection(ov, sess, plannedZone, w, d){
     if(!r.ok){ container.innerHTML=aviso(`Strava respondeu ${r.status} ao buscar os detalhes deste treino.`); return; }
     const streams=await r.json();
     _gravarStreamCache(ov.stravaActivityId,streams);
+    if(!_streamPertenceASessao(streams,ov)){
+      // Id apontando pra outra atividade: limpa o vinculo errado pra nao insistir no erro toda
+      // vez que a analise for aberta. A proxima sincronizacao do Strava revincula certo.
+      try{
+        if(w!=null&&d!=null&&sess){
+          if(sess._origin==='plan'){
+            const o=loadOverrides(); const ok=ovKey(w,d,sess._si);
+            if(o[ok]){ delete o[ok].stravaActivityId; saveOverrides(o); }
+          }else{
+            const e=loadExtras(); const k=extraKey(w,d);
+            if(e[k]&&e[k][sess._idx]){ delete e[k][sess._idx].stravaActivityId; saveExtras(e); }
+          }
+        }
+      }catch(e){}
+      container.innerHTML=aviso('Os dados detalhados vinculados a este treino pertencem a outra atividade do Strava (a distância não bate), então removi o vínculo errado em vez de te mostrar gráficos de outro treino. Sincronize o Strava novamente para revincular.');
+      return;
+    }
     const html=renderStreamDetailsHTML(streams,profile,ov,plannedZone,sess);
     container.innerHTML=html||aviso('Esta atividade nao tem dados detalhados (ritmo/FC segundo a segundo) registrados no Strava. Treinos manuais ou sem relogio costumam ficar sem esses graficos.');
   }catch(e){ container.innerHTML=aviso('Nao consegui carregar os detalhes deste treino: '+(e.message||'erro de rede')); }
@@ -13686,25 +13695,13 @@ function renderStreamDetailsHTML(streams,profile,ov,plannedZone,sess){
   // stream de coordenadas (latlng); rolo/ergometrica NUNCA tem, porque a bike nao sai do lugar.
   // Sem GPS + com dado de altitude = barometro variando parado dentro de casa, ou seja, ruido.
   // Deteccao de treino indoor/rolo. Ja tentamos tres sinais automaticos e TODOS falharam em
-  // casos reais: a flag "trainer" do Strava vem errada; o padrao de picos da altitude nao pegou;
-  // e o GPS tambem nao serve, porque um Garmin com GPS ligado grava coordenadas mesmo com a bike
-  // parada no rolo (as coordenadas ficam so oscilando no lugar). Por isso a palavra final agora
-  // e do atleta: ov.stravaIndoorManual, quando definido, vence qualquer heuristica. As
-  // heuristicas ficam apenas como chute inicial pra quem nunca marcou nada.
+  // Deteccao de treino indoor/rolo, usada so pra evitar desenhar potencia ESTIMADA em cima de
+  // ruido de sensor de rolo. Nao ha mais nenhuma pergunta ao atleta sobre isso: com o vinculo da
+  // atividade correto, um treino de ergometrica simplesmente NAO TEM stream de altitude, entao a
+  // secao de Altimetria nem chega a existir — nao e preciso "esconder" nada. Isso aqui e apenas
+  // uma rede de seguranca silenciosa.
   const temGPS=!!(streams&&streams.latlng&&Array.isArray(streams.latlng.data)&&streams.latlng.data.length>5);
-  const provavelIndoor=(ov.stravaIndoorManual!==undefined&&ov.stravaIndoorManual!==null)
-    ? !!ov.stravaIndoorManual
-    : (!!ov.stravaIndoor||(!temGPS&&(isBike||sess&&sess.type==='run')));
-
-  // Botao pra o atleta corrigir a deteccao quando ela erra. Fica no topo dos graficos porque muda
-  // o que aparece abaixo: marcando indoor, some a Altimetria e a curva de potencia estimada
-  // (que num rolo sem medidor de potencia sao so ruido do sensor).
-  if(isBike||(sess&&sess.type==='run')){
-    out+=`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 0 2px">
-      <span style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1.5px">${provavelIndoor?'TRATANDO COMO TREINO INDOOR':'TRATANDO COMO TREINO AO AR LIVRE'}</span>
-      <span onclick="_toggleIndoorTreino()" style="font-family:var(--font-body);font-size:11px;color:var(--accent);text-decoration:underline;cursor:pointer">${provavelIndoor?'era ao ar livre?':'foi no rolo/esteira?'}</span>
-    </div>`;
-  }
+  const provavelIndoor=!!ov.stravaIndoor||(!temGPS&&(isBike||(sess&&sess.type==='run')));
 
   // Link "o que e?" pra termos tecnicos (deriva cardiaca, desacoplamento aerobico) que a maioria
   // dos atletas nao treinados em fisiologia nao conhece de cabeca. Separado em duas pecas porque
