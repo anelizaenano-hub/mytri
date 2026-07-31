@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="v20260730190224">
+<meta name="app-version" content="v20260731160713">
 <!-- Auto-atualizacao: navegadores (principalmente Safari/iOS) as vezes seguram uma versao antiga
 em cache mesmo depois de um deploy novo no servidor, causando confusao de "mudei o codigo mas
 nada mudou" (varias vezes nessa sessao de debug isso foi confundido com bug real). Esse check
@@ -2255,15 +2255,27 @@ function enforceCacheOwnership(session){
   }
   if(uid) localStorage.setItem('mytri_last_uid',uid);
 }
-function afterAuthSuccess(){
+async function afterAuthSuccess(){
   hideAuthScreen();
   enforceCacheOwnership(getSession());
-  if(window._obResumeAfterAuth){
-    window._obResumeAfterAuth=false;
+  const retomar=window._obResumeAfterAuth;
+  window._obResumeAfterAuth=false;
+  // ESSA VERIFICACAO PRECISA VIR SEMPRE, inclusive quando retomar===true. Bug real: ao deslogar,
+  // o app volta pras telas de Welcome/Intro (nao ha sessao); ao continuar dali, ele pede login e
+  // marca _obResumeAfterAuth. Depois do login, o codigo antigo confiava nessa flag e pulava
+  // checkOnboarding inteiro, indo direto pro obStep=2 (selecao de modalidade) — ou seja, uma
+  // conta que JA TINHA plano era jogada no onboarding do zero toda vez que fizesse logout+login.
+  // O dado sempre esteve certo no servidor; a verificacao e que nunca rodava nesse caminho.
+  if(await _onboardingJaConcluido()){
+    try{ await syncProfileFromSupabase(); }catch(e){}
+    _entrarNoApp();
+    return;
+  }
+  if(retomar){
     obStep=2; // já passou por Welcome+Intro antes do login, continua direto pro Esporte
     renderOnboarding();
   }else{
-    checkOnboarding();
+    showOnboarding();
   }
 }
 
@@ -10800,33 +10812,41 @@ function hexToRgba(hex,a){const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.sli
 let obStep=0;
 let obData={sport:null,raceDist:null,goalTime:null,swimLevel:'beginner',bikeLevel:'beginner',runLevel:'beginner',weeklyHours:null,fcMax:'',ftp:'',diasDisponiveis:[]};
 
+// Diz se ESTA conta ja concluiu o onboarding — checando primeiro o local e, se nao houver,
+// o servidor. Extraido de checkOnboarding pra poder ser reaproveitado no fluxo de login, que
+// antes pulava essa verificacao por completo (ver afterAuthSuccess).
+async function _onboardingJaConcluido(){
+  if(localStorage.getItem('mytri_onboard_done'))return true;
+  try{
+    const remote=await sbGet('mytri_onboard_done');
+    if(remote){ localStorage.setItem('mytri_onboard_done','1'); return true; }
+  }catch(e){}
+  // A flag mytri_onboard_done e gravada em fire-and-forget no fim do onboarding — se aquela
+  // escrita falhar em silencio, o atleta cai de volta no onboarding num dispositivo/sessao nova
+  // mesmo ja tendo terminado. Antes de concluir que nao fez, confere se ja existe um PERFIL
+  // remoto com dado real — sinal bem mais forte que uma flag isolada.
+  try{
+    const remoteProfile=await sbGet('mytri_profile');
+    if(remoteProfile&&remoteProfile.sport){
+      localStorage.setItem('mytri_onboard_done','1');
+      sbSet('mytri_onboard_done','1').catch(()=>{});  // reconserta a flag que tinha falhado
+      return true;
+    }
+  }catch(e){}
+  return false;
+}
+
+// Sai das telas de onboarding e entra no app propriamente dito.
+function _entrarNoApp(){
+  const el=document.getElementById('view-onboard'); if(el)el.classList.remove('active');
+  document.body.classList.remove('onboarding-active');
+  const fab=document.getElementById('consult-fab'); if(fab)fab.style.display='';
+  try{ switchTab('agenda'); }catch(e){}
+  try{ refreshHoje(); }catch(e){}
+}
+
 async function checkOnboarding(){
-  let done=localStorage.getItem('mytri_onboard_done');
-  if(!done){
-    try{
-      const remote=await sbGet('mytri_onboard_done');
-      if(remote){
-        localStorage.setItem('mytri_onboard_done','1');
-        done='1';
-      }
-    }catch(e){}
-  }
-  if(!done){
-    // A flag mytri_onboard_done e gravada em fire-and-forget (sbSet sem await, erro engolido)
-    // no fim do onboarding — se aquela escrita falhar em silencio (rede instavel bem naquele
-    // instante), o atleta cai de volta no onboarding num dispositivo/sessao nova mesmo ja tendo
-    // terminado, mesmo com o perfil real salvo. Antes de mostrar o onboarding de novo, confere
-    // se ja existe um PERFIL remoto com dado real — sinal bem mais forte que uma flag isolada.
-    try{
-      const remoteProfile=await sbGet('mytri_profile');
-      if(remoteProfile&&remoteProfile.sport){
-        localStorage.setItem('mytri_onboard_done','1');
-        sbSet('mytri_onboard_done','1').catch(()=>{});  // reconserta a flag que tinha falhado
-        done='1';
-      }
-    }catch(e){}
-  }
-  if(!done)showOnboarding();
+  if(!(await _onboardingJaConcluido()))showOnboarding();
 }
 
 function showOnboarding(){
@@ -13489,13 +13509,24 @@ const _STREAM_CACHE_KEY='mytri_streams_cache';
 function _lerStreamCache(id){
   try{
     const c=JSON.parse(localStorage.getItem(_STREAM_CACHE_KEY)||'{}');
-    return c[String(id)]||null;
+    const entry=c[String(id)]||null;
+    // Caches gravados ANTES de pedirmos o stream latlng nao tem a chave 'latlng' de jeito nenhum
+    // — nem como lista vazia. Se aproveitassemos esse cache, a deteccao de indoor (que e "nao tem
+    // GPS = indoor") marcaria pedalada de RUA como indoor, escondendo altimetria de verdade.
+    // Trata cache sem essa chave como invalido, forcando uma busca nova que ja traz o latlng.
+    if(entry&&entry.streams&&entry.streams.latlng===undefined)return null;
+    return entry;
   }catch(e){ return null; }
 }
 function _gravarStreamCache(id,streams){
   try{
     const c=JSON.parse(localStorage.getItem(_STREAM_CACHE_KEY)||'{}');
-    c[String(id)]={streams,ts:Date.now()};
+    // Treino indoor volta SEM a chave latlng (nao tem GPS). Grava um marcador explicito de
+    // "buscamos e nao havia GPS" — senao _lerStreamCache trataria como cache velho e ficaria
+    // buscando de novo no Strava a cada abertura, gastando cota a toa.
+    const norm={...streams};
+    if(norm.latlng===undefined)norm.latlng={data:[]};
+    c[String(id)]={streams:norm,ts:Date.now()};
     const chaves=Object.keys(c);
     if(chaves.length>40){
       chaves.sort((a,b)=>(c[a].ts||0)-(c[b].ts||0));
@@ -13570,7 +13601,7 @@ async function loadStreamSection(ov, sess, plannedZone, w, d){
   try{
     const token=await stravaGetValidToken();
     if(!token){ container.innerHTML=aviso('Conecte o Strava no Perfil para ver os detalhes deste treino.'); return; }
-    const r=await fetch(`https://www.strava.com/api/v3/activities/${ov.stravaActivityId}/streams?keys=heartrate,velocity_smooth,distance,time,cadence,watts,altitude&key_by_type=true`,{headers:{Authorization:'Bearer '+token}});
+    const r=await fetch(`https://www.strava.com/api/v3/activities/${ov.stravaActivityId}/streams?keys=heartrate,velocity_smooth,distance,time,cadence,watts,altitude,latlng&key_by_type=true`,{headers:{Authorization:'Bearer '+token}});
     if(r.status===429){
       container.innerHTML=aviso('Limite de consultas do Strava atingido no momento. Os detalhes aparecem quando o limite liberar (alguns minutos).');
       return;
@@ -13605,40 +13636,13 @@ function renderStreamDetailsHTML(streams,profile,ov,plannedZone,sess){
   const isSwim=sess&&sess.type==='swim';
   const isBike=sess&&sess.type==='bike';
 
-  // Deteccao de treino indoor/rolo mais confiavel que a flag "trainer" do Strava sozinha (ela
-  // as vezes vem errada — ja visto num caso real: bike ergometrica com trainer=false). Olha o
-  // PADRAO da propria altitude: terreno real nao produz picos quase identicos e igualmente
-  // espacados; rolo/ergometrica recalibrando o barometro a cada ~1km, sim. Calculado uma vez so
-  // aqui e reaproveitado pelos graficos de Ritmo, Potencia e Altimetria — os tres sofrem do
-  // mesmo tipo de artefato regular quando o treino e indoor.
-  let provavelIndoor=!!ov.stravaIndoor;
-  if(!provavelIndoor&&isBike&&streams&&streams.altitude&&Array.isArray(streams.altitude.data)&&dist&&dist.length===streams.altitude.data.length&&streams.altitude.data.length>50){
-    try{
-      const altChk=streams.altitude.data;
-      const picos=[];
-      const janela=Math.max(3,Math.floor(altChk.length/200));
-      for(let i=janela;i<altChk.length-janela;i++){
-        const v=altChk[i];
-        let ehPico=true;
-        for(let j=1;j<=janela;j++){
-          if(altChk[i-j]>v-2||altChk[i+j]>v-2){ehPico=false;break;}
-        }
-        if(ehPico)picos.push(dist[i]);
-      }
-      const picosFiltrados=[];
-      picos.forEach(p=>{
-        if(!picosFiltrados.length||p-picosFiltrados[picosFiltrados.length-1]>200)picosFiltrados.push(p);
-      });
-      if(picosFiltrados.length>=4){
-        const intervalos=[];
-        for(let i=1;i<picosFiltrados.length;i++)intervalos.push(picosFiltrados[i]-picosFiltrados[i-1]);
-        const media=intervalos.reduce((a,b)=>a+b,0)/intervalos.length;
-        const variancia=intervalos.reduce((a,b)=>a+(b-media)*(b-media),0)/intervalos.length;
-        const cv=media>0?Math.sqrt(variancia)/media:1;
-        if(cv<0.25)provavelIndoor=true;
-      }
-    }catch(e){}
-  }
+  // Deteccao de treino indoor/rolo. A flag "trainer" do Strava NAO e confiavel (confirmado em
+  // caso real: bike ergometrica chegando com trainer=false), e tentar adivinhar pelo formato do
+  // grafico de altitude tambem falhou. O sinal definitivo e o GPS: toda pedalada ao ar livre tem
+  // stream de coordenadas (latlng); rolo/ergometrica NUNCA tem, porque a bike nao sai do lugar.
+  // Sem GPS + com dado de altitude = barometro variando parado dentro de casa, ou seja, ruido.
+  const temGPS=!!(streams&&streams.latlng&&Array.isArray(streams.latlng.data)&&streams.latlng.data.length>5);
+  const provavelIndoor=!!ov.stravaIndoor||(!temGPS&&(isBike||sess&&sess.type==='run'));
 
   // Link "o que e?" pra termos tecnicos (deriva cardiaca, desacoplamento aerobico) que a maioria
   // dos atletas nao treinados em fisiologia nao conhece de cabeca. Separado em duas pecas porque
@@ -13689,7 +13693,17 @@ function renderStreamDetailsHTML(streams,profile,ov,plannedZone,sess){
         const idx=dists.findIndex(d=>d>=k*1000);
         if(idx>0)marcos.push([PAD_L+idx*stepX,k]);
       }
-      xlab=marcos.slice(0,6).map(([x,k])=>`<text x="${x.toFixed(1)}" y="${H-5}" text-anchor="middle" font-size="8" fill="var(--muted)">${k} km</text>`).join('');
+      // Antes pegava sempre os 6 PRIMEIROS quilometros (slice(0,6)) sem checar se cabiam na
+      // largura — em treino curto ou com muitos marcos os rotulos sobrepunham e viravam
+      // "1 km2 km3 km4 km" grudados, ilegiveis. Agora respeita um espacamento minimo e joga
+      // fora os marcos que nao cabem, distribuindo o que sobra ao longo do eixo inteiro.
+      const ESPACO_MIN=34;   // unidades do viewBox — cabe "12 km" em font-size 8 com folga
+      const visiveis=[];
+      let ultimoX=-Infinity;
+      marcos.forEach(([x,k])=>{
+        if(x-ultimoX>=ESPACO_MIN){ visiveis.push([x,k]); ultimoX=x; }
+      });
+      xlab=visiveis.map(([x,k])=>`<text x="${x.toFixed(1)}" y="${H-5}" text-anchor="middle" font-size="8" fill="var(--muted)">${k} km</text>`).join('');
     }
     // Faixa da zona alvo (quando informada), desenhada ATRAS da curva.
     let banda='';
@@ -14028,17 +14042,20 @@ function renderStreamDetailsHTML(streams,profile,ov,plannedZone,sess){
       const maxW=Math.round(Math.max(...validos));
       let wR=reduzir(watts,90);
       const distR=dist&&dist.length===watts.length?idxReduzidos(dist,90):null;
-      // Mesmo problema do grafico de Ritmo: rolo/ergometrica tem picos de potencia regulares e
-      // repetitivos (recalibracao do sensor, nao esforco real). Sem teto, esses picos esticavam
-      // a escala inteira do grafico e escondiam a variacao real da sessao. So aplica o corte em
-      // treino indoor — outdoor, potencia alta de verdade (sprint, subida) e sinal real.
-      if(provavelIndoor&&wR.length>4){
-        const ordW=[...wR].sort((a,b)=>a-b);
-        const medianaW=ordW[Math.floor(ordW.length/2)];
-        const tetoW=medianaW*1.3;
-        wR=wR.map(w=>Math.min(w,tetoW));
-      }
-
+      // Quando a potencia e ESTIMADA a partir da velocidade num treino INDOOR, o grafico nao tem
+      // valor nenhum: e o ruido do sensor do rolo convertido em watts por uma formula. Os picos
+      // que aparecem nao existiram no esforco real (bug reportado: treino de carga constante
+      // aparecendo cheio de picos e vales). Nesse caso especifico nao desenha grafico nem zonas —
+      // mostra so a media, que ainda serve de referencia grosseira.
+      const potenciaSemValor = estimado && provavelIndoor;
+      if(potenciaSemValor){
+        out+=secao('Potência',
+          `<div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
+            <span style="font-family:var(--font-display);font-size:30px;color:#a689df">${mediaW} W</span>
+            <span style="font-family:var(--font-body);font-size:12px;color:var(--muted2);flex:1;min-width:200px;line-height:1.5">Média estimada pela velocidade. Como foi treino indoor e você não usa medidor de potência, o gráfico segundo a segundo seria só ruído do sensor do rolo — por isso não desenho a curva nem as zonas aqui. Com um medidor de potência, essa seção fica completa.</span>
+          </div>`,
+          'Estimativa grosseira — use como referência, não como medida.');
+      }else{
       // Zonas de potencia no padrao Coggan, derivadas do FTP.
       const limites=[0.55,0.75,0.90,1.05,1.20,1.50];
       const nomesZ=['Recuperação','Base aeróbica','Tempo','Limiar','VO2 max','Anaeróbico','Neuromuscular'];
@@ -14086,9 +14103,10 @@ function renderStreamDetailsHTML(streams,profile,ov,plannedZone,sess){
 
       out+=secao('Potência',
         areaChart(wR,distR,'#a689df',v=>Math.round(v)+'W',false,null,'watts')+blocoInt,
-        `Média ${mediaW} W · máxima ${maxW} W${estimado?' · estimada pela velocidade (sem medidor de potência)':''}${provavelIndoor?' · treino indoor: picos regulares do sensor do rolo foram suavizados no gráfico':''}`);
+        `Média ${mediaW} W · máxima ${maxW} W${estimado?' · estimada pela velocidade (sem medidor de potência)':''}`);
       out+=secao('Zonas de potência',linhasZ,
         `Calculadas sobre o SEU FTP de ${Math.round(ftp)} W${estimado?' — potência estimada, use como referência.':(profile.ftpPorTeste?' — FTP calculada por teste de velocidade, sem sensor de potência.':'.')}`);
+      }
     }
   }
 
