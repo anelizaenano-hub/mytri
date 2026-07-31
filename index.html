@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="v20260731160713">
+<meta name="app-version" content="v20260731210400">
 <!-- Auto-atualizacao: navegadores (principalmente Safari/iOS) as vezes seguram uma versao antiga
 em cache mesmo depois de um deploy novo no servidor, causando confusao de "mudei o codigo mas
 nada mudou" (varias vezes nessa sessao de debug isso foi confundido com bug real). Esse check
@@ -2267,7 +2267,22 @@ async function afterAuthSuccess(){
   // conta que JA TINHA plano era jogada no onboarding do zero toda vez que fizesse logout+login.
   // O dado sempre esteve certo no servidor; a verificacao e que nunca rodava nesse caminho.
   if(await _onboardingJaConcluido()){
+    // sbInit() e OBRIGATORIO aqui. Ele marca _syncReady e chama syncFromCloud(), que devolve
+    // treinos sincronizados (overrides/extras/checks) e destrava a restauracao do token do
+    // Strava (que so acontece quando _syncReady e true). O logout faz localStorage.clear(), entao
+    // sem esse passo o atleta entrava no app com Strava "desconectado" e as atividades do dia
+    // sumidas — ate sincronizar tudo de novo na mao.
+    try{ await sbInit(); }catch(e){}
     try{ await syncProfileFromSupabase(); }catch(e){}
+    // Restaura o token do Strava do servidor pro localStorage. stravaGetValidToken() ja sabe
+    // buscar da nuvem quando falta localmente, mas nao grava de volta — sem gravar, a tela de
+    // perfil continua mostrando "conectar Strava" mesmo com a conta conectada.
+    try{
+      if(!localStorage.getItem('strava_tokens')){
+        const tk=await sbGet('strava_tokens');
+        if(tk)localStorage.setItem('strava_tokens',JSON.stringify(tk));
+      }
+    }catch(e){}
     _entrarNoApp();
     return;
   }
@@ -13114,7 +13129,8 @@ async function maybeShowSessionAnalysis(key, sess, w, d){
       stravaHR: sess.stravaHR||'',
       stravaPace: sess.stravaPace||'',
       stravaActivityId: sess.stravaActivityId||null,
-      stravaIndoor: sess.stravaIndoor||false
+      stravaIndoor: sess.stravaIndoor||false,
+      stravaIndoorManual: sess.stravaIndoorManual
     };
   }
 
@@ -13536,7 +13552,35 @@ function _gravarStreamCache(id,streams){
   }catch(e){ /* cota de localStorage cheia: cache e bonus, nao pode quebrar a analise */ }
 }
 
+// Alterna manualmente entre "treino indoor" e "ao ar livre" na analise aberta. A escolha do
+// atleta e gravada junto da sessao e passa a valer sobre qualquer deteccao automatica.
+async function _toggleIndoorTreino(){
+  const ctx=window._streamCtx;
+  if(!ctx||!ctx.ov)return;
+  const atual=(ctx.ov.stravaIndoorManual!==undefined&&ctx.ov.stravaIndoorManual!==null)
+    ? !!ctx.ov.stravaIndoorManual
+    : !!ctx.ov.stravaIndoor;
+  const novo=!atual;
+  ctx.ov.stravaIndoorManual=novo;
+  try{
+    const {sess,w,d}=ctx;
+    if(w!=null&&d!=null&&sess){
+      if(sess._origin==='plan'){
+        const o=loadOverrides(); const ok=ovKey(w,d,sess._si);
+        if(o[ok]){ o[ok]={...o[ok],stravaIndoorManual:novo}; saveOverrides(o); }
+      }else{
+        const e=loadExtras(); const k=extraKey(w,d);
+        if(e[k]&&e[k][sess._idx]){ e[k][sess._idx]={...e[k][sess._idx],stravaIndoorManual:novo}; saveExtras(e); }
+      }
+    }
+  }catch(e){}
+  loadStreamSection(ctx.ov,ctx.sess,ctx.plannedZone,ctx.w,ctx.d);
+}
+
 async function loadStreamSection(ov, sess, plannedZone, w, d){
+  // Guarda o contexto do render atual pra que o botao "foi no rolo/esteira?" consiga redesenhar
+  // os graficos sem precisar regerar o texto da IA (que custaria uma chamada nova a API).
+  window._streamCtx={ov,sess,plannedZone,w,d};
   const container=document.getElementById('sa-stream-section');
   if(!container)return;
   const profile=getMytriProfile();
@@ -13641,8 +13685,26 @@ function renderStreamDetailsHTML(streams,profile,ov,plannedZone,sess){
   // grafico de altitude tambem falhou. O sinal definitivo e o GPS: toda pedalada ao ar livre tem
   // stream de coordenadas (latlng); rolo/ergometrica NUNCA tem, porque a bike nao sai do lugar.
   // Sem GPS + com dado de altitude = barometro variando parado dentro de casa, ou seja, ruido.
+  // Deteccao de treino indoor/rolo. Ja tentamos tres sinais automaticos e TODOS falharam em
+  // casos reais: a flag "trainer" do Strava vem errada; o padrao de picos da altitude nao pegou;
+  // e o GPS tambem nao serve, porque um Garmin com GPS ligado grava coordenadas mesmo com a bike
+  // parada no rolo (as coordenadas ficam so oscilando no lugar). Por isso a palavra final agora
+  // e do atleta: ov.stravaIndoorManual, quando definido, vence qualquer heuristica. As
+  // heuristicas ficam apenas como chute inicial pra quem nunca marcou nada.
   const temGPS=!!(streams&&streams.latlng&&Array.isArray(streams.latlng.data)&&streams.latlng.data.length>5);
-  const provavelIndoor=!!ov.stravaIndoor||(!temGPS&&(isBike||sess&&sess.type==='run'));
+  const provavelIndoor=(ov.stravaIndoorManual!==undefined&&ov.stravaIndoorManual!==null)
+    ? !!ov.stravaIndoorManual
+    : (!!ov.stravaIndoor||(!temGPS&&(isBike||sess&&sess.type==='run')));
+
+  // Botao pra o atleta corrigir a deteccao quando ela erra. Fica no topo dos graficos porque muda
+  // o que aparece abaixo: marcando indoor, some a Altimetria e a curva de potencia estimada
+  // (que num rolo sem medidor de potencia sao so ruido do sensor).
+  if(isBike||(sess&&sess.type==='run')){
+    out+=`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 0 2px">
+      <span style="font-family:var(--font-ui);font-size:9px;color:var(--muted);letter-spacing:1.5px">${provavelIndoor?'TRATANDO COMO TREINO INDOOR':'TRATANDO COMO TREINO AO AR LIVRE'}</span>
+      <span onclick="_toggleIndoorTreino()" style="font-family:var(--font-body);font-size:11px;color:var(--accent);text-decoration:underline;cursor:pointer">${provavelIndoor?'era ao ar livre?':'foi no rolo/esteira?'}</span>
+    </div>`;
+  }
 
   // Link "o que e?" pra termos tecnicos (deriva cardiaca, desacoplamento aerobico) que a maioria
   // dos atletas nao treinados em fisiologia nao conhece de cabeca. Separado em duas pecas porque
