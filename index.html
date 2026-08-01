@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="v20260731214555">
+<meta name="app-version" content="v20260731221137">
 <!-- Auto-atualizacao: navegadores (principalmente Safari/iOS) as vezes seguram uma versao antiga
 em cache mesmo depois de um deploy novo no servidor, causando confusao de "mudei o codigo mas
 nada mudou" (varias vezes nessa sessao de debug isso foi confundido com bug real). Esse check
@@ -2260,6 +2260,19 @@ async function afterAuthSuccess(){
   enforceCacheOwnership(getSession());
   const retomar=window._obResumeAfterAuth;
   window._obResumeAfterAuth=false;
+  // Enquanto a verificacao abaixo consulta o servidor (pode levar 1-2s), a tela que estava
+  // atras do login volta a aparecer — que e justamente a tela de Intro do onboarding. Pra quem
+  // ja tem conta isso parecia um "onboarding fantasma" piscando antes da agenda. Cobre com um
+  // aviso de carregamento ate saber pra onde mandar o atleta.
+  let _load=null;
+  try{
+    _load=document.createElement('div');
+    _load.id='auth-loading-veil';
+    _load.style.cssText='position:fixed;inset:0;z-index:9998;background:var(--bg);display:flex;align-items:center;justify-content:center;gap:12px;font-family:var(--font-ui);font-size:11px;letter-spacing:1.5px;color:var(--muted)';
+    _load.innerHTML='<div class="sa-spinner-ring" style="width:16px;height:16px"></div>CARREGANDO SUA CONTA...';
+    document.body.appendChild(_load);
+  }catch(e){}
+  const _tiraVeu=()=>{ try{ if(_load&&_load.parentNode)_load.remove(); }catch(e){} };
   // ESSA VERIFICACAO PRECISA VIR SEMPRE, inclusive quando retomar===true. Bug real: ao deslogar,
   // o app volta pras telas de Welcome/Intro (nao ha sessao); ao continuar dali, ele pede login e
   // marca _obResumeAfterAuth. Depois do login, o codigo antigo confiava nessa flag e pulava
@@ -2284,8 +2297,10 @@ async function afterAuthSuccess(){
       }
     }catch(e){}
     _entrarNoApp();
+    _tiraVeu();
     return;
   }
+  _tiraVeu();
   if(retomar){
     obStep=2; // já passou por Welcome+Intro antes do login, continua direto pro Esporte
     renderOnboarding();
@@ -10157,7 +10172,7 @@ function openAddMoment(){
   input.click();
 }
 
-function resetOnboarding(){
+async function resetOnboarding(){
   if(!confirm('Resetar onboarding? Isso apaga seu perfil, plano e prova selecionada pra comecar do zero.'))return;
   // Antes só limpava uma flag e o cache do resumo — o perfil (com a prova antiga, nome, Strava
   // conectado etc.) continuava intacto, então depois de "resetar" a prova antiga ainda aparecia
@@ -10165,10 +10180,19 @@ function resetOnboarding(){
   // CRITICO: tambem precisa limpar a copia NA NUVEM — senao, na proxima vez que o app abre,
   // ele busca o perfil antigo de volta do Supabase antes mesmo do onboarding novo comecar
   // (syncProfileFromSupabase preenche local vazio com o que estiver salvo remoto).
+  // E PRECISA ESPERAR essas gravacoes terminarem: antes eram fire-and-forget seguidas de
+  // localStorage.clear() + location.reload(), e o reload abortava as requisicoes no meio do
+  // caminho (alem de apagar o token de sessao que elas precisavam). Resultado: o servidor
+  // continuava marcado como "onboarding concluido", e como a verificacao passou a rodar tambem
+  // no login, o app pulava direto pra agenda toda vez que se tentava refazer o onboarding.
   const _uid=currentUserId();
   if(_uid){
-    sbSet('mytri_profile',{}).catch(()=>{});
-    sbSet('mytri_onboard_done',false).catch(()=>{});
+    try{
+      await Promise.all([
+        sbSet('mytri_profile',{}),
+        sbSet('mytri_onboard_done',false)
+      ]);
+    }catch(e){}
   }
   localStorage.clear();
   obStep=0;
@@ -10832,14 +10856,17 @@ let obData={sport:null,raceDist:null,goalTime:null,swimLevel:'beginner',bikeLeve
 // antes pulava essa verificacao por completo (ver afterAuthSuccess).
 async function _onboardingJaConcluido(){
   if(localStorage.getItem('mytri_onboard_done'))return true;
-  try{
-    const remote=await sbGet('mytri_onboard_done');
-    if(remote){ localStorage.setItem('mytri_onboard_done','1'); return true; }
-  }catch(e){}
-  // A flag mytri_onboard_done e gravada em fire-and-forget no fim do onboarding — se aquela
-  // escrita falhar em silencio, o atleta cai de volta no onboarding num dispositivo/sessao nova
-  // mesmo ja tendo terminado. Antes de concluir que nao fez, confere se ja existe um PERFIL
-  // remoto com dado real — sinal bem mais forte que uma flag isolada.
+  let remote=null;
+  try{ remote=await sbGet('mytri_onboard_done'); }catch(e){}
+  // false NAO e o mesmo que "nunca gravado". false significa que o atleta pediu pra refazer o
+  // onboarding (resetOnboarding grava exatamente isso). Nesse caso a resposta e definitiva e o
+  // fallback de perfil abaixo NAO pode passar por cima — senao "refazer onboarding" nunca
+  // funciona, porque o perfil antigo ainda esta la e faria o app concluir que ja foi feito.
+  if(remote===false)return false;
+  if(remote){ localStorage.setItem('mytri_onboard_done','1'); return true; }
+  // A flag pode ter falhado ao ser gravada no fim do onboarding (rede caindo bem naquele
+  // instante). Antes de concluir que nao fez, confere se ja existe um PERFIL remoto com dado
+  // real — sinal bem mais forte que uma flag isolada.
   try{
     const remoteProfile=await sbGet('mytri_profile');
     if(remoteProfile&&remoteProfile.sport){
@@ -13563,6 +13590,54 @@ function _gravarStreamCache(id,streams){
     }
     localStorage.setItem(_STREAM_CACHE_KEY,JSON.stringify(c));
   }catch(e){ /* cota de localStorage cheia: cache e bonus, nao pode quebrar a analise */ }
+}
+
+// Confere se o stream baixado realmente pertence a ESTA sessao. O id da atividade pode estar
+// errado (versoes antigas do app chutavam esse vinculo por semelhanca de tempo/FC, e o chute
+// errado fica gravado no treino). Com id errado, o app desenha os graficos de OUTRA atividade:
+// altimetria de um pedal na rua num treino de rolo, 19km no eixo pra quem pedalou 12, FC media
+// de 124 quando a real era 107. Melhor nao mostrar grafico do que mostrar o do treino errado.
+function _streamPertenceASessao(streams,ov){
+  try{
+    const dd=streams&&streams.distance&&Array.isArray(streams.distance.data)?streams.distance.data:null;
+    const dStr=String(ov&&ov.stravaDist||'');
+    const ehDuracao=/min|^\d+h(\d|$)/i.test(dStr);
+
+    // 1) DISTANCIA — so vale quando A SESSAO foi registrada por distancia E o stream tem
+    // distancia real. Treino de ergometrica costuma vir do Strava com distancia zerada (ou nem
+    // vem); se o atleta digita a distancia na mao depois, comparar "12km" contra o zero do
+    // sensor rejeitaria o treino certo. Nesse caso a distancia nao serve de prova.
+    if(dd&&dd.length>=2&&dStr&&!ehDuracao){
+      const streamKm=dd[dd.length-1]/1000;
+      let sessaoKm=parseFloat(dStr)||0;
+      if(/m$/i.test(dStr)&&!/km$/i.test(dStr))sessaoKm=sessaoKm/1000;
+      if(streamKm>0.1&&sessaoKm&&Math.abs(streamKm-sessaoKm)/sessaoKm>0.15)return false;
+    }
+
+    // 2) DURACAO — cobre o caso do treino registrado por tempo ("30min"), onde a checagem de
+    // distancia nao se aplica e qualquer stream passaria batido.
+    const tt=streams&&streams.time&&Array.isArray(streams.time.data)?streams.time.data:null;
+    const tempoTxt=String((ov&&ov.stravaTime)||(ehDuracao?dStr:''))||'';
+    const mt=tempoTxt.match(/(?:(\d+)\s*h\s*)?(\d+)\s*min/i);
+    if(tt&&tt.length>=2&&mt){
+      const minSessao=(parseInt(mt[1]||0)*60)+parseInt(mt[2]||0);
+      const minStream=(tt[tt.length-1]-tt[0])/60;
+      if(minSessao>0&&Math.abs(minStream-minSessao)/minSessao>0.20)return false;
+    }
+
+    // 3) FC MEDIA — ultimo desempate: duas atividades podem ter duracao parecida, mas a FC media
+    // gravada na sessao tem que bater com a do stream.
+    const hh=streams&&streams.heartrate&&Array.isArray(streams.heartrate.data)?streams.heartrate.data:null;
+    const hrSessao=parseFloat(String((ov&&ov.stravaHR)||''))||0;
+    if(hh&&hh.length>10&&hrSessao>0){
+      const validos=hh.filter(x=>typeof x==='number'&&x>0);
+      if(validos.length>10){
+        const hrStream=validos.reduce((a,b)=>a+b,0)/validos.length;
+        if(Math.abs(hrStream-hrSessao)/hrSessao>0.12)return false;
+      }
+    }
+    return true;
+  }catch(e){ return true; }
 }
 
 async function loadStreamSection(ov, sess, plannedZone, w, d){
