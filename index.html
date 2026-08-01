@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="v20260731221137">
+<meta name="app-version" content="v20260801163700">
 <!-- Auto-atualizacao: navegadores (principalmente Safari/iOS) as vezes seguram uma versao antiga
 em cache mesmo depois de um deploy novo no servidor, causando confusao de "mudei o codigo mas
 nada mudou" (varias vezes nessa sessao de debug isso foi confundido com bug real). Esse check
@@ -3527,6 +3527,9 @@ function computeAdjustment(a, fase, lesoes){
 // Fecha o loop emocional: "você evoluiu, seu plano subiu" ou "vamos ajustar, sem culpa".
 function checkRecalPopup(){
   try{
+    // Mesma protecao do resumo semanal: nada de popup por cima das telas de onboarding.
+    if(document.body.classList.contains('onboarding-active')) return;
+    if(!localStorage.getItem('mytri_onboard_done')) return;
     if(!hasRace && !getAllWeeks().length) return;
     const {w:cw}=getCurrentWeekAndDay();
     if(cw<=1) return; // sem semana anterior fechada
@@ -6667,6 +6670,11 @@ function refreshCoaching(){
 
 // ── RESUMO SEMANAL (sábado) ──
 function checkWeeklySummary(){
+  // Nao faz sentido nenhum mostrar "resumo da semana: 0 de 5 sessoes, semana dificil" por cima
+  // das telas de boas-vindas de quem acabou de resetar o onboarding e ainda nem tem plano.
+  // O popup so vale pra quem ja esta com o plano rodando.
+  if(document.body.classList.contains('onboarding-active'))return;
+  if(!localStorage.getItem('mytri_onboard_done'))return;
   const now=new Date();
   const isSaturday=now.getDay()===6;
   if(!isSaturday)return;
@@ -6730,7 +6738,16 @@ function getWDFromDate(date){
   // Usa a contagem REAL de semanas do plano (não fixo 16). Em plano curto ou modo livre,
   // o limite 16*7 podia rejeitar/errar o casamento de atividades do Strava.
   let _tw=16; try{ _tw=planWeekCount()||16; }catch(e){}
-  if(diff<0||diff>=_tw*7)return null;
+  // Atividade ANTERIOR ao inicio do plano: normalmente nao pertence a semana nenhuma. Mas quando
+  // o atleta refaz o onboarding, PLAN_START vira HOJE — e os treinos reais de ontem/anteontem,
+  // que existem no Strava e ele acabou de fazer, ficariam orfaos ("nao encontrei esta atividade
+  // entre as N sincronizadas"). Tolera ate 7 dias pra tras encaixando na semana 1, pra nao
+  // perder o treino recente so porque o plano foi recriado depois dele.
+  if(diff<0){
+    if(diff>=-7)return {w:1,d:0,_antesDoPlano:true};
+    return null;
+  }
+  if(diff>=_tw*7)return null;
   const w=Math.floor(diff/7)+1;
   const d=diff%7; // SEG=0...DOM=6
   return{w,d};
@@ -7241,6 +7258,10 @@ async function stravaSyncActivities(){
 
       // Encontrar sessão correspondente no plano e editar com dados reais
       let foundMatch=false;
+      // Atividade feita ANTES do plano comecar (ver getWDFromDate) nao pode ocupar uma sessao
+      // planejada — senao um pedal de ontem marcaria como "concluida" a sessao de segunda que
+      // ainda nem chegou. Entra so como treino extra no primeiro dia, preservando o registro.
+      if(!wd._antesDoPlano){
       getEffectiveSessions(wd.w,wd.d).forEach(sess=>{
         // Ignorar extras criados pelo próprio Strava
         if(sess._origin==='extra'&&sess.note&&sess.note.includes('via Strava'))return;
@@ -7267,6 +7288,7 @@ async function stravaSyncActivities(){
         matched++;      // conta sempre que casa e salva dados (não só quando marca novo)
         foundMatch=true;
       });
+      }
 
       // Se não achou sessão do plano, atualizar extra existente ou criar novo
       if(!foundMatch&&wd){
@@ -11183,8 +11205,22 @@ function renderObProva(c){
       ${(()=>{ try{ return localStorage.getItem('mytri_debug')==='1'; }catch(e){ return false; } })()?`<div style="font-family:var(--font-ui);font-size:9px;color:#f0a500;text-align:center;margin-bottom:14px;word-break:break-word">build ${(document.querySelector('meta[name="app-version"]')||{}).content||'?'}${obData._raceSearchDebug?' · '+obData._raceSearchDebug:''}</div>`:''}
       <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
         ${webRaces&&webRaces.length?(()=>{
-          const nac=webRaces.filter(p=>p.scope!=='internacional');
-          const intl=webRaces.filter(p=>p.scope==='internacional');
+          // O campo "scope" e opcional: a busca (race-search, no servidor) nem sempre devolve ele,
+          // e sem isso TODA prova caia no balde de "nacionais" e a secao internacional sumia.
+          // Deduz pelo local/pais quando o scope nao vier: se o texto do local termina com um
+          // pais que nao e o Brasil, ou tras uma UF brasileira, da pra classificar com seguranca.
+          const UF_BR=/\b(AC|AL|AP|AM|BA|CE|DF|ES|GO|MA|MT|MS|MG|PA|PB|PR|PE|PI|RJ|RN|RS|RO|RR|SC|SP|SE|TO)\b/i;
+          const ehInternacional=(p)=>{
+            if(p.scope)return p.scope==='internacional';
+            const txt=`${p.local||''} ${p.location||''} ${p.cidade||''} ${p.pais||''} ${p.country||''}`.trim();
+            if(!txt)return false;                       // sem info: assume nacional
+            if(/brasil|brazil|\bbra\b/i.test(txt))return false;
+            if(UF_BR.test(txt))return false;            // "Guarujá, SP" e nacional
+            // Sobrou algo com virgula e um sufixo de pais estrangeiro (ex: "Kona, USA")
+            return /,\s*[A-Za-zÀ-ÿ .]{3,}$/.test(txt);
+          };
+          const nac=webRaces.filter(p=>!ehInternacional(p));
+          const intl=webRaces.filter(p=>ehInternacional(p));
           let out='';
           if(nac.length){ out+=`<div style="font-family:var(--font-ui);font-size:10px;color:var(--muted);letter-spacing:1.5px;margin-bottom:2px">PROVAS NO BRASIL</div>`;
             out+=nac.map((p)=>{ const i=webRaces.indexOf(p); const sel=obData.provaIdx==='web'+i; return provaCard(p,`onclick="obSelectWebRace(${i})"`,sel,'BR'); }).join(''); }
