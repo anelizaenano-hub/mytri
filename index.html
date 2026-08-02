@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="v20260802160013">
+<meta name="app-version" content="v20260802160407">
 <!-- Auto-atualizacao: navegadores (principalmente Safari/iOS) as vezes seguram uma versao antiga
 em cache mesmo depois de um deploy novo no servidor, causando confusao de "mudei o codigo mas
 nada mudou" (varias vezes nessa sessao de debug isso foi confundido com bug real). Esse check
@@ -8222,13 +8222,33 @@ async function openJoinGroupForm(){
         });
       }catch(e){}
     }
-    // Antes so chamava renderClub() — mas a lista de grupos ja estava carregada em memoria e nao
-    // era recarregada do servidor, entao o grupo novo simplesmente nao aparecia e dava a sensacao
-    // de "nao aconteceu nada", mesmo com a entrada tendo funcionado. Recarrega de verdade e avisa.
+    // A RPC respondeu OK, mas isso NAO garante que a linha de membro existe (bug real: dizia
+    // "entrou" e a lista continuava vazia). Confere no banco antes de comemorar.
     try{
       meiaBrancaState.myGroups=await mbFetchMyGroups();
       const g=(meiaBrancaState.myGroups||[]).find(x=>String(x.id)===String(groupId));
       if(g)meiaBrancaState._openGroup=g;
+
+      const uidChk=currentUserId();
+      const rChk=await fetch(`${SB_URL}/rest/v1/mytri_group_members?group_id=eq.${groupId}&user_id=eq.${uidChk}&select=user_id`,{headers:sbHeaders()});
+      const linhas=await rChk.json().catch(()=>[]);
+      if(!Array.isArray(linhas)||!linhas.length){
+        // A RPC nao criou a linha. Tenta criar direto — o mesmo insert que funciona na criacao
+        // de grupo (confirmado pelo diagnostico: HTTP 201).
+        const rIns=await fetch(`${SB_URL}/rest/v1/mytri_group_members`,{
+          method:'POST',headers:sbHeaders({'Prefer':'return=minimal'}),
+          body:JSON.stringify({group_id:groupId,user_id:uidChk,nome_exibicao:prof.name||'Você',foto_url:prof.photo||null})
+        });
+        if(!rIns.ok){
+          const errIns=await rIns.text().catch(()=>'');
+          alert(`Entrei no grupo pelo código, mas não consegui te registrar como membro (HTTP ${rIns.status}). Detalhe: ${(errIns||'sem detalhe').slice(0,200)}`);
+          renderClub();
+          return;
+        }
+        meiaBrancaState.myGroups=await mbFetchMyGroups();
+        const g2=(meiaBrancaState.myGroups||[]).find(x=>String(x.id)===String(groupId));
+        if(g2)meiaBrancaState._openGroup=g2;
+      }
     }catch(e){}
     alert('Pronto! Você entrou no grupo.');
     renderClub();
