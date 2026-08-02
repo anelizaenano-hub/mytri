@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="v20260802155140">
+<meta name="app-version" content="v20260802160013">
 <!-- Auto-atualizacao: navegadores (principalmente Safari/iOS) as vezes seguram uma versao antiga
 em cache mesmo depois de um deploy novo no servidor, causando confusao de "mudei o codigo mas
 nada mudou" (varias vezes nessa sessao de debug isso foi confundido com bug real). Esse check
@@ -8216,10 +8216,21 @@ async function openJoinGroupForm(){
     // A funcao join_group_by_code não aceita foto (RPC generica) — completa com um PATCH
     // separado, que a regra "members_update_self" já permite pro próprio membro.
     if(groupId&&prof.photo&&uid){
-      fetch(`${SB_URL}/rest/v1/mytri_group_members?group_id=eq.${groupId}&user_id=eq.${uid}`,{
-        method:'PATCH', headers:sbHeaders(), body:JSON.stringify({foto_url:prof.photo})
-      }).catch(()=>{});
+      try{
+        await fetch(`${SB_URL}/rest/v1/mytri_group_members?group_id=eq.${groupId}&user_id=eq.${uid}`,{
+          method:'PATCH', headers:sbHeaders(), body:JSON.stringify({foto_url:prof.photo})
+        });
+      }catch(e){}
     }
+    // Antes so chamava renderClub() — mas a lista de grupos ja estava carregada em memoria e nao
+    // era recarregada do servidor, entao o grupo novo simplesmente nao aparecia e dava a sensacao
+    // de "nao aconteceu nada", mesmo com a entrada tendo funcionado. Recarrega de verdade e avisa.
+    try{
+      meiaBrancaState.myGroups=await mbFetchMyGroups();
+      const g=(meiaBrancaState.myGroups||[]).find(x=>String(x.id)===String(groupId));
+      if(g)meiaBrancaState._openGroup=g;
+    }catch(e){}
+    alert('Pronto! Você entrou no grupo.');
     renderClub();
   }).catch(()=>alert('Erro de conexao. Tenta de novo.'));
 }
@@ -10306,6 +10317,21 @@ async function diagnosticoToken(){
         linhas.push('--- teste de insert: nenhum grupo encontrado pra testar ---');
       }
     }catch(e){ linhas.push('erro no teste de insert: '+e.message); }
+    // Testa a RPC de entrar por codigo — que e o caminho usado pela conta que RECEBE o convite.
+    // Pede o codigo porque so o dono do grupo o conhece.
+    try{
+      const cod=prompt('(opcional) Codigo do grupo pra testar a entrada — deixe vazio pra pular:');
+      if(cod&&cod.trim()){
+        const rj=await fetch(`${SB_URL}/rest/v1/rpc/join_group_by_code`,{
+          method:'POST',headers:sbHeaders(),
+          body:JSON.stringify({p_codigo:cod.trim(),p_nome:'diagnostico'})
+        });
+        const txtj=await rj.text().catch(()=>'');
+        linhas.push('--- teste entrar por codigo ---');
+        linhas.push('HTTP '+rj.status);
+        linhas.push('resposta: '+(txtj||'(vazia)').slice(0,300));
+      }
+    }catch(e){ linhas.push('erro no teste de entrada por codigo: '+e.message); }
   }catch(e){ linhas.push('erro geral: '+e.message); }
   const texto=linhas.join('\n');
   try{ await navigator.clipboard.writeText(texto); }catch(e){}
