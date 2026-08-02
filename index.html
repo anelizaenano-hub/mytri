@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="v20260801163700">
+<meta name="app-version" content="v20260802153427">
 <!-- Auto-atualizacao: navegadores (principalmente Safari/iOS) as vezes seguram uma versao antiga
 em cache mesmo depois de um deploy novo no servidor, causando confusao de "mudei o codigo mas
 nada mudou" (varias vezes nessa sessao de debug isso foi confundido com bug real). Esse check
@@ -1940,7 +1940,21 @@ const SB_KEY='sb_publishable_mVgR-2qjgAGzEBeitJ8SAg_DTFYuw-t';
 // token de sessão da pessoa logada — e isso que permite RLS por user_id funcionar de verdade.
 function sbHeaders(extra){
   const s=getSession();
-  const token=(s&&s.access_token)||SB_KEY;
+  let token=SB_KEY;
+  if(s&&s.access_token){
+    // O token do Supabase expira em ~1h. Antes essa funcao mandava o token cru do
+    // armazenamento mesmo VENCIDO — e ai o Supabase trata a requisicao como anonima:
+    // auth.uid() vira NULL e toda politica RLS do tipo "auth.uid() = user_id" rejeita com 403.
+    // Foi exatamente isso que quebrou o "entrar no proprio grupo" e o chat do clube (confirmado:
+    // o mesmo INSERT roda sem erro no banco quando o token e valido). Se estiver vencido, nao
+    // adianta mandar: usa a chave anonima e deixa a falha ser explicita.
+    const exp=s.expires_at||0;
+    const agora=Date.now();
+    const valido=exp>(agora+30000);   // 30s de margem
+    if(valido)token=s.access_token;
+    else console.warn('[sbHeaders] token de sessao vencido — chamando ensureValidSession() em background');
+    if(!valido){ try{ ensureValidSession(); }catch(e){} }
+  }
   return {'apikey':SB_KEY,'Authorization':'Bearer '+token,'Content-Type':'application/json',...(extra||{})};
 }
 // CLC item 3: toda chamada pras Netlify Functions (que gastam crédito de API da Anthropic)
@@ -2702,20 +2716,58 @@ function calcCargaSemanal(){
 // Um plano se escreve em volume ("30km de corrida na semana"), entao o atleta precisa dos dois.
 function renderVolumeSemanalHTML(){
   let hist=[];
-  try{ hist=JSON.parse(localStorage.getItem('mytri_pace_history')||'[]'); }catch(e){ return ''; }
-  if(!hist.length)return '';
+  try{ hist=JSON.parse(localStorage.getItem('mytri_pace_history')||'[]'); }catch(e){ hist=[]; }
   const semanas={};
-  hist.forEach(h=>{
-    if(!h.date||!h.dist)return;
-    const d=new Date(h.date+'T12:00:00');
+  const addSemana=(dateStr,sport,dist,tempoSeg)=>{
+    if(!dateStr||!dist)return;
+    const d=new Date(dateStr+'T12:00:00');
     if(isNaN(d))return;
     const diaSemana=(d.getDay()+6)%7;
     const seg=new Date(d); seg.setDate(d.getDate()-diaSemana);
     const k=seg.toISOString().slice(0,10);
-    if(!semanas[k])semanas[k]={corrida:0,ciclismo:0,natacao:0,tempo:0};
-    if(semanas[k][h.sport]!=null)semanas[k][h.sport]+=h.dist;
-    semanas[k].tempo+=(h.movingTime||0);
+    if(!semanas[k])semanas[k]={corrida:0,ciclismo:0,natacao:0,tempo:0,_ids:{}};
+    if(semanas[k][sport]!=null)semanas[k][sport]+=dist;
+    semanas[k].tempo+=(tempoSeg||0);
+  };
+
+  // 1) Historico vindo da sincronizacao do Strava.
+  const idsDoStrava=new Set();
+  hist.forEach(h=>{
+    if(h&&h.id)idsDoStrava.add(String(h.id));
+    addSemana(h&&h.date,h&&h.sport,h&&h.dist,h&&h.movingTime);
   });
+
+  // 2) Treinos concluidos na agenda que NAO vieram do Strava — ou seja, distancia digitada na mao
+  // (tipico de bike ergometrica, onde o Strava nao registra distancia). Antes esse grafico lia so
+  // o historico do Strava, entao tudo que o atleta editava manualmente simplesmente nao aparecia
+  // aqui, mesmo estando certo na agenda.
+  try{
+    const checks=loadChecks();
+    const PS=getPlanStart();
+    const _tw=planWeekCount();
+    const mapaSport={run:'corrida',bike:'ciclismo',swim:'natacao'};
+    for(let w=1;w<=_tw;w++){
+      for(let d=0;d<7;d++){
+        const cell=new Date(PS); cell.setDate(PS.getDate()+(w-1)*7+d); cell.setHours(12,0,0,0);
+        if(cell>new Date())continue;
+        const dataStr=`${cell.getFullYear()}-${String(cell.getMonth()+1).padStart(2,'0')}-${String(cell.getDate()).padStart(2,'0')}`;
+        getEffectiveSessions(w,d).forEach(sess=>{
+          const sp=mapaSport[sess.type];
+          if(!sp)return;
+          const key=sess._origin==='plan'?ck(w,d,sess._si):`ex_w${w}_d${d}_i${sess._idx}`;
+          if(!checks[key])return;
+          const _ov=sess._origin==='plan'?getOverride(w,d,sess._si):sess;
+          // Se essa sessao ja veio do Strava, o passo 1 acima ja contou — nao pode contar 2x.
+          const actId=_ov&&_ov.stravaActivityId;
+          if(actId&&idsDoStrava.has(String(actId)))return;
+          const v=sessionVolume(sess,_ov);
+          const km=(v.swim||0)+(v.bike||0)+(v.run||0);
+          if(km>0)addSemana(dataStr,sp,km,0);
+        });
+      }
+    }
+  }catch(e){}
+
   const chaves=Object.keys(semanas).sort().slice(-8);
   if(chaves.length<2)return '';
   const dados=chaves.map(k=>({semana:k,...semanas[k]}));
@@ -8290,6 +8342,10 @@ async function sendGroupMessage(groupId){
   const input=document.getElementById('group-chat-input');
   const content=(input.value||'').trim();
   if(!content)return;
+  // Mesma protecao das outras operacoes do clube: renova a sessao ANTES de montar os cabecalhos.
+  // Sem isso, com token vencido o Supabase trata a chamada como anonima e a politica RLS
+  // rejeita a mensagem com 403 — foi a mesma causa do "nao consigo entrar no proprio grupo".
+  try{ await ensureValidSession(); }catch(e){}
   const uid=currentUserId();
   if(!uid)return;
   const prof=getMytriProfile();
