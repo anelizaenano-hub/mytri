@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="v20260802153427">
+<meta name="app-version" content="v20260802154748">
 <!-- Auto-atualizacao: navegadores (principalmente Safari/iOS) as vezes seguram uma versao antiga
 em cache mesmo depois de um deploy novo no servidor, causando confusao de "mudei o codigo mas
 nada mudou" (varias vezes nessa sessao de debug isso foi confundido com bug real). Esse check
@@ -9852,6 +9852,7 @@ function renderProfile(){
         <button onclick="authConfirmLogout()" style="background:none;border:1px solid var(--border);color:var(--muted2);font-family:var(--font-ui);font-size:10px;letter-spacing:1px;padding:8px 12px;border-radius:6px;cursor:pointer">SAIR</button>
       </div>
       <button onclick="regeneratePlanClean()" style="width:100%;padding:14px;background:rgba(0,230,118,0.08);border:1px solid rgba(0,230,118,0.35);color:var(--accent);font-family:var(--font-ui);font-size:11px;letter-spacing:1.5px;border-radius:4px;cursor:pointer;margin-bottom:8px">REGENERAR PLANO (LIMPAR DADOS ANTIGOS)</button>
+      <button onclick="diagnosticoToken()" style="width:100%;padding:14px;background:none;border:1px solid var(--border);color:var(--muted);font-family:var(--font-ui);font-size:11px;letter-spacing:1.5px;border-radius:4px;cursor:pointer;margin-bottom:8px">DIAGNOSTICO DE SESSAO</button>
       <button onclick="resetOnboarding()" style="width:100%;padding:14px;background:none;border:1px solid var(--border);color:var(--muted);font-family:var(--font-ui);font-size:11px;letter-spacing:1.5px;border-radius:4px;cursor:pointer;margin-bottom:8px">RESETAR ONBOARDING</button>
       <button onclick="resetClubTerms()" style="width:100%;padding:14px;background:none;border:1px solid var(--border);color:var(--muted);font-family:var(--font-ui);font-size:11px;letter-spacing:1.5px;border-radius:4px;cursor:pointer;margin-bottom:8px">RESETAR CLUBE DA MEIA AZUL</button>
       <button onclick="resetFitTerms()" style="width:100%;padding:14px;background:none;border:1px solid var(--border);color:var(--muted);font-family:var(--font-ui);font-size:11px;letter-spacing:1.5px;border-radius:4px;cursor:pointer">RESETAR BIKE FIT AVISO</button>
@@ -10248,6 +10249,65 @@ function openAddMoment(){
     }
   };
   input.click();
+}
+
+// Diagnostico do 403 ao entrar em grupo. Roda dentro do app (o Safari bloqueia javascript: na
+// barra de endereco) e mostra QUEM o Supabase acha que voce e, mais a resposta crua do servidor
+// numa tentativa real de insert — que e a unica forma de ver o motivo exato da rejeicao.
+async function diagnosticoToken(){
+  const linhas=[];
+  try{
+    let s=getSession();
+    linhas.push('Sessao local: '+(s?'existe':'NAO EXISTE'));
+    if(s){
+      linhas.push('user.id local: '+((s.user&&s.user.id)||'(vazio)'));
+      const exp=s.expires_at||0;
+      linhas.push('expira em: '+(exp?new Date(exp).toLocaleString():'(sem data)'));
+      linhas.push('vencido? '+(exp&&Date.now()>exp?'SIM':'nao'));
+      const t=s.access_token||'';
+      if(t.split('.').length===3){
+        try{
+          const p=JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));
+          linhas.push('--- dentro do token ---');
+          linhas.push('sub: '+(p.sub||'(vazio)'));
+          linhas.push('role: '+(p.role||'(vazio)'));
+          linhas.push('exp: '+(p.exp?new Date(p.exp*1000).toLocaleString():'?'));
+          linhas.push('token vencido? '+(p.exp&&p.exp*1000<Date.now()?'SIM':'nao'));
+        }catch(e){ linhas.push('nao consegui ler o token: '+e.message); }
+      }else{
+        linhas.push('!! access_token nao parece um JWT — provavelmente esta mandando a chave anonima');
+      }
+    }
+    // Pergunta ao proprio Supabase quem ele acha que somos com o cabecalho que o app usa.
+    try{
+      const r=await fetch(`${SB_URL}/auth/v1/user`,{headers:sbHeaders()});
+      const j=await r.json().catch(()=>({}));
+      linhas.push('--- servidor ---');
+      linhas.push('GET /auth/v1/user -> HTTP '+r.status);
+      linhas.push('servidor me ve como: '+(j&&j.id?j.id:'ANONIMO (auth.uid() = null)'));
+    }catch(e){ linhas.push('erro ao consultar servidor: '+e.message); }
+    // Reproduz o insert que falha, pra capturar a mensagem exata do Postgres.
+    try{
+      const uid=currentUserId();
+      const gs=await fetch(`${SB_URL}/rest/v1/mytri_groups?select=id&order=created_at.desc&limit=1`,{headers:sbHeaders()});
+      const arr=await gs.json().catch(()=>[]);
+      if(arr&&arr[0]&&arr[0].id){
+        const r2=await fetch(`${SB_URL}/rest/v1/mytri_group_members`,{
+          method:'POST',headers:sbHeaders({'Prefer':'return=minimal'}),
+          body:JSON.stringify({group_id:arr[0].id,user_id:uid,nome_exibicao:'diagnostico'})
+        });
+        const txt=await r2.text().catch(()=>'');
+        linhas.push('--- teste de insert ---');
+        linhas.push('HTTP '+r2.status);
+        linhas.push('resposta: '+(txt||'(vazia)').slice(0,300));
+      }else{
+        linhas.push('--- teste de insert: nenhum grupo encontrado pra testar ---');
+      }
+    }catch(e){ linhas.push('erro no teste de insert: '+e.message); }
+  }catch(e){ linhas.push('erro geral: '+e.message); }
+  const texto=linhas.join('\n');
+  try{ await navigator.clipboard.writeText(texto); }catch(e){}
+  alert(texto+'\n\n(copiado pra area de transferencia)');
 }
 
 async function resetOnboarding(){
