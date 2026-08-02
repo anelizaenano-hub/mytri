@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="v20260802154748">
+<meta name="app-version" content="v20260802155140">
 <!-- Auto-atualizacao: navegadores (principalmente Safari/iOS) as vezes seguram uma versao antiga
 em cache mesmo depois de um deploy novo no servidor, causando confusao de "mudei o codigo mas
 nada mudou" (varias vezes nessa sessao de debug isso foi confundido com bug real). Esse check
@@ -8167,13 +8167,15 @@ async function submitCreateGroup(){
       throw new Error((rows&&(rows.message||rows.hint||rows.details))||`HTTP ${r.status}`);
     }
     const group=rows[0];
-    // Dono entra como primeiro membro automaticamente. Upsert por (group_id,user_id) — precisa da
-    // constraint UNIQUE(group_id,user_id) pra funcionar (senao o Postgres rejeita o on_conflict).
-    // Antes essa chamada nao checava erro nenhum — se falhasse (RLS, constraint faltando, etc), o
-    // grupo ficava criado com ZERO membros e ninguem sabia o motivo.
-    const rMember=await fetch(`${SB_URL}/rest/v1/mytri_group_members?on_conflict=group_id,user_id`,{
+    // Dono entra como primeiro membro automaticamente.
+    // NAO usar ?on_conflict= aqui: esse parametro exige uma constraint UNIQUE(group_id,user_id)
+    // na tabela, e ela NAO existe. Sem a constraint, o Postgres rejeita a instrucao e o PostgREST
+    // devolve 403 — que foi exatamente o "erro 403" ao criar grupo. Confirmado pelo diagnostico:
+    // o mesmo insert SEM on_conflict responde 201. A protecao contra duplicata fica por conta do
+    // dedup na leitura (mbFetchMembers) ate a constraint existir de fato no banco.
+    const rMember=await fetch(`${SB_URL}/rest/v1/mytri_group_members`,{
       method:'POST',
-      headers:sbHeaders({'Prefer':'resolution=merge-duplicates'}),
+      headers:sbHeaders({'Prefer':'return=minimal'}),
       body:JSON.stringify({group_id:group.id,user_id:uid,nome_exibicao:prof.name||'Você',foto_url:prof.photo||null})
     });
     if(!rMember.ok){
