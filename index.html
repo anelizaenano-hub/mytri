@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="v20260804143048">
+<meta name="app-version" content="v20260804144911">
 <!-- Auto-atualizacao: navegadores (principalmente Safari/iOS) as vezes seguram uma versao antiga
 em cache mesmo depois de um deploy novo no servidor, causando confusao de "mudei o codigo mas
 nada mudou" (varias vezes nessa sessao de debug isso foi confundido com bug real). Esse check
@@ -8286,7 +8286,23 @@ async function openJoinGroupForm(){
         if(g2)meiaBrancaState._openGroup=g2;
       }
     }catch(e){}
-    alert('Pronto! Você entrou no grupo.');
+    // Confere o resultado REAL antes de dizer que deu certo. Antes avisava "Pronto!" mesmo quando
+    // o grupo nao aparecia na lista, o que fazia sucesso e falha parecerem identicos pra quem usa.
+    const achou=(meiaBrancaState.myGroups||[]).some(x=>String(x.id)===String(groupId));
+    if(achou){
+      alert('Pronto! Você entrou no grupo.');
+    }else{
+      let membroOk=false;
+      try{
+        const uid2=currentUserId();
+        const rv=await fetch(`${SB_URL}/rest/v1/mytri_group_members?group_id=eq.${groupId}&user_id=eq.${uid2}&select=user_id`,{headers:sbHeaders()});
+        const l2=await rv.json().catch(()=>[]);
+        membroOk=Array.isArray(l2)&&l2.length>0;
+      }catch(e){}
+      alert(membroOk
+        ? 'Você foi registrado como membro, mas o grupo não está aparecendo na sua lista — o servidor não está liberando a leitura dele pra você. Manda esse texto pro Claude.'
+        : 'Não consegui te registrar como membro do grupo. O código foi aceito, mas a inscrição não foi gravada. Manda esse texto pro Claude.');
+    }
     renderClub();
   }).catch(()=>alert('Erro de conexao. Tenta de novo.'));
 }
@@ -13126,13 +13142,35 @@ function renderFasesTimeline(fasesText){
 }
 
 function renderPlanSummary(el,profile,text,debugMsg){
+  // Esse mapa so tinha as distancias de TRIATHLON — corrida, natacao e ciclismo caiam no padrao
+  // e apareciam como "Sprint" (bug real: prova de 10km mostrando "Sprint" como distancia).
   const dist={
     'super-sprint':'Super Sprint',
     'sprint':'Sprint',
     'olimpico':'Olimpico',
     'half':'Half Ironman 70.3',
-    'full':'Ironman Full'
-  }[profile.raceDist||profile.distancia]||(profile.raceName?'Sprint':'Treino Livre');
+    'full':'Ironman Full',
+    'corrida-5k':'5km',
+    'corrida-10k':'10km',
+    'corrida-meia':'Meia Maratona',
+    'corrida-maratona':'Maratona',
+    'corrida-trail':'Trail',
+    'swim-400':'400m',
+    'swim-800':'800m',
+    'swim-1500':'1.500m',
+    'swim-3000':'3.000m',
+    'swim-3800':'3.800m',
+    'swim-5000':'5km',
+    'swim-10000':'10km',
+    'swim-open':'Águas Abertas',
+    'bike-criterium':'Criterium',
+    'bike-century':'100km',
+    'bike-gran-fondo':'Gran Fondo',
+    'bike-mtb':'MTB',
+    'du-sprint':'Duathlon Sprint',
+    'du-standard':'Duathlon Standard',
+    'du-long':'Duathlon Long'
+  }[profile.raceDist||profile.distancia]||(profile.raceName?'Prova':'Treino Livre');
 
   const _hasRace=!!(profile.raceName&&String(profile.raceName).trim()&&profile.raceDate);
   const daysToRace=_hasRace?Math.max(0,Math.round((new Date(profile.raceDate+'T12:00:00')-new Date())/(1000*60*60*24))):null;
