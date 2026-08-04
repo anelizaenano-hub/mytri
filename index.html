@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="v20260802160407">
+<meta name="app-version" content="v20260804143048">
 <!-- Auto-atualizacao: navegadores (principalmente Safari/iOS) as vezes seguram uma versao antiga
 em cache mesmo depois de um deploy novo no servidor, causando confusao de "mudei o codigo mas
 nada mudou" (varias vezes nessa sessao de debug isso foi confundido com bug real). Esse check
@@ -2016,7 +2016,7 @@ async function sbSet(key,value,_retriesLeft){
   if(_retriesLeft===undefined)_retriesLeft=2;
   try{
     const uid=currentUserId();
-    if(!uid) return false;
+    if(!uid){ window._ultimoErroSbSet=`sem sessao (currentUserId vazio) na key="${key}"`; return false; }
     const r=await fetch(`${SB_URL}/rest/v1/nano_sync?on_conflict=user_id,key`,{
       method:'POST',
       headers:sbHeaders({'Prefer':'resolution=merge-duplicates'}),
@@ -2024,12 +2024,17 @@ async function sbSet(key,value,_retriesLeft){
     });
     if(!r.ok){
       if(_retriesLeft>0){ await new Promise(res=>setTimeout(res,400)); return sbSet(key,value,_retriesLeft-1); }
-      console.warn(`[sbSet] falhou definitivamente pra key="${key}": HTTP ${r.status}`);
+      // Guarda o motivo REAL numa variavel global: o console nao e acessivel no iPad, entao sem
+      // isso a falha vira so "nao consegui sincronizar" sem nenhuma pista do porque.
+      let corpo=''; try{ corpo=(await r.text()||'').slice(0,300); }catch(e){}
+      window._ultimoErroSbSet=`key="${key}" HTTP ${r.status} ${corpo}`;
+      console.warn(`[sbSet] falhou definitivamente pra key="${key}": HTTP ${r.status}`, corpo);
       return false;
     }
     return true;
   }catch(e){
     if(_retriesLeft>0){ await new Promise(res=>setTimeout(res,400)); return sbSet(key,value,_retriesLeft-1); }
+    window._ultimoErroSbSet=`key="${key}" excecao: ${e.message}`;
     console.warn(`[sbSet] falhou definitivamente pra key="${key}":`, e.message);
     return false;
   }
@@ -7334,7 +7339,12 @@ async function stravaSyncActivities(){
           const ok=_ovK;
           const existing=o[ok]||{};
           // Sempre sobrescreve dados do Strava com os mais recentes
-          o[ok]={...existing,type:sess.type,stravaData:realData,stravaDist:targetType===SWIM?actDistSwimFmt:actDistKmFmt,stravaTime:actTime,stravaPace:actPace,stravaHR:actHR,stravaCal:actCal,stravaZone:actZone,stravaActivityId:act.id,stravaIndoor:isIndoor};
+          // Treino de rolo/ergometrica costuma vir do Strava SEM distancia. Antes gravava null
+          // aqui, e a sessao ficava sem nenhum valor de identificacao — a analise depois nao
+          // conseguia reconhecer a atividade ("nao encontrei entre as N sincronizadas") mesmo
+          // com o id gravado. Cai pra duracao, que sempre existe.
+          const distOuTempo = (targetType===SWIM?actDistSwimFmt:actDistKmFmt) || actTime || null;
+          o[ok]={...existing,type:sess.type,stravaData:realData,stravaDist:distOuTempo,stravaTime:actTime,stravaPace:actPace,stravaHR:actHR,stravaCal:actCal,stravaZone:actZone,stravaActivityId:act.id,stravaIndoor:isIndoor};
           saveOverrides(o);
         }
         matched++;      // conta sempre que casa e salva dados (não só quando marca novo)
@@ -8023,11 +8033,37 @@ function renderClubReal(){
 let meiaBrancaState={ myGroups:null, _openGroup:null, _openMembers:null };
 
 async function mbFetchMyGroups(){
+  let porPolitica=[];
   try{
     const r=await fetch(`${SB_URL}/rest/v1/mytri_groups?select=*&order=created_at.desc`,{headers:sbHeaders()});
-    if(!r.ok)return [];
-    return await r.json();
-  }catch(e){ return []; }
+    if(r.ok)porPolitica=await r.json()||[];
+  }catch(e){}
+
+  // Caminho reverso: parte das MINHAS linhas de membro e busca os grupos por id. A politica de
+  // leitura de mytri_groups libera pra dono OU pra quem e membro; na pratica a parte de "membro"
+  // nao esta resolvendo (bug real: a atleta entrou no grupo, aparece no ranking pra quem e dono,
+  // mas na conta dela a lista vinha vazia). Buscar por id explicito contorna isso e nao atrapalha
+  // quando a politica ja funciona — os resultados sao unificados por id.
+  try{
+    const uid=currentUserId();
+    if(uid){
+      const rm=await fetch(`${SB_URL}/rest/v1/mytri_group_members?user_id=eq.${uid}&select=group_id`,{headers:sbHeaders()});
+      if(rm.ok){
+        const minhas=await rm.json()||[];
+        const ids=minhas.map(m=>m&&m.group_id).filter(Boolean);
+        const faltando=ids.filter(id=>!porPolitica.some(g=>String(g.id)===String(id)));
+        if(faltando.length){
+          const lista=faltando.map(id=>`"${id}"`).join(',');
+          const rg=await fetch(`${SB_URL}/rest/v1/mytri_groups?id=in.(${lista})&select=*`,{headers:sbHeaders()});
+          if(rg.ok){
+            const extras=await rg.json()||[];
+            porPolitica=porPolitica.concat(extras.filter(g=>g&&!porPolitica.some(x=>String(x.id)===String(g.id))));
+          }
+        }
+      }
+    }
+  }catch(e){}
+  return porPolitica;
 }
 async function mbFetchMembers(groupId){
   try{
@@ -10337,6 +10373,14 @@ async function diagnosticoToken(){
         linhas.push('--- teste de insert: nenhum grupo encontrado pra testar ---');
       }
     }catch(e){ linhas.push('erro no teste de insert: '+e.message); }
+    // Testa a GRAVACAO em nano_sync — que e exatamente o que falha no fim do onboarding.
+    try{
+      const okTeste=await sbSet('mytri_teste_diagnostico',{quando:new Date().toISOString()});
+      linhas.push('--- teste de gravacao (nano_sync) ---');
+      linhas.push('gravou? '+(okTeste?'SIM':'NAO'));
+      if(!okTeste)linhas.push('motivo: '+(window._ultimoErroSbSet||'desconhecido'));
+    }catch(e){ linhas.push('erro no teste de gravacao: '+e.message); }
+
     // Testa a RPC de entrar por codigo — que e o caminho usado pela conta que RECEBE o convite.
     // Pede o codigo porque so o dono do grupo o conhece.
     try{
@@ -12601,7 +12645,7 @@ async function obFinish(){
     console.error('[obFinish] falha ao confirmar gravacao remota — profile:',okProfile,'onboard_done:',okDone);
     // Nao bloqueia o atleta (o app continua funcionando localmente), mas avisa que a sincronizacao
     // remota falhou — sem isso, um logout/troca de aparelho perderia o onboarding em silencio.
-    setTimeout(()=>alert('Seu plano foi criado, mas não consegui confirmar a sincronização com o servidor agora. Se trocar de aparelho ou sair da conta, pode ser necessário refazer o cadastro. Tente novamente mais tarde com uma boa conexão.'),800);
+    setTimeout(()=>alert('Seu plano foi criado, mas não consegui confirmar a sincronização com o servidor.\n\nMotivo: '+(window._ultimoErroSbSet||'desconhecido')+'\n\nManda esse texto pro Claude — é o que falta pra achar a causa.'),800);
   }
   document.getElementById('view-onboard').classList.remove('active');
   document.body.classList.remove('onboarding-active');
@@ -13848,6 +13892,40 @@ async function loadStreamSection(ov, sess, plannedZone, w, d){
   if(!container)return;
   const profile=getMytriProfile();
   const aviso=msg=>`<div style="border-top:1px solid var(--border);margin-top:8px;padding:14px 0;font-family:var(--font-body);font-size:11px;color:var(--muted);line-height:1.5">${msg}</div>`;
+
+  if(!ov||!ov.stravaActivityId){
+    // Ultima tentativa antes de desistir: procura no historico uma atividade do MESMO ESPORTE
+    // com a mesma duracao (tolerancia de 8%). Treinos de rolo/ergometrica sincronizados por
+    // versoes anteriores ficaram sem id gravado — sem isso eles nunca mais mostrariam graficos,
+    // mesmo tendo os dados no Strava, a menos que fossem re-sincronizados manualmente.
+    try{
+      const mapaSp={run:'corrida',bike:'ciclismo',swim:'natacao'};
+      const sp=mapaSp[sess&&sess.type];
+      const tempoTxt=String((ov&&ov.stravaTime)||(ov&&ov.stravaDist)||'');
+      const mm=tempoTxt.match(/(?:(\d+)\s*h\s*)?(\d+)\s*min/i);
+      const minSess=mm?((parseInt(mm[1]||0)*60)+parseInt(mm[2]||0)):0;
+      if(sp&&minSess>0){
+        const hist=JSON.parse(localStorage.getItem('mytri_pace_history')||'[]');
+        const cand=hist.filter(h=>h&&h.id&&h.sport===sp&&h.movingTime>0)
+          .filter(h=>Math.abs((h.movingTime/60)-minSess)/minSess<=0.08);
+        if(cand.length===1){
+          ov.stravaActivityId=cand[0].id;
+          // Grava de volta pra nao repetir essa busca toda vez que abrir o treino.
+          try{
+            if(w!=null&&d!=null&&sess){
+              if(sess._origin==='plan'){
+                const o=loadOverrides(); const ok=ovKey(w,d,sess._si);
+                if(o[ok]){ o[ok].stravaActivityId=cand[0].id; saveOverrides(o); }
+              }else{
+                const e=loadExtras(); const k=extraKey(w,d);
+                if(e[k]&&e[k][sess._idx]){ e[k][sess._idx].stravaActivityId=cand[0].id; saveExtras(e); }
+              }
+            }
+          }catch(e){}
+        }
+      }
+    }catch(e){}
+  }
 
   if(!ov||!ov.stravaActivityId){
     // Diz o motivo REAL em vez de sempre culpar a sincronizacao — sem isso nao da pra saber se
